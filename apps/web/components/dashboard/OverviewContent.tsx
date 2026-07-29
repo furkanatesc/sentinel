@@ -1,11 +1,14 @@
 "use client";
 import { useKpis } from "@/lib/hooks/queries";
+import { useLiveTokens, useLiveAlerts } from "@/lib/hooks/live";
 import { KpiCard } from "@/components/sentinel/KpiCard";
 import { LiveTokenFeed } from "./LiveTokenFeed";
 import { OpportunityRadar } from "./OpportunityRadar";
 import { AlertsTimeline } from "./AlertsTimeline";
 
 export function OverviewContent() {
+  useLiveTokens();
+  useLiveAlerts();
   const { data: kpis } = useKpis();
   return (
     <div className="space-y-5">
