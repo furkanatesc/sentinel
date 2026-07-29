@@ -28,7 +28,7 @@ Bu spec **yalnızca frontend'in ilk artımını** tanımlar: çalışan bir Next
 | Framework | **Next.js (App Router), server-first** | Pure CSR SPA değil; RSC + client island'lar |
 | Dil | **TypeScript** (strict) | |
 | Styling | **Tailwind CSS v4** | Referans `@theme inline` / `@custom-variant` = v4 |
-| Komponent | **shadcn/ui** (Radix) | Referanstaki `ui/*` seti port edilir |
+| Komponent | **shadcn/ui** (Base UI) | shadcn'in güncel varsayılanı `@base-ui/react` (Radix'in aynı ekipten halefi); Referanstaki `ui/*` seti port edilir |
 | Server state | **TanStack Query** | RSC prefetch + `HydrationBoundary` |
 | Client/UI state | **Zustand** | sidebar collapse, trading mode |
 | Real-time | Yerel **WebSocket** client (adapter arkasında) | Increment 1'de mock stream |
@@ -151,6 +151,8 @@ Skor seviyeleri (tek kaynak `lib/format.ts`):
 
 ### 5.1 shadcn `ui/*` (port, ihtiyaç kadar)
 Overview'un kullandıkları öncelik: `card, button, badge, tooltip, scroll-area, separator, skeleton, sonner (toaster), dropdown-menu, utils(cn)`. Kalan geniş set (dialog, table, form, tabs, sheet…) sonraki ekranlar geldikçe eklenir (sessiz düşürme yok — burada bilinçli erteleniyor).
+
+**Not (Base UI vs Radix):** shadcn'in ürettiği primitive'ler Radix değil **Base UI** (`@base-ui/react`) tabanlıdır — "başka bir elementi render et" davranışı Radix'in `asChild` prop'u yerine Base UI'ın `render` prop'u (`useRender` / `mergeProps`) ile sağlanır. Referanstan port edilecek bir bileşen `<Button asChild>` / `<Trigger asChild>` kullanıyorsa, port sırasında `render` prop'una çevrilmelidir.
 
 ### 5.2 Sentinel primitive'leri
 - **ScoreBadge** — sayısal skor + seviye rengi + label; `scoreToLevel` ile.

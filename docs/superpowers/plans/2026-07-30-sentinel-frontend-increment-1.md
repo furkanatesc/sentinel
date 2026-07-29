@@ -7,7 +7,7 @@
 
 **Architecture:** Monorepo `apps/web/`. Server Components layout + ilk veri prefetch (RSC → TanStack Query dehydrate/hydrate); yalnız etkileşimli/canlı adacıklar `"use client"`. Tüm veri `component → hook → getApi() → (mock|http)` seam'inden akar — hiçbir bileşen mock'u doğrudan import etmez. Backend gelince yalnız `http.ts` yazılır ve env değişir.
 
-**Tech Stack:** Next.js 15 (App Router), React 19, TypeScript (strict), Tailwind CSS v4, shadcn/ui, TanStack Query v5, Zustand, Recharts, lucide-react, sonner, Vitest + React Testing Library.
+**Tech Stack:** Next.js 15 (App Router), React 19, TypeScript (strict), Tailwind CSS v4, shadcn/ui (Base UI-based — `@base-ui/react`, shadcn'in güncel varsayılanı, Radix'in halefi), TanStack Query v5, Zustand, Recharts, lucide-react, sonner, Vitest + React Testing Library.
 
 ## Global Constraints
 - **Konum:** tüm iş `SENTINEL/apps/web/` altında. Komutlar bu dizinden çalışır.
@@ -19,6 +19,7 @@
 - **Sentinel renk token'ları:** bg `#080B12`, surface-1 `#111722`, surface-2 `#151C28`, surface-3 `#1A2331`, foreground `#E6EAF2`, muted `#8A94A6`, primary `#7C5CFF`, accent-blue/info `#3E9BFF`, positive `#2FD98B`, warning `#FFB020`, critical `#F0476B`, border `rgba(255,255,255,0.07)`, radius `0.625rem`.
 - **Commit:** her task sonunda commit. **Prerequisite:** execution başında `git init` gerekir — kullanıcı git init'i henüz istemedi; execution'a başlamadan önce onay al. Onaya kadar commit adımları çalıştırılmaz (kod yazılır, commit ertelenir).
 - **Kaynak referans:** ported kod Figma Make `zAWGuUwmbKkSK0n7YKlANt` implementasyonundan uyarlanmıştır (react-router → Next; doğrudan mock import → hook seam).
+- shadcn primitive'leri Base UI tabanlıdır (`@base-ui/react`); port edilen referans bileşenler Radix `asChild` yerine `render` prop kullanır.
 
 ---
 
