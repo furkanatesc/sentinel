@@ -1,0 +1,44 @@
+# SENTINEL Frontend — Follow-ups (takip listesi)
+
+Bu doküman, final whole-branch review (2026-07-30, Increment 1) ve task review'larında
+tespit edilen ama bu artımı **bloke etmeyen** maddeleri kaydeder. Sessiz düşürme yok:
+her biri ileride ele alınacak. İlgili artıma etiketlendi.
+
+## HTTP adapter artımıyla birlikte (backend AWS bağlanınca)
+- **WalletAddress truncation'ı sunum katmanına taşı.** Şu an kısaltma mock verisinde fake
+  (`mint: "9xQeWv...4Fk2"`). `httpApi` gerçek 44-karakter base58 mint döndürünce tablo
+  kolonu bozulur. Yapılacak: `lib/format.ts`'e `shortenAddress()` ekle, `WalletAddress`
+  içinde kısalt, tam adresi copy/`title` için sakla, `mock.ts` tam mint taşısın.
+  Bu, mock|http görsel değiştirilebilirliğini korur. (Final review — Important)
+- **Seam swappability testi.** `httpApi` yazılınca `NEXT_PUBLIC_DATA_SOURCE` flip edilip
+  Overview'un aynı render'ı ürettiğini doğrulayan bir entegrasyon testi ekle. (Final review — Recommendation)
+
+## CI / araç hijyeni (bir sonraki uygun fırsatta)
+- `apps/web/package.json`'a `"typecheck": "tsc --noEmit"` script'i **ve** tsconfig'e
+  `"types": ["vitest/globals"]` ekle (ikisi birlikte; test global'leri tsc'de tanımsız görünüyor).
+  (Task 4 + Final review)
+- `apps/web/package.json`'a `"engines": { "node": ">=20" }` ekle. (Task 1)
+- `shadcn` paketini `dependencies` → `devDependencies` taşımayı değerlendir. (Task 3)
+- Fresh lockfile'da 12 high npm-audit (transitive) — periyodik güncelleme/denetim. (Task 1)
+
+## UI tutarlılık / polish
+- **Dil tutarlılığı:** `Header.tsx` arama placeholder'ı Türkçe
+  (`"Token, wallet, creator veya transaction ara"`), gerisi İngilizce. Ürün dili kararına
+  göre birini seç. (Final review — Minor; ürün kararı)
+- **next-themes ölü ağırlık:** `components/ui/sonner.tsx` `useTheme()` çağırıyor ama
+  `ThemeProvider` yok; dark-only'de `theme="dark"` zaten geçiliyor. `next-themes`'i kaldırıp
+  `theme="dark"` hardcode etmeyi değerlendir. (Final review — Minor)
+- **Radar canlı değil:** `subscribeTokens` `qk.tokens`'ı patch'liyor ama `qk.radar` ayrı
+  snapshot; feed animasyonluyken radar statik. Muhtemelen kasıtlı — bir yorum ekle ya da
+  radar'ı da canlıya bağla. (Final review — Minor)
+- **Sparkline tek-nokta koruması:** `Sparkline.tsx` `step = width/(data.length-1)` tek
+  elemanlı seride bölme hatası; `(data.length-1)||1` ile guard'la (mock 16 nokta ürettiği
+  için bugün ulaşılmaz). (Final review — Minor)
+- Composed `(app)`-layout entegrasyon testi (Sidebar+Header+main birlikte) yok; build
+  prerender render'ı büyük ölçüde kapsıyor. İstenirse bir shell-integration testi eklenebilir. (Task 8)
+- create-next-app'in bıraktığı `apps/web/AGENTS.md` / `CLAUDE.md` ajanlara "önce Next docs oku"
+  enjekte edebiliyor; gerekirse sadeleştir/kaldır. (Task 1)
+
+## globals.css font notları — KAPANDI
+Final review doğruladı: `.font-mono` tek kez tanımlı ve `--font-sans` `@theme inline` içinde
+mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
