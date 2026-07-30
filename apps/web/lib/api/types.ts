@@ -66,6 +66,9 @@ export interface TokenDetail {
   risks: RiskGroups;
 }
 
+export type CreatorOutcome = "active" | "graduated" | "dumped" | "rug" | "dead";
+export type LiquidityStatus = "locked" | "unlocked" | "removed";
+
 export type EventType =
   | "new_mint" | "metadata_created" | "pool_created" | "first_swap"
   | "liquidity_added" | "liquidity_removed" | "creator_sell" | "whale_buy"

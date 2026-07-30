@@ -1,7 +1,7 @@
 "use client";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { TokenDetail, SeriesPoint } from "@/lib/api/types";
-import { MetricTile } from "../MetricTile";
+import { MetricTile } from "@/components/sentinel/MetricTile";
 import { formatPct } from "@/lib/format";
 
 function MiniChart({ title, data, color }: { title: string; data: SeriesPoint[]; color: string }) {
