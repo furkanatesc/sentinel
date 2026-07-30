@@ -12,12 +12,7 @@ export function OverviewContent() {
   const { data: kpis } = useKpis();
   return (
     <div className="space-y-5">
-      <div>
-        <h1>Genel Bakış</h1>
-        <p className="text-muted-foreground" style={{ fontSize: 13 }}>
-          Gerçek zamanlı Solana token istihbaratı · Keşfet → Analiz → Skorla → Uyar → İşlem → İzle
-        </p>
-      </div>
+      <h1>Genel Bakış</h1>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {(kpis ?? []).map((k) => (<KpiCard key={k.id} kpi={k} />))}
       </div>
