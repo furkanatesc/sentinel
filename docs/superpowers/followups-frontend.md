@@ -22,9 +22,12 @@ her biri ileride ele alınacak. İlgili artıma etiketlendi.
 - Fresh lockfile'da 12 high npm-audit (transitive) — periyodik güncelleme/denetim. (Task 1)
 
 ## UI tutarlılık / polish
-- **Dil tutarlılığı:** `Header.tsx` arama placeholder'ı Türkçe
-  (`"Token, wallet, creator veya transaction ara"`), gerisi İngilizce. Ürün dili kararına
-  göre birini seç. (Final review — Minor; ürün kararı)
+- ~~**Dil tutarlılığı**~~ — **KAPANDI (2026-07-30):** UI dili Türkçe seçildi; tüm arayüz +
+  mock veri etiketleri + kök metadata Türkçeleştirildi (`cfc9aba`, `b43812f`).
+- ~~**Opportunity Radar boş render**~~ — **KAPANDI:** Recharts ResponsiveContainer sizing
+  düzeltildi (chart wrapper'a explicit height). (`cfc9aba`)
+- ~~**Scrollbar teması**~~ — **KAPANDI:** globals.css'e dark temalı scrollbar eklendi. (`cfc9aba`)
+- ~~**create-next-app AGENTS.md/CLAUDE.md**~~ — **KAPANDI:** `apps/web/AGENTS.md` + `CLAUDE.md` silindi. (`cfc9aba`)
 - **next-themes ölü ağırlık:** `components/ui/sonner.tsx` `useTheme()` çağırıyor ama
   `ThemeProvider` yok; dark-only'de `theme="dark"` zaten geçiliyor. `next-themes`'i kaldırıp
   `theme="dark"` hardcode etmeyi değerlendir. (Final review — Minor)
