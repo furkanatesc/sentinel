@@ -41,7 +41,7 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | **1** | **İskele + Design System + App Shell + Overview Dashboard** | ✅ **Tamam — master'a merge (05546e7), 20/20 test** |
 | **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | ✅ **Tamam — master'a merge (fc36f0a), 37/37 test** |
 | **3** | **Live Feed** (event terminali: 10 filtre + tablo + detay drawer) | ✅ **Tamam — master'a merge (2cbfe4e), 55/55 test** |
-| 4 | Wallet Graph (Cytoscape) | ⬜ Sırada |
+| **4** | **Wallet Graph** (Cytoscape entity graph: 8 node + 9 edge + filtre + detay) | 🔧 Spec onaylı, **plan yazıldı**, uygulanacak (SDD) |
 | 5 | Creators (Creator Profile) | ⬜ |
 | 6 | Strategies | ⬜ |
 | 7 | Portfolio / Positions | ⬜ |
