@@ -21,3 +21,6 @@ export function useToken(mint: string) {
 export function useEvents() {
   return useQuery({ queryKey: qk.events, queryFn: () => getApi().getEvents() });
 }
+export function useWalletGraph() {
+  return useQuery({ queryKey: qk.walletGraph, queryFn: () => getApi().getWalletGraph() });
+}
