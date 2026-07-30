@@ -3,7 +3,9 @@ import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent } from "./types";
+import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
+import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
 function spark(seed: number, len = 16): number[] {
   const out: number[] = [];
@@ -131,11 +133,39 @@ function buildDetail(row: TokenRow): TokenDetail {
   };
 }
 
+const EVENT_TYPES: EventType[] = [
+  "new_mint", "metadata_created", "pool_created", "first_swap", "liquidity_added",
+  "liquidity_removed", "creator_sell", "whale_buy", "suspicious_cluster", "score_change", "strategy_signal",
+];
+const EVENT_DETAIL: Record<EventType, string> = {
+  new_mint: "Yeni token basıldı", metadata_created: "Metadata oluşturuldu", pool_created: "İlk havuz açıldı",
+  first_swap: "İlk swap gerçekleşti", liquidity_added: "Likidite eklendi", liquidity_removed: "Üretici likidite çekti",
+  creator_sell: "Üretici satış yaptı", whale_buy: "Balina alımı", suspicious_cluster: "Bağlantılı cüzdan kümesi",
+  score_change: "Risk skoru değişti", strategy_signal: "Strateji sinyali üretildi",
+};
+
+function buildEvent(i: number, type: EventType): FeedEvent {
+  const t = tokens[i % tokens.length];
+  const seed = seedOf(t.symbol) + i;
+  return {
+    id: `ev-${i}-${type}`, type, symbol: t.symbol, mint: t.mint,
+    launchpad: LAUNCHPADS[i % LAUNCHPADS.length], dex: DEXES[i % DEXES.length],
+    liquidity: t.liquidity, creatorScore: t.creatorScore,
+    riskLevel: scoreToLevel(Math.round((t.creatorScore + t.safetyScore) / 2)),
+    tokenAgeSeconds: t.ageSeconds + i * 7, volume5m: t.vol5m,
+    holderGrowthPct: clamp(5 + (seed % 60)), severity: EVENT_SEVERITY[type],
+    detail: `${t.symbol} · ${EVENT_DETAIL[type]}`, time: i === 0 ? "az önce" : `${i * 4}sn önce`, ts: 1000 - i,
+    watchlisted: t.watchlisted,
+  };
+}
+const feedEvents: FeedEvent[] = Array.from({ length: 24 }, (_, i) => buildEvent(i, EVENT_TYPES[i % EVENT_TYPES.length]));
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
   getAlerts: () => delay(alerts),
   getRadar: () => delay(radarFrom(tokens)),
+  getEvents: () => delay(feedEvents),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();
@@ -166,6 +196,16 @@ export const mockApi: SentinelApi = {
       cb({ ...pool[n % pool.length], id: `live-${Date.now()}` });
       n++;
     }, 5000);
+    return () => clearInterval(id);
+  },
+
+  subscribeEvents(cb) {
+    let n = 0;
+    const id = setInterval(() => {
+      const type = EVENT_TYPES[n % EVENT_TYPES.length];
+      cb({ ...buildEvent(n % tokens.length, type), id: `live-${n}-${type}`, time: "az önce", ts: 2000 + n });
+      n++;
+    }, 3000);
     return () => clearInterval(id);
   },
 };
