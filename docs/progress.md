@@ -40,8 +40,8 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 |---|---|---|
 | **1** | **İskele + Design System + App Shell + Overview Dashboard** | ✅ **Tamam — master'a merge (05546e7), 20/20 test** |
 | **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | ✅ **Tamam — master'a merge (fc36f0a), 37/37 test** |
-| **3** | **Live Feed** (event terminali: 10 filtre + tablo + detay drawer) | 🔧 Spec onaylı, **plan yazıldı**, uygulanacak (SDD) |
-| 4 | Wallet Graph (Cytoscape) | ⬜ |
+| **3** | **Live Feed** (event terminali: 10 filtre + tablo + detay drawer) | ✅ **Tamam — master'a merge (2cbfe4e), 55/55 test** |
+| 4 | Wallet Graph (Cytoscape) | ⬜ Sırada |
 | 5 | Creators (Creator Profile) | ⬜ |
 | 6 | Strategies | ⬜ |
 | 7 | Portfolio / Positions | ⬜ |
@@ -92,6 +92,7 @@ shell + veri seam'i üzerine kurulur.
 - 2026-07-30 — Post-Increment-1 polish: scrollbar dark temaya uyumlu hale getirildi; Opportunity Radar boş-render bug'ı (Recharts sizing) düzeltildi; `apps/web/AGENTS.md`/`CLAUDE.md` scaffold gürültüsü kaldırıldı.
 - 2026-07-30 — **Increment 2 (Token Detail) tamamlandı ve master'a merge edildi** (fc36f0a). `/tokens/[mint]` rotası, config-driven skorlar (SCORE_DEFS, Manipulation ters polarity), TAB_DEFS sekme registry, getToken seam genişlemesi. Clean-code/SOLID review ölçütü uygulandı. 37/37 test.
 - 2026-07-30 — **Clean code + SOLID** kullanıcı önceliği: tüm spec/plan/review'larda ölçüt (SRP/OCP/DIP/ISP; config-driven; küçük dosyalar).
+- 2026-07-30 — **Increment 3 (Live Feed) tamamlandı ve master'a merge edildi** (2cbfe4e). `/live-feed` event terminali: `FeedEvent` seam (getEvents/subscribeEvents/useLiveEvents 200-cap), `EVENT_TYPE_DEFS` registry, saf `filterEvents` (10 filtre), FeedFilters/FeedTable/EventDetailDrawer (shadcn Sheet). 55/55 test. Görsel doğrulandı.
 
 ## Açık takip maddeleri
 
@@ -111,10 +112,11 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 
 ## Sırada
 
-Increment 3 = **Live Feed** ekranı (öneri). Gerçek zamanlı event terminali: üst filtreler
-(event type, launchpad, DEX, min likidite/creator score, risk, yaş…), event kartları/tablosu,
-event açılınca sağdan detay drawer. Mevcut seam'e `getEvents`/`subscribeEvents` eklenir.
-Onayınla spec→plan→SDD.
+Increment 4 = **Wallet Graph** ekranı (öneri). İnteraktif on-chain entity graph (Cytoscape.js):
+node tipleri (creator/funding/token/pool/trader/smart/suspicious/exchange wallet) + edge tipleri
+(FUNDED/CREATED/BOUGHT/SOLD/PROVIDED_LIQUIDITY…) + zoom/pan/expand/filtre + seçili node detay paneli.
+Seam'e `getWalletGraph` eklenir. **Not:** graph görselleştirme ağır; kapsam/performans (varsayılan
+en önemli bağlantılar) spec'te netleşir. Onayınla spec→plan→SDD.
 
 Alternatif olarak backlog'daki **Ayarlar (API key) + Polymarket** entegrasyonuna da
 öncelik verilebilir (backend/secret-store bağımlılığı ile birlikte).
