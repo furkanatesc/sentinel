@@ -2,7 +2,13 @@ import { scoreToLevel, type RiskLevel } from "@/lib/format";
 
 export type ScoreKey = "opportunity" | "creatorReputation" | "tokenSafety" | "manipulationRisk";
 
-export const SCORE_DEFS: { key: ScoreKey; label: string; higherIsBetter: boolean }[] = [
+export interface ScoreDef {
+  key: ScoreKey;
+  label: string;
+  higherIsBetter: boolean;
+}
+
+export const SCORE_DEFS: ScoreDef[] = [
   { key: "opportunity", label: "Fırsat Skoru", higherIsBetter: true },
   { key: "creatorReputation", label: "Üretici İtibarı", higherIsBetter: true },
   { key: "tokenSafety", label: "Token Güvenliği", higherIsBetter: true },

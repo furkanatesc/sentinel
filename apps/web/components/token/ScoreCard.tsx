@@ -1,10 +1,10 @@
 "use client";
-import { scoreDisplayLevel, type ScoreKey } from "@/lib/token/score-defs";
+import { scoreDisplayLevel, type ScoreDef } from "@/lib/token/score-defs";
 import { riskMeta } from "@/lib/format";
 import type { ScoreDetail } from "@/lib/api/types";
 
 interface Props {
-  def: { key: ScoreKey; label: string; higherIsBetter: boolean };
+  def: ScoreDef;
   score: ScoreDetail;
   selected: boolean;
   onExplain: () => void;

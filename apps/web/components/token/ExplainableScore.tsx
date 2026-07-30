@@ -1,9 +1,9 @@
 "use client";
-import { scoreDisplayLevel, type ScoreKey } from "@/lib/token/score-defs";
+import { scoreDisplayLevel, type ScoreDef } from "@/lib/token/score-defs";
 import { riskMeta } from "@/lib/format";
 import type { ScoreDetail } from "@/lib/api/types";
 
-export function ExplainableScore({ def, score }: { def: { key: ScoreKey; label: string; higherIsBetter: boolean }; score: ScoreDetail }) {
+export function ExplainableScore({ def, score }: { def: ScoreDef; score: ScoreDetail }) {
   const meta = riskMeta[scoreDisplayLevel(score.value, def.higherIsBetter)];
   return (
     <div className="rounded-lg border border-border bg-card p-4">

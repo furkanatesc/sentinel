@@ -70,10 +70,12 @@ export function LiveTokenFeed() {
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2.5">
                       <TokenAvatar symbol={t.symbol} />
-                      <Link href={`/tokens/${t.symbol}`} className="flex flex-col leading-tight">
-                        <span style={{ fontWeight: 500 }}>{t.name} <span className="text-muted-foreground">{t.symbol}</span></span>
+                      <div className="flex flex-col leading-tight">
+                        <Link href={`/tokens/${t.symbol}`} className="hover:underline" style={{ fontWeight: 500 }}>
+                          {t.name} <span className="text-muted-foreground">{t.symbol}</span>
+                        </Link>
                         <WalletAddress address={t.mint} />
-                      </Link>
+                      </div>
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 font-mono tabular-nums" style={{ color: fresh ? "#2FD98B" : undefined }}>{formatAge(t.ageSeconds)}</td>
