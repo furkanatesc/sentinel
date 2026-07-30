@@ -41,8 +41,8 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | **1** | **İskele + Design System + App Shell + Overview Dashboard** | ✅ **Tamam — master'a merge (05546e7), 20/20 test** |
 | **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | ✅ **Tamam — master'a merge (fc36f0a), 37/37 test** |
 | **3** | **Live Feed** (event terminali: 10 filtre + tablo + detay drawer) | ✅ **Tamam — master'a merge (2cbfe4e), 55/55 test** |
-| **4** | **Wallet Graph** (Cytoscape entity graph: 8 node + 9 edge + filtre + detay) | 🔧 Spec onaylı, **plan yazıldı**, uygulanacak (SDD) |
-| 5 | Creators (Creator Profile) | ⬜ |
+| **4** | **Wallet Graph** (Cytoscape entity graph: 8 node + 9 edge + filtre + detay) | ✅ **Tamam — master'a merge (540436e), 71/71 test** |
+| 5 | Creators (Creator Profile) | ⬜ Sırada |
 | 6 | Strategies | ⬜ |
 | 7 | Portfolio / Positions | ⬜ |
 | 8 | Trading Terminal | ⬜ |
@@ -93,6 +93,7 @@ shell + veri seam'i üzerine kurulur.
 - 2026-07-30 — **Increment 2 (Token Detail) tamamlandı ve master'a merge edildi** (fc36f0a). `/tokens/[mint]` rotası, config-driven skorlar (SCORE_DEFS, Manipulation ters polarity), TAB_DEFS sekme registry, getToken seam genişlemesi. Clean-code/SOLID review ölçütü uygulandı. 37/37 test.
 - 2026-07-30 — **Clean code + SOLID** kullanıcı önceliği: tüm spec/plan/review'larda ölçüt (SRP/OCP/DIP/ISP; config-driven; küçük dosyalar).
 - 2026-07-30 — **Increment 3 (Live Feed) tamamlandı ve master'a merge edildi** (2cbfe4e). `/live-feed` event terminali: `FeedEvent` seam (getEvents/subscribeEvents/useLiveEvents 200-cap), `EVENT_TYPE_DEFS` registry, saf `filterEvents` (10 filtre), FeedFilters/FeedTable/EventDetailDrawer (shadcn Sheet). 55/55 test. Görsel doğrulandı.
+- 2026-07-30 — **Increment 4 (Wallet Graph) tamamlandı ve master'a merge edildi** (540436e). `/wallet-graph` Cytoscape entity graph: `WalletGraph` seam (getWalletGraph/useWalletGraph), `NODE_TYPE_DEFS`(8)+`EDGE_TYPE_DEFS`(9) registry → stylesheet/legend/filtre türer, saf `toCytoscapeElements`/`neighborsOf`/`buildStylesheet`, canvas dynamic ssr:false, stabil-instance focus fade. Yeni dep cytoscape. 71/71 test. Görsel doğrulandı. Parked minor: stale-fade (bkz followups).
 
 ## Açık takip maddeleri
 
@@ -112,11 +113,12 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 
 ## Sırada
 
-Increment 4 = **Wallet Graph** ekranı (öneri). İnteraktif on-chain entity graph (Cytoscape.js):
-node tipleri (creator/funding/token/pool/trader/smart/suspicious/exchange wallet) + edge tipleri
-(FUNDED/CREATED/BOUGHT/SOLD/PROVIDED_LIQUIDITY…) + zoom/pan/expand/filtre + seçili node detay paneli.
-Seam'e `getWalletGraph` eklenir. **Not:** graph görselleştirme ağır; kapsam/performans (varsayılan
-en önemli bağlantılar) spec'te netleşir. Onayınla spec→plan→SDD.
+Increment 5 = **Creators / Creator Profile** ekranı (öneri). Deployer/creator cüzdanı detayı:
+header (kısaltılmış adres, wallet yaşı, Creator Reputation Score, risk etiketi, Watch/Telegram),
+metrikler (toplam/aktif/rug token, ortalama ömür, peak MC, realized PnL, başarı oranı), creator
+token geçmişi tablosu, ve davranış paterni (çıkarma sıklığı, ilk satış süresi, tekrarlanan funder,
+benzer metadata). Seam'e `getCreator(address)` eklenir; Token Detail'in "Üretici" bağlamına da bağlanır.
+Onayınla spec→plan→SDD.
 
 Alternatif olarak backlog'daki **Ayarlar (API key) + Polymarket** entegrasyonuna da
 öncelik verilebilir (backend/secret-store bağımlılığı ile birlikte).
