@@ -5,6 +5,7 @@ import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
 import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
+import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
 function spark(seed: number, len = 16): number[] {
   const out: number[] = [];
@@ -132,8 +133,6 @@ function buildDetail(row: TokenRow): TokenDetail {
   };
 }
 
-const LAUNCHPADS = ["Pump.fun", "Raydium", "Moonshot", "Meteora"];
-const DEXES = ["Raydium", "Meteora", "Orca", "Jupiter"];
 const EVENT_TYPES: EventType[] = [
   "new_mint", "metadata_created", "pool_created", "first_swap", "liquidity_added",
   "liquidity_removed", "creator_sell", "whale_buy", "suspicious_cluster", "score_change", "strategy_signal",

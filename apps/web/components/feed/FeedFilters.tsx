@@ -1,13 +1,12 @@
 "use client";
 import { X } from "lucide-react";
-import type { FeedFilters as Filters, EventType } from "@/lib/api/types";
+import type { FeedFilters as Filters } from "@/lib/api/types";
 import { EMPTY_FILTERS } from "@/lib/api/types";
 import { EVENT_TYPE_DEFS } from "@/lib/feed/event-defs";
 import { riskMeta, type RiskLevel } from "@/lib/format";
+import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
-const LAUNCHPADS = ["Pump.fun", "Raydium", "Moonshot", "Meteora"];
-const DEXES = ["Raydium", "Meteora", "Orca", "Jupiter"];
-const RISKS: RiskLevel[] = ["critical", "high", "medium", "good", "strong"];
+const RISKS = Object.keys(riskMeta) as RiskLevel[];
 
 const inputCls = "h-8 w-28 rounded-md border border-border bg-input px-2 text-foreground focus:border-primary focus:outline-none";
 const selectCls = "h-8 rounded-md border border-border bg-input px-2 text-foreground focus:outline-none";
