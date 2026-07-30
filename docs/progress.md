@@ -39,7 +39,7 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | # | Artım | Durum |
 |---|---|---|
 | **1** | **İskele + Design System + App Shell + Overview Dashboard** | ✅ **Tamam — master'a merge (05546e7), 20/20 test** |
-| 2 | Token Detail | ⬜ Sırada |
+| **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | 🔧 Spec onaylı, **plan yazıldı**, uygulanacak (SDD) |
 | 3 | Live Feed | ⬜ |
 | 4 | Wallet Graph (Cytoscape) | ⬜ |
 | 5 | Creators (Creator Profile) | ⬜ |
@@ -53,6 +53,15 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 
 Her ekran kendi spec → plan → implementasyon (SDD) döngüsünden geçer; hepsi mevcut
 shell + veri seam'i üzerine kurulur.
+
+### Backlog (kuyruk — henüz spec'lenmedi)
+- **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
+  entegrasyon API key'lerini girer. **Güvenlik zorunlulukları:** key'ler frontend'de saklanmaz;
+  HTTPS ile backend'e iletilir ve **secret store**'da (AWS Secrets Manager/KMS) tutulur; repoya
+  commit veya log'a yazılmaz; UI'da maskelenir. (Kullanıcı talebi: 2026-07-30.)
+- **Polymarket entegrasyonu** — prediction-market veri kaynağı; veri seam'ine yeni endpoint
+  ailesi (`getPolymarket*`). Yerleşim (Research/Discover/yeni ekran) spec aşamasında netleşecek;
+  yukarıdaki Ayarlar/API-key altyapısına bağımlı. (Kullanıcı talebi: 2026-07-30.)
 
 ### Increment 1 — teslim edilenler (2026-07-30)
 
