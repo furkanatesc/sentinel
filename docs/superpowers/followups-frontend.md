@@ -42,6 +42,16 @@ her biri ileride ele alınacak. İlgili artıma etiketlendi.
 - create-next-app'in bıraktığı `apps/web/AGENTS.md` / `CLAUDE.md` ajanlara "önce Next docs oku"
   enjekte edebiliyor; gerekirse sadeleştir/kaldır. (Task 1)
 
+## Wallet Graph (Increment 4)
+- **Stale fade (kozmetik, parked):** `WalletGraphCanvas`'ta seçili bir node varken filtre değişip
+  graph rebuild olursa (Effect A), fade Effect B'ye bağlı (`focusNodeId` değişmediği için) tekrar
+  uygulanmaz → highlight bir sonraki tıklamaya kadar kaybolur. Kendini düzeltir, crash yok.
+  Düzeltme: rebuild sonrası fade'i yeniden uygula (Effect B'ye elements-rebuild sinyali ekle ya da
+  Effect A sonunda fade'i çağır). (Final review — parked, non-load-bearing, 2026-07-30.)
+- **Sonraki Wallet Graph artımı:** path finder, wallet compare, export (PNG/veri), cluster highlight,
+  time-range filter (bu artımda kapsam dışıydı). Ayrıca mock node instance label'ları (Funder-1/Creator-A)
+  tam Türkçeleştirilebilir; backend gerçek veriyle değiştirecek.
+
 ## globals.css font notları — KAPANDI
 Final review doğruladı: `.font-mono` tek kez tanımlı ve `--font-sans` `@theme inline` içinde
 mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.

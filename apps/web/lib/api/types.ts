@@ -95,3 +95,19 @@ export const EMPTY_FILTERS: FeedFilters = {
   minLiquidity: 0, minCreatorScore: 0, maxAgeSeconds: null,
   minVolume: 0, minHolderGrowth: 0, watchlistOnly: false,
 };
+
+export type GraphNodeType =
+  | "creator_wallet" | "funding_wallet" | "token" | "liquidity_pool"
+  | "trader_wallet" | "smart_wallet" | "suspicious_wallet" | "exchange_wallet";
+export type GraphEdgeType =
+  | "funded" | "created" | "bought" | "sold" | "transferred"
+  | "provided_liquidity" | "removed_liquidity" | "shares_funder" | "controls_authority";
+
+export interface GraphNode {
+  id: string; type: GraphNodeType; label: string;
+  address?: string; riskLevel: RiskLevel; balanceSol?: number; firstSeen: string; lastSeen: string;
+}
+export interface GraphEdge { id: string; source: string; target: string; type: GraphEdgeType; }
+export interface WalletGraph { nodes: GraphNode[]; edges: GraphEdge[]; }
+export interface GraphFilters { relationships: GraphEdgeType[]; risks: RiskLevel[]; }
+export const EMPTY_GRAPH_FILTERS: GraphFilters = { relationships: [], risks: [] };

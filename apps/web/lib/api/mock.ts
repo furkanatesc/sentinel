@@ -3,7 +3,7 @@ import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
@@ -160,12 +160,61 @@ function buildEvent(i: number, type: EventType): FeedEvent {
 }
 const feedEvents: FeedEvent[] = Array.from({ length: 24 }, (_, i) => buildEvent(i, EVENT_TYPES[i % EVENT_TYPES.length]));
 
+function buildWalletGraph(): WalletGraph {
+  const short = (s: string) => `${s}...${s.slice(-2)}`;
+  const nodes: GraphNode[] = [
+    { id: "F1", type: "funding_wallet", label: "Funder-1", address: short("Fnd1Qk"), riskLevel: "high", balanceSol: 420, firstSeen: "3g önce", lastSeen: "az önce" },
+    { id: "F2", type: "funding_wallet", label: "Funder-2", address: short("Fnd2Rp"), riskLevel: "medium", balanceSol: 88, firstSeen: "5g önce", lastSeen: "1g önce" },
+    { id: "C1", type: "creator_wallet", label: "Creator-A", address: short("CreAxz"), riskLevel: "high", balanceSol: 12, firstSeen: "2g önce", lastSeen: "az önce" },
+    { id: "C2", type: "creator_wallet", label: "Creator-B", address: short("CreBmn"), riskLevel: "medium", balanceSol: 5, firstSeen: "2g önce", lastSeen: "3s önce" },
+    { id: "C3", type: "creator_wallet", label: "Creator-C", address: short("CreCqw"), riskLevel: "critical", balanceSol: 1, firstSeen: "1g önce", lastSeen: "az önce" },
+    { id: "T1", type: "token", label: "PULSE", address: short("9xQeWv"), riskLevel: "good", firstSeen: "1g önce", lastSeen: "az önce" },
+    { id: "T2", type: "token", label: "GFROG", address: short("7mLp2c"), riskLevel: "critical", firstSeen: "12s önce", lastSeen: "az önce" },
+    { id: "T3", type: "token", label: "LMN", address: short("Cd93Kf"), riskLevel: "strong", firstSeen: "5s önce", lastSeen: "az önce" },
+    { id: "P1", type: "liquidity_pool", label: "Havuz-1", riskLevel: "good", firstSeen: "1g önce", lastSeen: "az önce" },
+    { id: "P2", type: "liquidity_pool", label: "Havuz-2", riskLevel: "critical", firstSeen: "12s önce", lastSeen: "az önce" },
+    { id: "W1", type: "trader_wallet", label: "Trader-1", address: short("Trd1aa"), riskLevel: "medium", balanceSol: 34, firstSeen: "6g önce", lastSeen: "az önce" },
+    { id: "W2", type: "trader_wallet", label: "Trader-2", address: short("Trd2bb"), riskLevel: "good", balanceSol: 51, firstSeen: "8g önce", lastSeen: "2s önce" },
+    { id: "S1", type: "smart_wallet", label: "Smart-1", address: short("Smt1cc"), riskLevel: "strong", balanceSol: 210, firstSeen: "40g önce", lastSeen: "az önce" },
+    { id: "X1", type: "suspicious_wallet", label: "Şüpheli-1", address: short("Sus1dd"), riskLevel: "critical", balanceSol: 3, firstSeen: "1g önce", lastSeen: "az önce" },
+    { id: "X2", type: "suspicious_wallet", label: "Şüpheli-2", address: short("Sus2ee"), riskLevel: "critical", balanceSol: 2, firstSeen: "1g önce", lastSeen: "az önce" },
+    { id: "E1", type: "exchange_wallet", label: "Borsa", address: short("Cex1ff"), riskLevel: "good", firstSeen: "200g önce", lastSeen: "az önce" },
+  ];
+  const edges: GraphEdge[] = [
+    { id: "g1", source: "E1", target: "F1", type: "transferred" },
+    { id: "g2", source: "F1", target: "C1", type: "funded" },
+    { id: "g3", source: "F1", target: "C2", type: "funded" },
+    { id: "g4", source: "F2", target: "C3", type: "funded" },
+    { id: "g5", source: "F1", target: "F2", type: "shares_funder" },
+    { id: "g6", source: "C1", target: "T1", type: "created" },
+    { id: "g7", source: "C2", target: "T2", type: "created" },
+    { id: "g8", source: "C3", target: "T3", type: "created" },
+    { id: "g9", source: "C1", target: "T1", type: "controls_authority" },
+    { id: "g10", source: "C1", target: "P1", type: "provided_liquidity" },
+    { id: "g11", source: "C2", target: "P2", type: "provided_liquidity" },
+    { id: "g12", source: "C2", target: "P2", type: "removed_liquidity" },
+    { id: "g13", source: "W1", target: "T1", type: "bought" },
+    { id: "g14", source: "W2", target: "T1", type: "bought" },
+    { id: "g15", source: "S1", target: "T3", type: "bought" },
+    { id: "g16", source: "W1", target: "T2", type: "sold" },
+    { id: "g17", source: "X1", target: "T2", type: "bought" },
+    { id: "g18", source: "X2", target: "T2", type: "bought" },
+    { id: "g19", source: "F1", target: "X1", type: "funded" },
+    { id: "g20", source: "F1", target: "X2", type: "funded" },
+    { id: "g21", source: "X1", target: "X2", type: "transferred" },
+    { id: "g22", source: "C1", target: "T2", type: "sold" },
+  ];
+  return { nodes, edges };
+}
+const walletGraph = buildWalletGraph();
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
   getAlerts: () => delay(alerts),
   getRadar: () => delay(radarFrom(tokens)),
   getEvents: () => delay(feedEvents),
+  getWalletGraph: () => delay(walletGraph),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();
