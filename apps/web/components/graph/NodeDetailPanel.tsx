@@ -26,6 +26,9 @@ export function NodeDetailPanel({ node, graph }: { node: GraphNode | null; graph
       {node.type === "token" && (
         <Link href={`/tokens/${node.label}`} className="mt-2 inline-block rounded-md bg-primary px-3 py-1.5 text-primary-foreground" style={{ fontSize: 12, fontWeight: 500 }}>Token Detayına Git</Link>
       )}
+      {node.type === "creator_wallet" && (
+        <Link href={`/creators/${node.address ?? node.id}`} className="mt-2 inline-block rounded-md bg-primary px-3 py-1.5 text-primary-foreground" style={{ fontSize: 12, fontWeight: 500 }}>Creator Detayına Git</Link>
+      )}
     </div>
   );
 }
