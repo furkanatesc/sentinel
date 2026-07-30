@@ -8,7 +8,7 @@ import type { TokenDetail } from "@/lib/api/types";
 export function TokenTabs({ token }: { token: TokenDetail }) {
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="flex h-auto flex-wrap">
+      <TabsList className="flex flex-wrap group-data-horizontal/tabs:h-auto">
         {TAB_DEFS.map((t) => <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>)}
       </TabsList>
       <TabsContent value="overview" className="mt-4"><OverviewTab token={token} /></TabsContent>

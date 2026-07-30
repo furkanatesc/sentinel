@@ -1,5 +1,6 @@
 // TokenTabs.test.tsx — Overview varsayılan + built ve placeholder sekmeler görünür
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { TokenTabs } from "./TokenTabs";
 
 const token = {
@@ -21,4 +22,10 @@ test("shows tabs incl. built and placeholder", () => {
   expect(screen.getByText("Genel Bakış")).toBeInTheDocument();
   expect(screen.getByText("Risk Analizi")).toBeInTheDocument();
   expect(screen.getByText("Cüzdan Grafiği")).toBeInTheDocument();
+});
+
+test("clicking Risk Analizi switches the panel to RiskAnalysisTab content", async () => {
+  render(<TokenTabs token={token} />);
+  await userEvent.click(screen.getByText("Risk Analizi"));
+  expect(await screen.findByText("Kontrat Riski")).toBeInTheDocument();
 });
