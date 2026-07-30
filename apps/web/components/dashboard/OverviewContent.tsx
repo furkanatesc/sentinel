@@ -18,7 +18,7 @@ export function OverviewContent() {
       </div>
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="xl:col-span-2"><LiveTokenFeed /></div>
-        <div className="min-h-[420px]"><AlertsTimeline /></div>
+        <div className="h-[560px]"><AlertsTimeline /></div>
       </div>
       <div className="min-h-[340px]"><OpportunityRadar /></div>
     </div>
