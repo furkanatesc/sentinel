@@ -9,6 +9,7 @@ export const httpApi: SentinelApi = {
   getTokens: notReady,
   getAlerts: notReady,
   getRadar: notReady,
+  getToken: notReady,
   subscribeTokens: () => () => {},
   subscribeAlerts: () => () => {},
 };

@@ -1,5 +1,6 @@
 export type RiskLevel = "critical" | "high" | "medium" | "good" | "strong";
 export type AlertSeverity = "info" | "positive" | "warning" | "critical";
+export type RiskSeverity = "critical" | "high" | "medium" | "info";
 
 export function scoreToLevel(score: number): RiskLevel {
   if (score <= 24) return "critical";
@@ -23,6 +24,17 @@ export const severityMeta: Record<AlertSeverity, { color: string; dot: string }>
   warning: { color: "#FFB020", dot: "#FFB020" },
   critical: { color: "#F0476B", dot: "#F0476B" },
 };
+
+export const riskSeverityMeta: Record<RiskSeverity, { label: string; color: string; bg: string; border: string }> = {
+  critical: { label: "Kritik", color: "#F0476B", bg: "rgba(240,71,107,0.12)", border: "rgba(240,71,107,0.35)" },
+  high: { label: "Yüksek", color: "#FFB020", bg: "rgba(255,176,32,0.12)", border: "rgba(255,176,32,0.35)" },
+  medium: { label: "Orta", color: "#3E9BFF", bg: "rgba(62,155,255,0.12)", border: "rgba(62,155,255,0.35)" },
+  info: { label: "Bilgi", color: "#8A94A6", bg: "rgba(138,148,166,0.12)", border: "rgba(138,148,166,0.30)" },
+};
+
+export function formatPct(n: number): string {
+  return `%${n.toFixed(1)}`;
+}
 
 export function formatAge(s: number): string {
   if (s < 60) return `${s}sn`;

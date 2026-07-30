@@ -4,6 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/get-query-client";
 import { LiveTokenFeed } from "./LiveTokenFeed";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/" }));
+
 function wrap() {
   const client = getQueryClient();
   return render(<QueryClientProvider client={client}><LiveTokenFeed /></QueryClientProvider>);
@@ -22,4 +24,11 @@ test("sorting by liquidity puts highest first", async () => {
   await userEvent.click(screen.getByRole("button", { name: /Lik/ }));
   const firstRow = screen.getAllByRole("row")[1];
   expect(within(firstRow).getByText("Helios")).toBeInTheDocument(); // $320K liquidity
+});
+
+test("token links to its detail page", async () => {
+  wrap();
+  await waitFor(() => expect(screen.getByText("SolPulse")).toBeInTheDocument());
+  const link = screen.getByText("SolPulse").closest("a")!;
+  expect(link.getAttribute("href")).toBe("/tokens/PULSE");
 });

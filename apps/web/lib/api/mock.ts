@@ -1,6 +1,9 @@
 import type { SentinelApi } from "./contract";
 import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
-import { scoreToLevel } from "@/lib/format";
+import { scoreToLevel, formatUsd } from "@/lib/format";
+import type { ScoreKey } from "@/lib/token/score-defs";
+import type { RiskSeverity } from "@/lib/format";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail } from "./types";
 
 function spark(seed: number, len = 16): number[] {
   const out: number[] = [];
@@ -57,11 +60,89 @@ function radarFrom(list: TokenRow[]): RadarPoint[] {
 
 const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 40));
 
+const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+const seedOf = (s: string) => s.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+const toSeries = (seed: number, len = 24): SeriesPoint[] => spark(seed, len).map((v, t) => ({ t, v }));
+
+function scoreDetail(key: ScoreKey, value: number, seed: number, breakdown: ScoreDetail["breakdown"]): ScoreDetail {
+  return { key, value: clamp(value), confidence: clamp(60 + (seed % 35)), updatedAt: "az önce", breakdown };
+}
+
+function buildDetail(row: TokenRow): TokenDetail {
+  const seed = seedOf(row.symbol);
+  const creatorRep = row.creatorScore;
+  const safety = row.safetyScore;
+  const manip = clamp(100 - safety * 0.7 - creatorRep * 0.3 + 10);
+  const opp = clamp(0.35 * row.momentum + 0.35 * creatorRep + 0.3 * safety);
+
+  const scores: Record<ScoreKey, ScoreDetail> = {
+    opportunity: scoreDetail("opportunity", opp, seed + 1, [
+      { label: "Momentum", weight: 35, detail: `Momentum skoru ${row.momentum}/100` },
+      { label: "Üretici itibarı", weight: 35, detail: `Üretici skoru ${creatorRep}/100` },
+      { label: "Token güvenliği", weight: 30, detail: `Güvenlik skoru ${safety}/100` },
+    ]),
+    creatorReputation: scoreDetail("creatorReputation", creatorRep, seed + 2, [
+      { label: "Geçmiş performans", weight: 40, detail: creatorRep < 50 ? "Son tokenların çoğu 24s içinde büyük değer kaybetti" : "Geçmiş tokenlar makul performans gösterdi" },
+      { label: "Bağlantılı cüzdanlar", weight: 35, detail: creatorRep < 50 ? "Bağlantılı cüzdanlarda likidite çekme paterni" : "Bağlantılı cüzdanlarda anormallik yok" },
+      { label: "Cüzdan yaşı", weight: 25, detail: "Fonlayan cüzdan geçmişi incelendi" },
+    ]),
+    tokenSafety: scoreDetail("tokenSafety", safety, seed + 3, [
+      { label: "Kontrat yetkileri", weight: 45, detail: safety < 60 ? "Mint/freeze authority aktif" : "Kritik yetkiler devre dışı" },
+      { label: "Metadata", weight: 30, detail: safety < 60 ? "Değiştirilebilir metadata" : "Metadata kilitli" },
+      { label: "Likidite kilidi", weight: 25, detail: row.liquidity < 20000 ? "Düşük/kilitsiz likidite" : "Yeterli likidite" },
+    ]),
+    manipulationRisk: scoreDetail("manipulationRisk", manip, seed + 4, [
+      { label: "Holder yoğunluğu", weight: 40, detail: "Top-10 holder oranı izleniyor" },
+      { label: "Wash trading", weight: 35, detail: manip > 60 ? "Şüpheli koordineli işlem paterni" : "Belirgin wash trading yok" },
+      { label: "Sniper/bot", weight: 25, detail: manip > 60 ? "İlk alıcılarda yüksek bot oranı" : "Bot aktivitesi normal" },
+    ]),
+  };
+
+  const metrics = {
+    holders: row.holders,
+    uniqueBuyers: Math.round(row.holders * 0.7),
+    buyRatio: clamp(45 + (seed % 30)),
+    sellRatio: clamp(55 - (seed % 30)),
+    creatorHoldingPct: clamp(2 + (seed % 18)),
+    top10HolderPct: clamp(18 + (seed % 40)),
+    sniperPct: clamp(manip / 3),
+    botActivityPct: clamp(manip / 2.5),
+  };
+
+  const risks: RiskGroups = { contract: [], market: [], creator: [] };
+  const push = (g: RiskItem[], id: string, title: string, severity: RiskSeverity, description: string, evidence?: string) =>
+    g.push({ id, title, severity, description, evidence, firstSeen: "12dk önce", lastSeen: "az önce" });
+  if (safety < 70) push(risks.contract, `${row.id}-c1`, "Mint authority aktif", safety < 40 ? "critical" : "high", "Yeni token basılabilir; arz kontrol edilemiyor.", "Mint authority: aktif");
+  if (safety < 60) push(risks.contract, `${row.id}-c2`, "Değiştirilebilir metadata", "medium", "Metadata update authority hâlâ açık.", "Update authority: aktif");
+  if (row.liquidity < 20000) push(risks.market, `${row.id}-m1`, "Düşük likidite", "high", "Havuz sığ; yüksek price impact riski.", `Likidite: ${formatUsd(row.liquidity)}`);
+  if (metrics.top10HolderPct > 45) push(risks.market, `${row.id}-m2`, "Konsantre holder dağılımı", "high", "Arzın büyük kısmı az sayıda cüzdanda.", `Top-10: %${metrics.top10HolderPct}`);
+  if (creatorRep < 50) push(risks.creator, `${row.id}-cr1`, "Geçmiş rug bağlantıları", creatorRep < 30 ? "critical" : "high", "Üreticinin geçmiş tokenlarında likidite çekme paterni.", "Bağlantılı cüzdan kümesi tespit edildi");
+  if (metrics.creatorHoldingPct > 12) push(risks.creator, `${row.id}-cr2`, "Yüksek üretici payı", "medium", "Üretici arzın önemli kısmını elinde tutuyor.", `Üretici payı: %${metrics.creatorHoldingPct}`);
+  if (!risks.contract.length && !risks.market.length && !risks.creator.length)
+    push(risks.market, `${row.id}-ok`, "Belirgin risk tespit edilmedi", "info", "Otomatik kontrollerde kritik bir bulgu yok.");
+
+  return {
+    id: row.id, name: row.name, symbol: row.symbol, mint: row.mint,
+    ageSeconds: row.ageSeconds, price: row.price, priceChange24h: (seed % 40) - 15,
+    marketCap: row.liquidity * 4, liquidity: row.liquidity, volume24h: row.vol5m * 12,
+    scores, metrics,
+    series: { price: toSeries(seed + 5), liquidity: toSeries(seed + 6), volume: toSeries(seed + 7), holders: toSeries(seed + 8) },
+    risks,
+  };
+}
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
   getAlerts: () => delay(alerts),
   getRadar: () => delay(radarFrom(tokens)),
+
+  getToken(idOrMint) {
+    const q = idOrMint.toLowerCase();
+    const row = tokens.find((t) => t.symbol.toLowerCase() === q || t.id.toLowerCase() === q || t.mint.toLowerCase() === q);
+    if (!row) return Promise.reject(new Error(`Token bulunamadı: ${idOrMint}`));
+    return delay(buildDetail(row));
+  },
 
   subscribeTokens(cb) {
     // Simulate live feed: nudge the youngest token's age/momentum every 2.5s.

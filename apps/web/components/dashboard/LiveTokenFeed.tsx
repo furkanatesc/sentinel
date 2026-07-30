@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Star, Activity, ShoppingCart, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { useTokens } from "@/lib/hooks/queries";
@@ -18,6 +20,7 @@ const signalMeta: Record<NonNullable<TokenRow["signal"]>, { label: string; color
 type SortKey = "ageSeconds" | "liquidity" | "momentum" | "creatorScore";
 
 export function LiveTokenFeed() {
+  const router = useRouter();
   const { data } = useTokens();
   const [watch, setWatch] = useState<Record<string, boolean>>({});
   const [sortKey, setSortKey] = useState<SortKey>("ageSeconds");
@@ -68,7 +71,9 @@ export function LiveTokenFeed() {
                     <div className="flex items-center gap-2.5">
                       <TokenAvatar symbol={t.symbol} />
                       <div className="flex flex-col leading-tight">
-                        <span style={{ fontWeight: 500 }}>{t.name} <span className="text-muted-foreground">{t.symbol}</span></span>
+                        <Link href={`/tokens/${t.symbol}`} className="hover:underline" style={{ fontWeight: 500 }}>
+                          {t.name} <span className="text-muted-foreground">{t.symbol}</span>
+                        </Link>
                         <WalletAddress address={t.mint} />
                       </div>
                     </div>
@@ -91,7 +96,7 @@ export function LiveTokenFeed() {
                       <button onClick={() => toggle(t.id)} className="rounded p-1 hover:bg-accent" title="İzleme">
                         <Star size={14} className={isWatched(t) ? "fill-warning text-warning" : "text-muted-foreground"} />
                       </button>
-                      <button onClick={() => toast("Analiz: " + t.symbol)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Analiz"><Activity size={14} /></button>
+                      <button onClick={() => router.push(`/tokens/${t.symbol}`)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Analiz"><Activity size={14} /></button>
                       <button onClick={() => toast("İşlem: " + t.symbol)} className="rounded p-1 text-primary hover:bg-accent" title="İşlem"><ShoppingCart size={14} /></button>
                     </div>
                   </td>
