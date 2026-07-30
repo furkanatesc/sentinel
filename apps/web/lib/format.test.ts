@@ -21,8 +21,8 @@ test("riskMeta has label+color for every level", () => {
 });
 
 test("formatAge seconds and minutes", () => {
-  expect(formatAge(38)).toBe("38s");
-  expect(formatAge(95)).toBe("1m 35s");
+  expect(formatAge(38)).toBe("38sn");
+  expect(formatAge(95)).toBe("1dk 35sn");
 });
 
 test("formatPrice tiers", () => {

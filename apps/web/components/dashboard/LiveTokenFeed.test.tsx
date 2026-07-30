@@ -19,7 +19,7 @@ test("renders rows and marks <60s tokens fresh", async () => {
 test("sorting by liquidity puts highest first", async () => {
   wrap();
   await waitFor(() => expect(screen.getByText("SolPulse")).toBeInTheDocument());
-  await userEvent.click(screen.getByRole("button", { name: /Liq/ }));
+  await userEvent.click(screen.getByRole("button", { name: /Lik/ }));
   const firstRow = screen.getAllByRole("row")[1];
   expect(within(firstRow).getByText("Helios")).toBeInTheDocument(); // $320K liquidity
 });

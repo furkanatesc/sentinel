@@ -10,11 +10,11 @@ export function scoreToLevel(score: number): RiskLevel {
 }
 
 export const riskMeta: Record<RiskLevel, { label: string; color: string; bg: string; border: string }> = {
-  critical: { label: "Critical", color: "#F0476B", bg: "rgba(240,71,107,0.12)", border: "rgba(240,71,107,0.35)" },
-  high: { label: "High Risk", color: "#FFB020", bg: "rgba(255,176,32,0.12)", border: "rgba(255,176,32,0.35)" },
-  medium: { label: "Medium", color: "#3E9BFF", bg: "rgba(62,155,255,0.12)", border: "rgba(62,155,255,0.35)" },
-  good: { label: "Good", color: "#2FD98B", bg: "rgba(47,217,139,0.12)", border: "rgba(47,217,139,0.35)" },
-  strong: { label: "Strong", color: "#2FD98B", bg: "rgba(47,217,139,0.16)", border: "rgba(47,217,139,0.45)" },
+  critical: { label: "Kritik", color: "#F0476B", bg: "rgba(240,71,107,0.12)", border: "rgba(240,71,107,0.35)" },
+  high: { label: "Yüksek Risk", color: "#FFB020", bg: "rgba(255,176,32,0.12)", border: "rgba(255,176,32,0.35)" },
+  medium: { label: "Orta", color: "#3E9BFF", bg: "rgba(62,155,255,0.12)", border: "rgba(62,155,255,0.35)" },
+  good: { label: "İyi", color: "#2FD98B", bg: "rgba(47,217,139,0.12)", border: "rgba(47,217,139,0.35)" },
+  strong: { label: "Güçlü", color: "#2FD98B", bg: "rgba(47,217,139,0.16)", border: "rgba(47,217,139,0.45)" },
 };
 
 export const severityMeta: Record<AlertSeverity, { color: string; dot: string }> = {
@@ -25,9 +25,9 @@ export const severityMeta: Record<AlertSeverity, { color: string; dot: string }>
 };
 
 export function formatAge(s: number): string {
-  if (s < 60) return `${s}s`;
+  if (s < 60) return `${s}sn`;
   const m = Math.floor(s / 60);
-  return `${m}m ${s % 60}s`;
+  return `${m}dk ${s % 60}sn`;
 }
 
 export function formatPrice(p: number): string {

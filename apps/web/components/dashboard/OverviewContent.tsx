@@ -13,9 +13,9 @@ export function OverviewContent() {
   return (
     <div className="space-y-5">
       <div>
-        <h1>Overview</h1>
+        <h1>Genel Bakış</h1>
         <p className="text-muted-foreground" style={{ fontSize: 13 }}>
-          Real-time Solana token intelligence · Discover → Analyze → Score → Alert → Trade → Monitor
+          Gerçek zamanlı Solana token istihbaratı · Keşfet → Analiz → Skorla → Uyar → İşlem → İzle
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

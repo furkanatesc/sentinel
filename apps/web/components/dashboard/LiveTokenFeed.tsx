@@ -11,9 +11,9 @@ import { WalletAddress } from "@/components/sentinel/WalletAddress";
 import { Sparkline } from "@/components/sentinel/Sparkline";
 
 const signalMeta: Record<NonNullable<TokenRow["signal"]>, { label: string; color: string; bg: string }> = {
-  buy: { label: "Buy", color: "#2FD98B", bg: "rgba(47,217,139,0.12)" },
-  watch: { label: "Watch", color: "#3E9BFF", bg: "rgba(62,155,255,0.12)" },
-  avoid: { label: "Avoid", color: "#F0476B", bg: "rgba(240,71,107,0.12)" },
+  buy: { label: "Al", color: "#2FD98B", bg: "rgba(47,217,139,0.12)" },
+  watch: { label: "İzle", color: "#3E9BFF", bg: "rgba(62,155,255,0.12)" },
+  avoid: { label: "Kaçın", color: "#F0476B", bg: "rgba(240,71,107,0.12)" },
 };
 type SortKey = "ageSeconds" | "liquidity" | "momentum" | "creatorScore";
 
@@ -34,8 +34,8 @@ export function LiveTokenFeed() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-positive opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-positive" />
           </span>
-          <h3>Live Token Feed</h3>
-          <span className="text-muted-foreground" style={{ fontSize: 12 }}>· real-time</span>
+          <h3>Canlı Token Akışı</h3>
+          <span className="text-muted-foreground" style={{ fontSize: 12 }}>· gerçek zamanlı</span>
         </div>
         <div className="flex items-center gap-1">
           {(["ageSeconds", "liquidity", "momentum", "creatorScore"] as SortKey[]).map((k) => (
@@ -43,7 +43,7 @@ export function LiveTokenFeed() {
               className={`flex items-center gap-1 rounded px-2 py-1 ${sortKey === k ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               style={{ fontSize: 11 }}>
               <ArrowUpDown size={11} />
-              {k === "ageSeconds" ? "Age" : k === "liquidity" ? "Liq" : k === "momentum" ? "Momentum" : "Creator"}
+              {k === "ageSeconds" ? "Yaş" : k === "liquidity" ? "Lik." : k === "momentum" ? "Momentum" : "Üretici"}
             </button>
           ))}
         </div>
@@ -52,7 +52,7 @@ export function LiveTokenFeed() {
         <table className="w-full border-collapse" style={{ fontSize: 13 }}>
           <thead>
             <tr className="text-muted-foreground" style={{ fontSize: 11 }}>
-              {["Token", "Age", "Price", "Liquidity", "5m Vol", "Holders", "Creator", "Safety", "Momentum", "Signal", ""].map((h) => (
+              {["Token", "Yaş", "Fiyat", "Likidite", "5dk Hac.", "Sahip", "Üretici", "Güvenlik", "Momentum", "Sinyal", ""].map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2 text-left font-normal">{h}</th>
               ))}
             </tr>
@@ -78,8 +78,8 @@ export function LiveTokenFeed() {
                   <td className="whitespace-nowrap px-3 py-2.5 font-mono tabular-nums">{formatUsd(t.liquidity)}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 font-mono tabular-nums">{formatUsd(t.vol5m)}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 font-mono tabular-nums">{t.holders}</td>
-                  <td className="px-3 py-2.5"><ScoreBadge score={t.creatorScore} label="Creator" /></td>
-                  <td className="px-3 py-2.5"><ScoreBadge score={t.safetyScore} label="Safety" /></td>
+                  <td className="px-3 py-2.5"><ScoreBadge score={t.creatorScore} label="Üretici" /></td>
+                  <td className="px-3 py-2.5"><ScoreBadge score={t.safetyScore} label="Güvenlik" /></td>
                   <td className="px-3 py-2.5">
                     <Sparkline data={t.spark} color={t.momentum >= 70 ? "#2FD98B" : t.momentum >= 50 ? "#3E9BFF" : "#F0476B"} width={64} height={22} />
                   </td>
@@ -88,11 +88,11 @@ export function LiveTokenFeed() {
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1">
-                      <button onClick={() => toggle(t.id)} className="rounded p-1 hover:bg-accent" title="Watchlist">
+                      <button onClick={() => toggle(t.id)} className="rounded p-1 hover:bg-accent" title="İzleme">
                         <Star size={14} className={isWatched(t) ? "fill-warning text-warning" : "text-muted-foreground"} />
                       </button>
-                      <button onClick={() => toast("Analyze " + t.symbol)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Analyze"><Activity size={14} /></button>
-                      <button onClick={() => toast("Trade " + t.symbol)} className="rounded p-1 text-primary hover:bg-accent" title="Trade"><ShoppingCart size={14} /></button>
+                      <button onClick={() => toast("Analiz: " + t.symbol)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Analiz"><Activity size={14} /></button>
+                      <button onClick={() => toast("İşlem: " + t.symbol)} className="rounded p-1 text-primary hover:bg-accent" title="İşlem"><ShoppingCart size={14} /></button>
                     </div>
                   </td>
                 </tr>

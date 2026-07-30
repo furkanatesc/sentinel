@@ -9,10 +9,10 @@ export function OpportunityRadar() {
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3>Opportunity Radar</h3>
-        <span className="text-muted-foreground" style={{ fontSize: 11 }}>Creator Trust × Momentum · size = liquidity</span>
+        <h3>Fırsat Radarı</h3>
+        <span className="text-muted-foreground" style={{ fontSize: 11 }}>Üretici Güveni × Momentum · boyut = likidite</span>
       </div>
-      <div className="flex-1 p-3" style={{ minHeight: 260 }}>
+      <div className="p-3" style={{ height: 320 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.05)" />

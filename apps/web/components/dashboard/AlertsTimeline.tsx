@@ -8,8 +8,8 @@ export function AlertsTimeline() {
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3>Alerts Timeline</h3>
-        <button className="text-primary" style={{ fontSize: 12 }}>View all</button>
+        <h3>Uyarı Akışı</h3>
+        <button className="text-primary" style={{ fontSize: 12 }}>Tümünü gör</button>
       </div>
       <div className="flex-1 overflow-y-auto p-3">
         <ol className="relative ml-1 space-y-3 border-l border-border pl-4">

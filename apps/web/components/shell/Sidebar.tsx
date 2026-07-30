@@ -19,7 +19,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="flex flex-col leading-tight">
             <span style={{ fontSize: 15, fontWeight: 600 }}>Sentinel</span>
-            <span className="text-muted-foreground" style={{ fontSize: 10 }}>Solana Intelligence</span>
+            <span className="text-muted-foreground" style={{ fontSize: 10 }}>Solana İstihbaratı</span>
           </div>
         )}
         <button onClick={onToggle} className="ml-auto text-muted-foreground transition-colors hover:text-foreground" title={collapsed ? "Expand" : "Collapse"}>
@@ -43,8 +43,8 @@ export function Sidebar() {
         {!collapsed && (
           <div className="mb-3 space-y-1.5">
             <StatusRow icon={<Wifi size={12} />} label="RPC" value="142 ms" ok />
-            <StatusRow icon={<span className="h-2 w-2 rounded-full bg-positive" />} label="Solana" value="Healthy" ok />
-            <StatusRow icon={<Send size={12} />} label="Telegram" value="Connected" ok />
+            <StatusRow icon={<span className="h-2 w-2 rounded-full bg-positive" />} label="Solana" value="Sağlıklı" ok />
+            <StatusRow icon={<Send size={12} />} label="Telegram" value="Bağlı" ok />
           </div>
         )}
         <TradingModeBadge collapsed={collapsed} />

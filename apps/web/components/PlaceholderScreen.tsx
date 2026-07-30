@@ -10,16 +10,16 @@ export function PlaceholderScreen() {
   return (
     <div className="space-y-5">
       <div>
-        <h1>{item?.label ?? "Screen"}</h1>
-        <p className="text-muted-foreground" style={{ fontSize: 13 }}>This module is part of the Sentinel platform blueprint.</p>
+        <h1>{item?.label ?? "Ekran"}</h1>
+        <p className="text-muted-foreground" style={{ fontSize: 13 }}>Bu modül Sentinel platform planının bir parçası.</p>
       </div>
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card py-24 text-center">
         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-accent">
           <Icon size={26} className="text-primary" />
         </div>
-        <h3 className="mb-1">{item?.label} coming soon</h3>
+        <h3 className="mb-1">{item?.label} yakında</h3>
         <p className="mb-5 max-w-sm text-muted-foreground" style={{ fontSize: 13 }}>
-          The Overview Dashboard is fully built out. Tell me which screen to detail next.
+          Genel Bakış paneli tamamen hazır. Sıradaki ekranı detaylandırmamı söyle.
         </p>
       </div>
     </div>

@@ -7,6 +7,6 @@ test("selecting Live updates the session store", async () => {
   useSessionStore.setState({ tradingMode: "paper" });
   render(<TradingModeBadge />);
   await userEvent.click(screen.getByTitle("Trading mode"));
-  await userEvent.click(screen.getByText("Live"));
+  await userEvent.click(screen.getByText("Canlı"));
   expect(useSessionStore.getState().tradingMode).toBe("live");
 });

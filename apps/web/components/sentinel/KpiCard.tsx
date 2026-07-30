@@ -13,7 +13,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
   const changeColor = flat ? "#8A94A6" : up ? "#2FD98B" : "#F0476B";
   const ChangeIcon = flat ? Minus : up ? ArrowUpRight : ArrowDownRight;
   return (
-    <div className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-white/15" title={`${kpi.label} — updated ${kpi.updated}`}>
+    <div className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-white/15" title={`${kpi.label} — ${kpi.updated} güncellendi`}>
       <div className="flex items-start justify-between gap-2">
         <span className="text-muted-foreground" style={{ fontSize: 12 }}>{kpi.label}</span>
         <span className="inline-flex items-center gap-0.5 font-mono tabular-nums" style={{ color: changeColor, fontSize: 11 }}>
@@ -24,7 +24,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
         <span className="font-mono tabular-nums" style={{ fontSize: 22, fontWeight: 600, color }}>{kpi.value}</span>
         <Sparkline data={kpi.spark} color={color} />
       </div>
-      <div className="mt-1.5 text-muted-foreground" style={{ fontSize: 10 }}>Updated {kpi.updated}</div>
+      <div className="mt-1.5 text-muted-foreground" style={{ fontSize: 10 }}>{kpi.updated} güncellendi</div>
     </div>
   );
 }

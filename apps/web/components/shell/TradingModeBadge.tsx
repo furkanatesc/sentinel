@@ -4,9 +4,9 @@ import { FlaskConical, Eye, Zap, ChevronDown } from "lucide-react";
 import { useSessionStore, type TradingMode } from "@/lib/store/session";
 
 const modeMeta: Record<TradingMode, { label: string; color: string; bg: string; icon: typeof Zap }> = {
-  paper: { label: "Paper", color: "#3E9BFF", bg: "rgba(62,155,255,0.14)", icon: FlaskConical },
-  shadow: { label: "Shadow", color: "#FFB020", bg: "rgba(255,176,32,0.14)", icon: Eye },
-  live: { label: "Live", color: "#F0476B", bg: "rgba(240,71,107,0.16)", icon: Zap },
+  paper: { label: "Kağıt", color: "#3E9BFF", bg: "rgba(62,155,255,0.14)", icon: FlaskConical },
+  shadow: { label: "Gölge", color: "#FFB020", bg: "rgba(255,176,32,0.14)", icon: Eye },
+  live: { label: "Canlı", color: "#F0476B", bg: "rgba(240,71,107,0.16)", icon: Zap },
 };
 
 export function TradingModeBadge({ collapsed }: { collapsed?: boolean }) {
@@ -23,8 +23,8 @@ export function TradingModeBadge({ collapsed }: { collapsed?: boolean }) {
         {!collapsed && (
           <>
             <span className="flex flex-col items-start leading-tight">
-              <span className="text-muted-foreground" style={{ fontSize: 9 }}>MODE</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: meta.color }}>{meta.label} Trading</span>
+              <span className="text-muted-foreground" style={{ fontSize: 9 }}>MOD</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: meta.color }}>{meta.label} İşlem</span>
             </span>
             <ChevronDown size={14} className="ml-auto text-muted-foreground" />
           </>
@@ -40,7 +40,7 @@ export function TradingModeBadge({ collapsed }: { collapsed?: boolean }) {
                 <MIcon size={14} style={{ color: mm.color }} />
                 <span style={{ fontSize: 13 }}>{mm.label}</span>
                 {m === "live" && (
-                  <span className="ml-auto rounded px-1.5 py-0.5" style={{ fontSize: 9, color: "#F0476B", backgroundColor: "rgba(240,71,107,0.14)" }}>REAL FUNDS</span>
+                  <span className="ml-auto rounded px-1.5 py-0.5" style={{ fontSize: 9, color: "#F0476B", backgroundColor: "rgba(240,71,107,0.14)" }}>GERÇEK PARA</span>
                 )}
               </button>
             );

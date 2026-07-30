@@ -13,14 +13,14 @@ function spark(seed: number, len = 16): number[] {
 }
 
 const kpis: Kpi[] = [
-  { id: "detected", label: "Tokens Detected (24h)", value: "3,412", change: 12.4, spark: spark(3), updated: "12s ago" },
-  { id: "highconf", label: "High Confidence Tokens", value: "184", change: 8.1, spark: spark(7), updated: "12s ago", tone: "positive" },
-  { id: "critical", label: "Critical Risk Detections", value: "97", change: 23.5, spark: spark(11), updated: "8s ago", tone: "critical" },
-  { id: "signals", label: "Active Signals", value: "26", change: -4.2, spark: spark(5), updated: "3s ago" },
-  { id: "positions", label: "Open Positions", value: "7", change: 0, spark: spark(9), updated: "1m ago" },
-  { id: "realized", label: "Realized PnL (24h)", value: "+$4,182", change: 6.7, spark: spark(13), updated: "45s ago", tone: "positive" },
-  { id: "unrealized", label: "Unrealized PnL", value: "-$612", change: -2.1, spark: spark(2), updated: "5s ago", tone: "warning" },
-  { id: "latency", label: "System Latency", value: "142 ms", change: -11.0, spark: spark(6), updated: "2s ago" },
+  { id: "detected", label: "Tespit Edilen Token (24s)", value: "3,412", change: 12.4, spark: spark(3), updated: "12sn önce" },
+  { id: "highconf", label: "Yüksek Güvenli Token", value: "184", change: 8.1, spark: spark(7), updated: "12sn önce", tone: "positive" },
+  { id: "critical", label: "Kritik Risk Tespiti", value: "97", change: 23.5, spark: spark(11), updated: "8sn önce", tone: "critical" },
+  { id: "signals", label: "Aktif Sinyaller", value: "26", change: -4.2, spark: spark(5), updated: "3sn önce" },
+  { id: "positions", label: "Açık Pozisyonlar", value: "7", change: 0, spark: spark(9), updated: "1dk önce" },
+  { id: "realized", label: "Gerçekleşen K/Z (24s)", value: "+$4,182", change: 6.7, spark: spark(13), updated: "45sn önce", tone: "positive" },
+  { id: "unrealized", label: "Gerçekleşmemiş K/Z", value: "-$612", change: -2.1, spark: spark(2), updated: "5sn önce", tone: "warning" },
+  { id: "latency", label: "Sistem Gecikmesi", value: "142 ms", change: -11.0, spark: spark(6), updated: "2sn önce" },
 ];
 
 const tokens: TokenRow[] = [
@@ -35,14 +35,14 @@ const tokens: TokenRow[] = [
 ];
 
 const alerts: AlertEvent[] = [
-  { id: "a1", type: "Whale Buy", token: "PULSE", detail: "Wallet 4Fk2 bought 182 SOL", severity: "positive", time: "just now" },
-  { id: "a2", type: "Liquidity Removed", token: "GFROG", detail: "Creator pulled 92% of pool", severity: "critical", time: "18s ago" },
-  { id: "a3", type: "Score Change", token: "NOVA", detail: "Safety 62 → 52", severity: "warning", time: "44s ago" },
-  { id: "a4", type: "First Liquidity", token: "LMN", detail: "$141K pool created", severity: "info", time: "1m ago" },
-  { id: "a5", type: "Creator Sell", token: "ZAP", detail: "Creator sold 14% of supply", severity: "warning", time: "2m ago" },
-  { id: "a6", type: "Trade Filled", token: "HLS", detail: "Buy 3.2 SOL @ 0.109", severity: "positive", time: "3m ago" },
-  { id: "a7", type: "New Mint", token: "MCAT", detail: "Token created on Pump.fun", severity: "info", time: "4m ago" },
-  { id: "a8", type: "Suspicious Cluster", token: "GFROG", detail: "5 linked wallets detected", severity: "critical", time: "5m ago" },
+  { id: "a1", type: "Balina Alımı", token: "PULSE", detail: "4Fk2 cüzdanı 182 SOL aldı", severity: "positive", time: "az önce" },
+  { id: "a2", type: "Likidite Çekildi", token: "GFROG", detail: "Üretici havuzun %92'sini çekti", severity: "critical", time: "18sn önce" },
+  { id: "a3", type: "Skor Değişti", token: "NOVA", detail: "Güvenlik 62 → 52", severity: "warning", time: "44sn önce" },
+  { id: "a4", type: "İlk Likidite", token: "LMN", detail: "$141K havuz oluşturuldu", severity: "info", time: "1dk önce" },
+  { id: "a5", type: "Üretici Satışı", token: "ZAP", detail: "Üretici arzın %14'ünü sattı", severity: "warning", time: "2dk önce" },
+  { id: "a6", type: "İşlem Doldu", token: "HLS", detail: "3.2 SOL alım @ 0.109", severity: "positive", time: "3dk önce" },
+  { id: "a7", type: "Yeni Mint", token: "MCAT", detail: "Pump.fun'da token oluşturuldu", severity: "info", time: "4dk önce" },
+  { id: "a8", type: "Şüpheli Küme", token: "GFROG", detail: "5 bağlantılı cüzdan tespit edildi", severity: "critical", time: "5dk önce" },
 ];
 
 function radarFrom(list: TokenRow[]): RadarPoint[] {
@@ -77,8 +77,8 @@ export const mockApi: SentinelApi = {
 
   subscribeAlerts(cb) {
     const pool: AlertEvent[] = [
-      { id: "live1", type: "New Mint", token: "AERO", detail: "Token created on Raydium", severity: "info", time: "just now" },
-      { id: "live2", type: "Whale Buy", token: "LMN", detail: "Wallet 6Rt4 bought 90 SOL", severity: "positive", time: "just now" },
+      { id: "live1", type: "Yeni Mint", token: "AERO", detail: "Raydium'da token oluşturuldu", severity: "info", time: "az önce" },
+      { id: "live2", type: "Balina Alımı", token: "LMN", detail: "6Rt4 cüzdanı 90 SOL aldı", severity: "positive", time: "az önce" },
     ];
     let n = 0;
     const id = setInterval(() => {
