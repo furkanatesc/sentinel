@@ -1,4 +1,5 @@
 import { NODE_TYPE_DEFS, EDGE_TYPE_DEFS } from "./graph-defs";
+import { riskMeta } from "@/lib/format";
 
 export interface CyStyle { selector: string; style: Record<string, unknown>; }
 
@@ -11,5 +12,8 @@ export function buildStylesheet(): CyStyle[] {
   ];
   for (const d of NODE_TYPE_DEFS) styles.push({ selector: `node.${d.key}`, style: { "background-color": d.color, shape: d.shape } });
   for (const d of EDGE_TYPE_DEFS) styles.push({ selector: `edge.${d.key}`, style: { "line-color": d.color, "target-arrow-color": d.color } });
+  for (const level of Object.keys(riskMeta) as (keyof typeof riskMeta)[]) {
+    styles.push({ selector: `node.risk-${level}`, style: { "border-color": riskMeta[level].color } });
+  }
   return styles;
 }

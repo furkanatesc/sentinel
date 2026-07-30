@@ -23,15 +23,17 @@ export function WalletGraphContent() {
   const [filters, setFilters] = useState<GF>(EMPTY_GRAPH_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const stylesheet = useMemo(() => buildStylesheet(), []);
-  const elements = useMemo(() => toCytoscapeElements(graph, filters, selectedId), [graph, filters, selectedId]);
-  const selectedNode = graph.nodes.find((n) => n.id === selectedId) ?? null;
+  const elements = useMemo(() => toCytoscapeElements(graph, filters), [graph, filters]);
+  const visibleIds = useMemo(() => new Set(elements.filter((e) => !e.data.source).map((e) => e.data.id as string)), [elements]);
+  const effectiveSelectedId = selectedId && visibleIds.has(selectedId) ? selectedId : null;
+  const selectedNode = graph.nodes.find((n) => n.id === effectiveSelectedId) ?? null;
   return (
     <div className="space-y-4">
       <h1>Cüzdan Grafiği</h1>
       <GraphFilters value={filters} onChange={setFilters} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
         <div className="xl:col-span-3 space-y-3">
-          <WalletGraphCanvas elements={elements} stylesheet={stylesheet} onNodeSelect={setSelectedId} />
+          <WalletGraphCanvas elements={elements} stylesheet={stylesheet} onNodeSelect={setSelectedId} focusNodeId={effectiveSelectedId} />
           <GraphLegend />
         </div>
         <div><NodeDetailPanel node={selectedNode} graph={graph} /></div>

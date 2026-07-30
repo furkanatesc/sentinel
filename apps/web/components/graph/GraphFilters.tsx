@@ -1,6 +1,6 @@
 "use client";
 import { X } from "lucide-react";
-import type { GraphFilters as GF, GraphEdgeType } from "@/lib/api/types";
+import type { GraphFilters as GF } from "@/lib/api/types";
 import { EMPTY_GRAPH_FILTERS } from "@/lib/api/types";
 import { EDGE_TYPE_DEFS } from "@/lib/graph/graph-defs";
 import { riskMeta, type RiskLevel } from "@/lib/format";
