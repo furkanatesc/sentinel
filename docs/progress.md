@@ -39,8 +39,8 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | # | Artım | Durum |
 |---|---|---|
 | **1** | **İskele + Design System + App Shell + Overview Dashboard** | ✅ **Tamam — master'a merge (05546e7), 20/20 test** |
-| **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | 🔧 Spec onaylı, **plan yazıldı**, uygulanacak (SDD) |
-| 3 | Live Feed | ⬜ |
+| **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | ✅ **Tamam — master'a merge (fc36f0a), 37/37 test** |
+| 3 | Live Feed | ⬜ Sırada |
 | 4 | Wallet Graph (Cytoscape) | ⬜ |
 | 5 | Creators (Creator Profile) | ⬜ |
 | 6 | Strategies | ⬜ |
@@ -90,6 +90,8 @@ shell + veri seam'i üzerine kurulur.
 - 2026-07-30 — Increment 1 SDD ile 10 task; her task review + final whole-branch review temiz; master'a merge.
 - 2026-07-30 — **UI dili Türkçe** olacak (tüm görünen metinler; teknik tokenlar/simgeler hariç). Review sonrası tüm arayüz + mock veri etiketleri Türkçeleştirildi (`cfc9aba`, `b43812f`).
 - 2026-07-30 — Post-Increment-1 polish: scrollbar dark temaya uyumlu hale getirildi; Opportunity Radar boş-render bug'ı (Recharts sizing) düzeltildi; `apps/web/AGENTS.md`/`CLAUDE.md` scaffold gürültüsü kaldırıldı.
+- 2026-07-30 — **Increment 2 (Token Detail) tamamlandı ve master'a merge edildi** (fc36f0a). `/tokens/[mint]` rotası, config-driven skorlar (SCORE_DEFS, Manipulation ters polarity), TAB_DEFS sekme registry, getToken seam genişlemesi. Clean-code/SOLID review ölçütü uygulandı. 37/37 test.
+- 2026-07-30 — **Clean code + SOLID** kullanıcı önceliği: tüm spec/plan/review'larda ölçüt (SRP/OCP/DIP/ISP; config-driven; küçük dosyalar).
 
 ## Açık takip maddeleri
 
@@ -109,5 +111,10 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 
 ## Sırada
 
-Increment 2 = **Token Detail** ekranı (öneri). Mevcut seam'e `getToken(mint)` +
-skor/risk/holder uçları eklenir; shell içinde `/tokens/[mint]` route'u. Onayınla spec→plan→SDD.
+Increment 3 = **Live Feed** ekranı (öneri). Gerçek zamanlı event terminali: üst filtreler
+(event type, launchpad, DEX, min likidite/creator score, risk, yaş…), event kartları/tablosu,
+event açılınca sağdan detay drawer. Mevcut seam'e `getEvents`/`subscribeEvents` eklenir.
+Onayınla spec→plan→SDD.
+
+Alternatif olarak backlog'daki **Ayarlar (API key) + Polymarket** entegrasyonuna da
+öncelik verilebilir (backend/secret-store bağımlılığı ile birlikte).
