@@ -42,8 +42,8 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | ✅ **Tamam — master'a merge (fc36f0a), 37/37 test** |
 | **3** | **Live Feed** (event terminali: 10 filtre + tablo + detay drawer) | ✅ **Tamam — master'a merge (2cbfe4e), 55/55 test** |
 | **4** | **Wallet Graph** (Cytoscape entity graph: 8 node + 9 edge + filtre + detay) | ✅ **Tamam — master'a merge (540436e), 71/71 test** |
-| **5** | **Creators** (liste + profil: reputation + metrik + token geçmişi + davranış) | 🔧 Spec onaylı, **plan yazıldı**, uygulanacak (SDD) |
-| 6 | Strategies | ⬜ |
+| **5** | **Creators** (liste + profil: reputation + metrik + token geçmişi + davranış) | ✅ **Tamam — master'a merge (5904288), 81/81 test** |
+| 6 | Strategies | ⬜ Sırada |
 | 7 | Portfolio / Positions | ⬜ |
 | 8 | Trading Terminal | ⬜ |
 | 9 | Backtesting (+ Event Replay) | ⬜ |
@@ -93,6 +93,7 @@ shell + veri seam'i üzerine kurulur.
 - 2026-07-30 — **Increment 2 (Token Detail) tamamlandı ve master'a merge edildi** (fc36f0a). `/tokens/[mint]` rotası, config-driven skorlar (SCORE_DEFS, Manipulation ters polarity), TAB_DEFS sekme registry, getToken seam genişlemesi. Clean-code/SOLID review ölçütü uygulandı. 37/37 test.
 - 2026-07-30 — **Clean code + SOLID** kullanıcı önceliği: tüm spec/plan/review'larda ölçüt (SRP/OCP/DIP/ISP; config-driven; küçük dosyalar).
 - 2026-07-30 — **Increment 3 (Live Feed) tamamlandı ve master'a merge edildi** (2cbfe4e). `/live-feed` event terminali: `FeedEvent` seam (getEvents/subscribeEvents/useLiveEvents 200-cap), `EVENT_TYPE_DEFS` registry, saf `filterEvents` (10 filtre), FeedFilters/FeedTable/EventDetailDrawer (shadcn Sheet). 55/55 test. Görsel doğrulandı.
+- 2026-07-31 — **Increment 5 (Creators) tamamlandı ve master'a merge edildi** (5904288). `/creators` liste + `/creators/[address]` profil: `getCreators`/`getCreator` seam, reputation Token Detail'in `ScoreCard`+`ExplainableScore`'unu reuse (ScoreCard'a `hideExplain` prop eklendi), 8 metrik (paylaşımlı `MetricTile`), token geçmişi tablosu (outcome/liquidity/riskFlags), davranış paterni, Wallet Graph creator node linki. 81/81 test. Görsel doğrulandı. Parked: mock derivation dup (bkz followups).
 - 2026-07-30 — **Increment 4 (Wallet Graph) tamamlandı ve master'a merge edildi** (540436e). `/wallet-graph` Cytoscape entity graph: `WalletGraph` seam (getWalletGraph/useWalletGraph), `NODE_TYPE_DEFS`(8)+`EDGE_TYPE_DEFS`(9) registry → stylesheet/legend/filtre türer, saf `toCytoscapeElements`/`neighborsOf`/`buildStylesheet`, canvas dynamic ssr:false, stabil-instance focus fade. Yeni dep cytoscape. 71/71 test. Görsel doğrulandı. Parked minor: stale-fade (bkz followups).
 
 ## Açık takip maddeleri
@@ -113,12 +114,11 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 
 ## Sırada
 
-Increment 5 = **Creators / Creator Profile** ekranı (öneri). Deployer/creator cüzdanı detayı:
-header (kısaltılmış adres, wallet yaşı, Creator Reputation Score, risk etiketi, Watch/Telegram),
-metrikler (toplam/aktif/rug token, ortalama ömür, peak MC, realized PnL, başarı oranı), creator
-token geçmişi tablosu, ve davranış paterni (çıkarma sıklığı, ilk satış süresi, tekrarlanan funder,
-benzer metadata). Seam'e `getCreator(address)` eklenir; Token Detail'in "Üretici" bağlamına da bağlanır.
-Onayınla spec→plan→SDD.
+Increment 6 = **Strategies** ekranı (öneri). Strateji yönetimi: strateji kartları (name/status/mode/
+win rate/profit factor/drawdown/net PnL), durumlar (Draft/Backtesting/Paper/Shadow/Live/Paused/Archived),
+strateji detayı (logic/entry-exit/risk/position sizing), ve "Create Strategy" no-code condition builder
+stepper (IF creator>75 & safety>70 & liquidity>25k THEN buy...). Seam'e `getStrategies`/`getStrategy` eklenir.
+**Not:** condition builder ağır olabilir; kapsam (kart+detay vs builder) spec'te netleşir. Onayınla spec→plan→SDD.
 
 Alternatif olarak backlog'daki **Ayarlar (API key) + Polymarket** entegrasyonuna da
 öncelik verilebilir (backend/secret-store bağımlılığı ile birlikte).
