@@ -42,7 +42,7 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | **2** | **Token Detail** (Header + 4 skor + Overview + Risk + Açıklanabilir Skor) | ✅ **Tamam — master'a merge (fc36f0a), 37/37 test** |
 | **3** | **Live Feed** (event terminali: 10 filtre + tablo + detay drawer) | ✅ **Tamam — master'a merge (2cbfe4e), 55/55 test** |
 | **4** | **Wallet Graph** (Cytoscape entity graph: 8 node + 9 edge + filtre + detay) | ✅ **Tamam — master'a merge (540436e), 71/71 test** |
-| 5 | Creators (Creator Profile) | ⬜ Sırada |
+| **5** | **Creators** (liste + profil: reputation + metrik + token geçmişi + davranış) | 🔧 Spec onaylı, **plan yazıldı**, uygulanacak (SDD) |
 | 6 | Strategies | ⬜ |
 | 7 | Portfolio / Positions | ⬜ |
 | 8 | Trading Terminal | ⬜ |
