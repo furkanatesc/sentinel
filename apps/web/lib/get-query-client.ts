@@ -11,4 +11,5 @@ export const qk = {
   tokens: ["tokens"] as const,
   alerts: ["alerts"] as const,
   radar: ["radar"] as const,
+  token: (mint: string) => ["token", mint] as const,
 };

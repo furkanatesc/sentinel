@@ -15,3 +15,6 @@ export function useAlerts() {
 export function useRadar() {
   return useQuery({ queryKey: qk.radar, queryFn: () => getApi().getRadar() });
 }
+export function useToken(mint: string) {
+  return useQuery({ queryKey: qk.token(mint), queryFn: () => getApi().getToken(mint) });
+}
