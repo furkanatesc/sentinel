@@ -17,7 +17,7 @@ export function OpportunityRadar() {
           <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.05)" />
             <XAxis type="number" dataKey="x" name="Creator Trust" domain={[0, 100]} tick={{ fill: "#8A94A6", fontSize: 11 }} stroke="rgba(255,255,255,0.1)"
-              label={{ value: "Creator Trust Score", position: "insideBottom", offset: -12, fill: "#8A94A6", fontSize: 11 }} />
+              label={{ value: "Üretici Güven Skoru", position: "insideBottom", offset: -12, fill: "#8A94A6", fontSize: 11 }} />
             <YAxis type="number" dataKey="y" name="Momentum" domain={[0, 100]} tick={{ fill: "#8A94A6", fontSize: 11 }} stroke="rgba(255,255,255,0.1)"
               label={{ value: "Momentum", angle: -90, position: "insideLeft", fill: "#8A94A6", fontSize: 11 }} />
             <ZAxis type="number" dataKey="z" range={[80, 600]} />

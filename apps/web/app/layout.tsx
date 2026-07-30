@@ -7,13 +7,13 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
 
 export const metadata: Metadata = {
-  title: "Sentinel — Solana Token Intelligence",
-  description: "Real-time Solana token intelligence and trading terminal.",
+  title: "Sentinel — Solana Token İstihbaratı",
+  description: "Gerçek zamanlı Solana token istihbaratı ve işlem terminali.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${inter.variable} ${jetbrains.variable}`}>
+    <html lang="tr" className={`dark ${inter.variable} ${jetbrains.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>
