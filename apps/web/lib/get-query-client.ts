@@ -14,4 +14,6 @@ export const qk = {
   token: (mint: string) => ["token", mint] as const,
   events: ["events"] as const,
   walletGraph: ["wallet-graph"] as const,
+  creators: ["creators"] as const,
+  creator: (address: string) => ["creator", address] as const,
 };

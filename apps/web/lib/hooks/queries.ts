@@ -24,3 +24,9 @@ export function useEvents() {
 export function useWalletGraph() {
   return useQuery({ queryKey: qk.walletGraph, queryFn: () => getApi().getWalletGraph() });
 }
+export function useCreators() {
+  return useQuery({ queryKey: qk.creators, queryFn: () => getApi().getCreators() });
+}
+export function useCreator(address: string) {
+  return useQuery({ queryKey: qk.creator(address), queryFn: () => getApi().getCreator(address) });
+}

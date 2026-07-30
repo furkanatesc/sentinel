@@ -3,7 +3,7 @@ import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
@@ -208,6 +208,68 @@ function buildWalletGraph(): WalletGraph {
 }
 const walletGraph = buildWalletGraph();
 
+const OUTCOMES: CreatorOutcome[] = ["active", "graduated", "dumped", "rug", "dead"];
+const LIQS: LiquidityStatus[] = ["locked", "unlocked", "removed"];
+const CREATOR_ADDRS = ["CreAxz", "CreBmn", "CreCqw", "Dep7hn", "Dep9kf", "Dep2rt"];
+
+function creatorRow(addr: string): CreatorRow {
+  const seed = seedOf(addr);
+  const rep = clamp(20 + (seed % 70));
+  const total = 4 + (seed % 12);
+  return {
+    address: addr, reputationScore: rep, riskLevel: scoreToLevel(rep),
+    totalTokens: total, activeTokens: (seed % 4), ruggedTokens: Math.min(total, (seed % 6)),
+    successRatePct: clamp(rep - 10 + (seed % 20)), realizedPnlSol: (seed % 200) - 60,
+  };
+}
+
+function creatorHistory(addr: string, n: number): CreatorTokenHistoryItem[] {
+  const seed = seedOf(addr);
+  return Array.from({ length: n }, (_, i) => {
+    const s = seed + i * 13;
+    const peak = 20000 + (s % 400) * 1000;
+    const cur = Math.round(peak * ((s % 90) / 100));
+    return {
+      id: `${addr}-h${i}`, symbol: `T${(s % 90).toString(36).toUpperCase()}${i}`, mint: `${addr.slice(0,4)}...${i}`,
+      createdAt: `${i + 1}g önce`, peakMarketCap: peak, currentMarketCap: cur,
+      maxDrawdownPct: clamp(100 - (cur / peak) * 100), liquidityStatus: LIQS[s % LIQS.length],
+      creatorSellPct: clamp(s % 60), outcome: OUTCOMES[s % OUTCOMES.length],
+      riskFlags: s % 2 === 0 ? ["Mint authority aktif"] : [],
+    };
+  });
+}
+
+function buildCreator(addr: string): CreatorProfile {
+  const seed = seedOf(addr);
+  const rep = clamp(20 + (seed % 70));
+  const total = 4 + (seed % 12);
+  return {
+    address: addr, walletAgeDays: 5 + (seed % 60), firstSeen: `${5 + (seed % 60)}g önce`,
+    reputation: {
+      key: "creatorReputation", value: rep, confidence: clamp(60 + (seed % 35)), updatedAt: "az önce",
+      breakdown: [
+        { label: "Geçmiş performans", weight: 40, detail: rep < 50 ? `Son ${total} tokenın çoğu 24s içinde büyük değer kaybetti` : "Geçmiş tokenlar makul performans gösterdi" },
+        { label: "Bağlantılı cüzdanlar", weight: 25, detail: rep < 50 ? "Bağlantılı cüzdanlarda likidite çekme paterni" : "Anormallik yok" },
+        { label: "Cüzdan yaşı ve fonlama", weight: 20, detail: `Cüzdan ${5 + (seed % 60)} günlük` },
+        { label: "Tekrarlanan deploy", weight: 15, detail: total > 8 ? "Yüksek frekanslı deploy paterni" : "Düşük frekans" },
+      ],
+    },
+    riskLevel: scoreToLevel(rep),
+    metrics: {
+      totalTokens: total, activeTokens: (seed % 4), ruggedTokens: Math.min(total, (seed % 6)),
+      avgLifetimeHours: 2 + (seed % 72), avgPeakMarketCap: 30000 + (seed % 300) * 1000,
+      realizedPnlSol: (seed % 200) - 60, successRatePct: clamp(rep - 10 + (seed % 20)), avgFirstSellMinutes: 3 + (seed % 90),
+    },
+    history: creatorHistory(addr, 4 + (seed % 4)),
+    behavior: {
+      deployFrequency: `${total} token / 30 gün`, avgFirstSellMinutes: 3 + (seed % 90),
+      repeatedFunders: [`Fnd${seed % 9}...aa`, `Fnd${(seed + 3) % 9}...bb`],
+      similarMetadata: seed % 2 === 0, sameSocial: seed % 3 === 0, sameLiquidityPattern: seed % 2 === 1,
+    },
+  };
+}
+const creators: CreatorRow[] = CREATOR_ADDRS.map(creatorRow);
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
@@ -215,6 +277,8 @@ export const mockApi: SentinelApi = {
   getRadar: () => delay(radarFrom(tokens)),
   getEvents: () => delay(feedEvents),
   getWalletGraph: () => delay(walletGraph),
+  getCreators: () => delay(creators),
+  getCreator: (address) => delay(buildCreator(address)),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();

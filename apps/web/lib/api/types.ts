@@ -99,6 +99,29 @@ export const EMPTY_FILTERS: FeedFilters = {
   minVolume: 0, minHolderGrowth: 0, watchlistOnly: false,
 };
 
+export interface CreatorRow {
+  address: string; label?: string; reputationScore: number; riskLevel: RiskLevel;
+  totalTokens: number; activeTokens: number; ruggedTokens: number; successRatePct: number; realizedPnlSol: number;
+}
+export interface CreatorTokenHistoryItem {
+  id: string; symbol: string; mint: string; createdAt: string;
+  peakMarketCap: number; currentMarketCap: number; maxDrawdownPct: number;
+  liquidityStatus: LiquidityStatus; creatorSellPct: number; outcome: CreatorOutcome; riskFlags: string[];
+}
+export interface CreatorBehavior {
+  deployFrequency: string; avgFirstSellMinutes: number; repeatedFunders: string[];
+  similarMetadata: boolean; sameSocial: boolean; sameLiquidityPattern: boolean;
+}
+export interface CreatorMetrics {
+  totalTokens: number; activeTokens: number; ruggedTokens: number; avgLifetimeHours: number;
+  avgPeakMarketCap: number; realizedPnlSol: number; successRatePct: number; avgFirstSellMinutes: number;
+}
+export interface CreatorProfile {
+  address: string; label?: string; walletAgeDays: number; firstSeen: string;
+  reputation: ScoreDetail; riskLevel: RiskLevel; metrics: CreatorMetrics;
+  history: CreatorTokenHistoryItem[]; behavior: CreatorBehavior;
+}
+
 export type GraphNodeType =
   | "creator_wallet" | "funding_wallet" | "token" | "liquidity_pool"
   | "trader_wallet" | "smart_wallet" | "suspicious_wallet" | "exchange_wallet";
