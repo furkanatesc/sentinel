@@ -8,9 +8,10 @@ interface Props {
   score: ScoreDetail;
   selected: boolean;
   onExplain: () => void;
+  hideExplain?: boolean;
 }
 
-export function ScoreCard({ def, score, selected, onExplain }: Props) {
+export function ScoreCard({ def, score, selected, onExplain, hideExplain = false }: Props) {
   const level = scoreDisplayLevel(score.value, def.higherIsBetter);
   const meta = riskMeta[level];
   const R = 26, C = 2 * Math.PI * R;
@@ -31,7 +32,9 @@ export function ScoreCard({ def, score, selected, onExplain }: Props) {
           <span className="text-muted-foreground" style={{ fontSize: 10 }}>Güven %{score.confidence} · {score.updatedAt}</span>
         </div>
       </div>
-      <button onClick={onExplain} className="mt-2 text-primary hover:underline" style={{ fontSize: 11 }}>Neden bu skor?</button>
+      {!hideExplain && (
+        <button onClick={onExplain} className="mt-2 text-primary hover:underline" style={{ fontSize: 11 }}>Neden bu skor?</button>
+      )}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export function CreatorProfileContent({ address }: { address: string }) {
     <div className="space-y-5">
       <CreatorHeader profile={profile} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div><ScoreCard def={REP_DEF} score={profile.reputation} selected onExplain={() => {}} /></div>
+        <div><ScoreCard def={REP_DEF} score={profile.reputation} selected onExplain={() => {}} hideExplain /></div>
         <div className="lg:col-span-2"><ExplainableScore def={REP_DEF} score={profile.reputation} /></div>
       </div>
       <CreatorMetrics metrics={profile.metrics} />
