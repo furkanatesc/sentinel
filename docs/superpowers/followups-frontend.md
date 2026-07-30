@@ -52,6 +52,14 @@ her biri ileride ele alınacak. İlgili artıma etiketlendi.
   time-range filter (bu artımda kapsam dışıydı). Ayrıca mock node instance label'ları (Funder-1/Creator-A)
   tam Türkçeleştirilebilir; backend gerçek veriyle değiştirecek.
 
+## Creators (Increment 5)
+- **Mock derivation dup (parked):** `lib/api/mock.ts`'te `creatorRow` ve `buildCreator` aynı seed'den
+  aynı formüllerle (rep/total/active/rugged/successRate/pnl) hesaplıyor → liste satırı ile profil
+  metrikleri sessizce sapabilir. Http backend gelince ikisini tek kaynaktan üret (`creatorBase(addr)`
+  helper). Fixture kod, düşük etki. (Final review — parked, 2026-07-31.)
+- **avgFirstSellMinutes iki yerde:** hem `CreatorMetrics` ("Ort. İlk Satış") hem `CreatorBehavior`
+  ("Ort. ilk satış") gösteriyor — kasıtlı (özet vs davranış detayı), gerekirse birinden kaldır.
+
 ## globals.css font notları — KAPANDI
 Final review doğruladı: `.font-mono` tek kez tanımlı ve `--font-sans` `@theme inline` içinde
 mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
