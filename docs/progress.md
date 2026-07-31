@@ -4,7 +4,7 @@
 > dallanma olunca **aynı turda** güncellenir. Tek gerçek kaynaklar: ürün için
 > `ROADMAP.md`, tasarım için `docs/design/sentinel-ui-ux-design.md`.
 >
-> Son güncelleme: 2026-07-30
+> Son güncelleme: 2026-08-01
 
 ## Genel bakış
 
@@ -43,7 +43,7 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | **3** | **Live Feed** (event terminali: 10 filtre + tablo + detay drawer) | ✅ **Tamam — master'a merge (2cbfe4e), 55/55 test** |
 | **4** | **Wallet Graph** (Cytoscape entity graph: 8 node + 9 edge + filtre + detay) | ✅ **Tamam — master'a merge (540436e), 71/71 test** |
 | **5** | **Creators** (liste + profil: reputation + metrik + token geçmişi + davranış) | ✅ **Tamam — master'a merge (5904288), 81/81 test** |
-| 6 | Strategies | ⬜ Sırada |
+| **6** | **Strategies** (liste + read-only detay: koşullar/risk/performans/equity/backtest/versiyon/audit) | ✅ **Branch `feat/strategies` tamam — 101/101 test, build + whole-branch review temiz; merge onayı bekliyor** |
 | 7 | Portfolio / Positions | ⬜ |
 | 8 | Trading Terminal | ⬜ |
 | 9 | Backtesting (+ Event Replay) | ⬜ |
@@ -94,6 +94,7 @@ shell + veri seam'i üzerine kurulur.
 - 2026-07-30 — **Clean code + SOLID** kullanıcı önceliği: tüm spec/plan/review'larda ölçüt (SRP/OCP/DIP/ISP; config-driven; küçük dosyalar).
 - 2026-07-30 — **Increment 3 (Live Feed) tamamlandı ve master'a merge edildi** (2cbfe4e). `/live-feed` event terminali: `FeedEvent` seam (getEvents/subscribeEvents/useLiveEvents 200-cap), `EVENT_TYPE_DEFS` registry, saf `filterEvents` (10 filtre), FeedFilters/FeedTable/EventDetailDrawer (shadcn Sheet). 55/55 test. Görsel doğrulandı.
 - 2026-07-31 — **Increment 5 (Creators) tamamlandı ve master'a merge edildi** (5904288). `/creators` liste + `/creators/[address]` profil: `getCreators`/`getCreator` seam, reputation Token Detail'in `ScoreCard`+`ExplainableScore`'unu reuse (ScoreCard'a `hideExplain` prop eklendi), 8 metrik (paylaşımlı `MetricTile`), token geçmişi tablosu (outcome/liquidity/riskFlags), davranış paterni, Wallet Graph creator node linki. 81/81 test. Görsel doğrulandı. Parked: mock derivation dup (bkz followups).
+- 2026-08-01 — **Increment 6 (Strategies) branch `feat/strategies` tamamlandı; merge onayı bekliyor.** SDD ile 11 implementasyon task'ı (fresh subagent + task review döngüsü), her biri spec ✅ + kalite Approved. `/strategies` liste (durum filtresi) + `/strategies/[id]` read-only detay. Seam: `getStrategies`/`getStrategy` + `useStrategies`/`useStrategy`; OCP `STATUS_DEFS`/`CONDITION_LABELS` + `formatCondition`; SRP bileşen ağacı (StatusBadge/StrategyCard/ConditionList/StrategyPerformancePanel/BacktestSummaryPanel/EquityCurve/VersionHistory/AuditLog/StrategiesListContent/StrategyDetailContent); paylaşımlı `MetricTile` reuse; EquityCurve OverviewTab MiniChart desenini takip eder. Read-only kapsam (builder/deploy/execution bilinçli dışarıda). 101/101 test, `npm run build` başarılı, whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important). Görsel doğrulandı (liste + filtre + detay: koşullar/risk/performans/equity curve/backtest/launchpad/versiyon/audit). Deferred minor'lar: `docs/superpowers/followups-frontend.md`.
 - 2026-07-30 — **Increment 4 (Wallet Graph) tamamlandı ve master'a merge edildi** (540436e). `/wallet-graph` Cytoscape entity graph: `WalletGraph` seam (getWalletGraph/useWalletGraph), `NODE_TYPE_DEFS`(8)+`EDGE_TYPE_DEFS`(9) registry → stylesheet/legend/filtre türer, saf `toCytoscapeElements`/`neighborsOf`/`buildStylesheet`, canvas dynamic ssr:false, stabil-instance focus fade. Yeni dep cytoscape. 71/71 test. Görsel doğrulandı. Parked minor: stale-fade (bkz followups).
 
 ## Açık takip maddeleri
@@ -114,11 +115,15 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 
 ## Sırada
 
-Increment 6 = **Strategies** ekranı (öneri). Strateji yönetimi: strateji kartları (name/status/mode/
-win rate/profit factor/drawdown/net PnL), durumlar (Draft/Backtesting/Paper/Shadow/Live/Paused/Archived),
-strateji detayı (logic/entry-exit/risk/position sizing), ve "Create Strategy" no-code condition builder
-stepper (IF creator>75 & safety>70 & liquidity>25k THEN buy...). Seam'e `getStrategies`/`getStrategy` eklenir.
-**Not:** condition builder ağır olabilir; kapsam (kart+detay vs builder) spec'te netleşir. Onayınla spec→plan→SDD.
+**Önce:** `feat/strategies` branch'inin master'a merge'i (kullanıcı onayı bekliyor).
+
+Sonraki artım: Increment 7 = **Portfolio / Positions** ekranı. Portföy genel bakışı (toplam değer,
+realized/unrealized PnL, açık pozisyonlar tablosu, dağılım), pozisyon detayı. Seam'e `getPortfolio`/
+`getPositions` eklenir. Kendi spec → plan → SDD döngüsünden geçer.
+
+**Strategies devamı (sonraki artım, ertelendi):** "Create Strategy" no-code condition builder stepper
+(8 adım, IF creator>75 & safety>70 & liquidity>25k THEN buy...), strateji düzenle/deploy, live paper/shadow
+toggle, versiyon geri alma — Increment 6'da bilinçli kapsam dışıydı.
 
 Alternatif olarak backlog'daki **Ayarlar (API key) + Polymarket** entegrasyonuna da
 öncelik verilebilir (backend/secret-store bağımlılığı ile birlikte).

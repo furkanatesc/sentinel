@@ -137,3 +137,41 @@ export interface GraphEdge { id: string; source: string; target: string; type: G
 export interface WalletGraph { nodes: GraphNode[]; edges: GraphEdge[]; }
 export interface GraphFilters { relationships: GraphEdgeType[]; risks: RiskLevel[]; }
 export const EMPTY_GRAPH_FILTERS: GraphFilters = { relationships: [], risks: [] };
+
+// --- Strategies (Increment 6) ---
+export type StrategyStatus = "draft" | "backtesting" | "paper" | "shadow" | "live" | "paused" | "archived";
+export type ConditionOp = ">" | "<" | ">=" | "<=" | "==";
+
+export interface StrategyCondition { metric: string; op: ConditionOp; value: number; unit?: string; }
+
+export interface StrategyRow {
+  id: string; name: string; status: StrategyStatus; timeframe: string;
+  winRatePct: number; profitFactor: number; maxDrawdownPct: number; totalTrades: number;
+  netPnlSol: number; lastSignal: string;
+}
+
+export interface StrategyPerformance {
+  winRatePct: number; profitFactor: number; maxDrawdownPct: number; sharpe: number; sortino: number;
+  totalTrades: number; netPnlSol: number; expectancy: number;
+}
+
+export interface EquityPoint { t: number; v: number; }
+
+export interface BacktestSummary {
+  netPnlSol: number; winRatePct: number; profitFactor: number; sharpe: number; maxDrawdownPct: number;
+  trades: number; avgHoldingHours: number; rugExposurePct: number;
+}
+
+export interface StrategyVersion { version: string; date: string; note: string; }
+export interface AuditEntry { time: string; action: string; detail: string; }
+export interface StrategyRisk { riskPerTradePct: number; stopLossPct: number; takeProfitLevels: number[]; maxDrawdownStopPct: number; }
+export interface StrategySizing { model: string; sizePct: number; }
+
+export interface StrategyDetail {
+  id: string; name: string; status: StrategyStatus; timeframe: string; description: string;
+  entry: StrategyCondition[]; exit: StrategyCondition[];
+  risk: StrategyRisk; sizing: StrategySizing;
+  supportedLaunchpads: string[]; minScores: { creator: number; safety: number };
+  performance: StrategyPerformance; equityCurve: EquityPoint[]; backtest: BacktestSummary;
+  versions: StrategyVersion[]; audit: AuditEntry[];
+}

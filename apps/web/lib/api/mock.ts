@@ -3,7 +3,7 @@ import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
@@ -270,6 +270,92 @@ function buildCreator(addr: string): CreatorProfile {
 }
 const creators: CreatorRow[] = CREATOR_ADDRS.map(creatorRow);
 
+// --- Strategies (Increment 6) ---
+const STRATEGY_DEFS: { id: string; name: string; status: StrategyStatus; timeframe: string; desc: string }[] = [
+  { id: "momentum-scalp", name: "Momentum Scalp", status: "live", timeframe: "1-5 dk", desc: "Yeni mint sonrası ilk dakikalarda güçlü momentum + güvenli creator ararız." },
+  { id: "safe-graduation", name: "Güvenli Graduation", status: "paper", timeframe: "15-60 dk", desc: "Yüksek güvenlik skoru + kilitli likidite ile graduation adaylarını izler." },
+  { id: "creator-reputation", name: "Creator İtibar Takibi", status: "shadow", timeframe: "5-30 dk", desc: "Kanıtlanmış creator'ların yeni token'larına erken pozisyon." },
+  { id: "liquidity-breakout", name: "Likidite Kırılımı", status: "backtesting", timeframe: "1-10 dk", desc: "Ani likidite artışı + holder büyümesi kombinasyonu." },
+  { id: "anti-rug-filter", name: "Anti-Rug Filtre", status: "paused", timeframe: "10-45 dk", desc: "Düşük manipülasyon riski ve dağıtık holder tabanı şartı." },
+  { id: "legacy-sniper", name: "Eski Sniper v1", status: "archived", timeframe: "0-2 dk", desc: "Emekliye ayrılmış ilk nesil sniper mantığı." },
+];
+
+// Note: reuses the existing module-scoped `seedOf(s: string): number` helper (defined above,
+// used by buildDetail/buildEvent/creatorRow/etc.) rather than redeclaring a second `seedOf`,
+// which would otherwise collide with that existing const declaration.
+
+function equityCurve(seed: number, len = 40): EquityPoint[] {
+  const out: EquityPoint[] = [];
+  let v = 100;
+  for (let i = 0; i < len; i++) {
+    v += Math.sin(seed + i * 0.6) * 3 + ((seed * (i + 1)) % 5) - 1.8;
+    out.push({ t: i, v: Math.round(Math.max(20, v) * 100) / 100 });
+  }
+  return out;
+}
+
+function strategyEntry(seed: number): StrategyCondition[] {
+  return [
+    { metric: "creatorScore", op: ">", value: 70 + (seed % 20) },
+    { metric: "tokenSafety", op: ">", value: 65 + (seed % 15) },
+    { metric: "liquidity", op: ">", value: 20000 + (seed % 30) * 1000, unit: "USD" },
+    { metric: "holderGrowth5m", op: ">", value: 30 + (seed % 40), unit: "%" },
+  ];
+}
+function strategyExit(seed: number): StrategyCondition[] {
+  return [
+    { metric: "manipulationRisk", op: ">", value: 60 + (seed % 20) },
+    { metric: "momentum", op: "<", value: 20 + (seed % 15) },
+  ];
+}
+
+function strategyRow(def: (typeof STRATEGY_DEFS)[number]): StrategyRow {
+  const seed = seedOf(def.id);
+  return {
+    id: def.id, name: def.name, status: def.status, timeframe: def.timeframe,
+    winRatePct: 45 + (seed % 40), profitFactor: Math.round((1 + (seed % 25) / 10) * 100) / 100,
+    maxDrawdownPct: 8 + (seed % 25), totalTrades: 40 + (seed % 400),
+    netPnlSol: Math.round(((seed % 500) - 120) * 10) / 10, lastSignal: `${1 + (seed % 59)} dk önce`,
+  };
+}
+
+const strategyRows: StrategyRow[] = STRATEGY_DEFS.map(strategyRow);
+
+function buildStrategy(id: string): StrategyDetail {
+  const def = STRATEGY_DEFS.find((d) => d.id === id) ?? STRATEGY_DEFS[0];
+  const row = strategyRow(def);
+  const seed = seedOf(def.id);
+  return {
+    id: def.id, name: def.name, status: def.status, timeframe: def.timeframe, description: def.desc,
+    entry: strategyEntry(seed), exit: strategyExit(seed),
+    risk: { riskPerTradePct: 1 + (seed % 4), stopLossPct: 12 + (seed % 18), takeProfitLevels: [25, 60, 120], maxDrawdownStopPct: 20 + (seed % 15) },
+    sizing: { model: seed % 2 === 0 ? "Sabit %" : "Kelly kesirli", sizePct: 2 + (seed % 6) },
+    supportedLaunchpads: [LAUNCHPADS[seed % LAUNCHPADS.length], LAUNCHPADS[(seed + 2) % LAUNCHPADS.length]],
+    minScores: { creator: 60 + (seed % 25), safety: 55 + (seed % 30) },
+    performance: {
+      winRatePct: row.winRatePct, profitFactor: row.profitFactor, maxDrawdownPct: row.maxDrawdownPct,
+      sharpe: Math.round((0.8 + (seed % 20) / 10) * 100) / 100, sortino: Math.round((1 + (seed % 25) / 10) * 100) / 100,
+      totalTrades: row.totalTrades, netPnlSol: row.netPnlSol, expectancy: Math.round(((seed % 30) / 10 - 1) * 100) / 100,
+    },
+    equityCurve: equityCurve(seed),
+    backtest: {
+      netPnlSol: row.netPnlSol, winRatePct: row.winRatePct, profitFactor: row.profitFactor,
+      sharpe: Math.round((0.8 + (seed % 20) / 10) * 100) / 100, maxDrawdownPct: row.maxDrawdownPct,
+      trades: row.totalTrades, avgHoldingHours: 1 + (seed % 12), rugExposurePct: (seed % 8),
+    },
+    versions: [
+      { version: "v1.3", date: "2026-07-28", note: "Stop-loss %2 sıkılaştırıldı" },
+      { version: "v1.2", date: "2026-07-20", note: "Min creator skoru 70'e çıkarıldı" },
+      { version: "v1.0", date: "2026-07-05", note: "İlk yayın" },
+    ],
+    audit: [
+      { time: "2026-07-30 14:22", action: "Duraklatıldı", detail: "Drawdown eşiği aşıldı" },
+      { time: "2026-07-29 09:10", action: "Parametre güncellendi", detail: "Take-profit L2 %60" },
+      { time: "2026-07-28 18:45", action: "Yayınlandı", detail: "Shadow → Live" },
+    ],
+  };
+}
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
@@ -279,6 +365,8 @@ export const mockApi: SentinelApi = {
   getWalletGraph: () => delay(walletGraph),
   getCreators: () => delay(creators),
   getCreator: (address) => delay(buildCreator(address)),
+  getStrategies: () => delay(strategyRows),
+  getStrategy: (id) => delay(buildStrategy(id)),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();
