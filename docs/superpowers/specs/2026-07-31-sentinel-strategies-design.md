@@ -2,7 +2,7 @@
 ### Strategies (Liste + Read-only Detay)
 
 - **Tarih:** 2026-07-31
-- **Durum:** Onaylandı (2026-07-31) — plan yazıldı: `docs/superpowers/plans/2026-07-31-sentinel-frontend-increment-6-strategies.md`
+- **Durum:** Uygulandı (2026-08-01) — branch `feat/strategies` tamam (11 SDD task, 101/101 test, build + whole-branch review temiz, görsel doğrulandı); **master'a merge onayı bekliyor**. Plan: `docs/superpowers/plans/2026-07-31-sentinel-frontend-increment-6-strategies.md`
 - **Önkoşul:** Increment 1–5 master'da.
 - **Kaynaklar:** `docs/design/sentinel-ui-ux-design.md` (Ekran 6), `ROADMAP.md` (§8 strateji platformu), `docs/progress.md`.
 

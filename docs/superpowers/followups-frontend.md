@@ -63,3 +63,22 @@ her biri ileride ele alınacak. İlgili artıma etiketlendi.
 ## globals.css font notları — KAPANDI
 Final review doğruladı: `.font-mono` tek kez tanımlı ve `--font-sans` `@theme inline` içinde
 mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
+
+## Strategies (Increment 6)
+- **EquityCurve statik gradient id (Minor, deferred):** `EquityCurve.tsx` `<defs>` içinde sabit
+  `id="equity-grad"` kullanıyor; kopya alındığı `MiniChart` çakışmayı önlemek için id'yi renkten
+  türetiyor (`g-${color.slice(1)}`). Bugün sayfada tek curve olduğu için zararsız; deseni korumak için
+  id'yi türetilir/benzersiz yap. (Final review — Minor, 2026-07-31.)
+- **TileGrid DRY (Minor, deferred):** `grid grid-cols-2 gap-3 md:grid-cols-4` + `tiles.map(MetricTile)`
+  deseni `StrategyPerformancePanel`, `BacktestSummaryPanel` ve `StrategyDetailContent` risk/sizing
+  bloğunda tekrar ediyor. Küçük bir `TileGrid tiles={...}` presentational bileşeni tekrarı kaldırır
+  (erken soyutlama değil). Düşük öncelik. (Final review — Minor.)
+- **Detay not-found dalı yalnız backend'de ulaşılır (parked):** `StrategyDetailContent`'in
+  `isError`/"Strateji bulunamadı" dalı mock seam'de ulaşılamaz — `mockApi.getStrategy` bilinmeyen id
+  için `STRATEGY_DEFS[0]`'a düşüyor (creators/tokens ile tutarlı ileri-dönük savunma kodu). Gerçek
+  httpApi reject edene kadar test edilmiş davranış değil; mock'un yanına bir not düşülebilir. (Final review — parked.)
+- **Boş filtre sonucu mesajı yok (Minor):** `StrategiesListContent`'te bir durum filtresi hiç kart
+  bırakmazsa boş grid render olur; "sonuç yok" mesajı eklenebilir. (Final review — Minor.)
+- **mock buildStrategy strategyRow'u yeniden hesaplıyor (Minor):** `buildStrategy` precomputed
+  `strategyRows` dizisini kullanmak yerine her id için `strategyRow(def)`'i yeniden çağırıyor — saf,
+  deterministik, ucuz; httpApi'ye geçişte tek kaynaktan üretilebilir. (Task 1 — Minor.)
