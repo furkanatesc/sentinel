@@ -12,8 +12,8 @@ export function PnlByStrategyChart({ data }: { data: StrategyPnl[] }) {
           <BarChart data={data} layout="vertical" margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
             <XAxis type="number" hide />
             <YAxis type="category" dataKey="name" width={110} tick={{ fill: "#8A94A6", fontSize: 11 }} />
-            <Tooltip contentStyle={{ background: "#151C28", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            <Bar dataKey="pnlSol" radius={[0, 4, 4, 0]}>
+            <Tooltip contentStyle={{ background: "#151C28", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v) => [`${Number(v ?? 0)}`, "PnL (SOL)"]} />
+            <Bar dataKey="pnlSol" name="PnL (SOL)" radius={[0, 4, 4, 0]}>
               {data.map((d) => <Cell key={d.strategyId} fill={pnlColor(d.pnlSol)} />)}
             </Bar>
           </BarChart>

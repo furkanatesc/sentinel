@@ -11,8 +11,8 @@ export function WinLossChart({ data }: { data: WinLossBucket[] }) {
           <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <XAxis dataKey="label" tick={{ fill: "#8A94A6", fontSize: 10 }} interval={0} />
             <YAxis hide />
-            <Tooltip contentStyle={{ background: "#151C28", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            <Bar dataKey="count" fill="#7C5CFF" radius={[4, 4, 0, 0]} />
+            <Tooltip contentStyle={{ background: "#151C28", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} cursor={{ fill: "rgba(255,255,255,0.04)" }} formatter={(v) => [`${Number(v ?? 0)}`, "Adet"]} />
+            <Bar dataKey="count" name="Adet" fill="#7C5CFF" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

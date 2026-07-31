@@ -9,9 +9,9 @@ function renderList() {
 
 test("renders positions from the seam", async () => {
   renderList();
-  expect(screen.getByText("Pozisyonlar")).toBeInTheDocument();
-  // Rows resolve asynchronously from the data seam, so poll for them rather
-  // than asserting immediately after the (synchronous) heading render.
+  // The heading now renders only once data resolves (loading state shows a
+  // Skeleton instead), mirroring PortfolioContent — so wait for it too.
+  await waitFor(() => expect(screen.getByText("Pozisyonlar")).toBeInTheDocument());
   await waitFor(() => expect(screen.getAllByRole("row").length).toBeGreaterThan(1));
 });
 

@@ -381,11 +381,11 @@ const portfolioOverview: PortfolioOverview = (() => {
     strategyId: d.id, name: d.name, pnlSol: Math.round((Math.sin(seed + i) * 120 + (i % 3 === 2 ? -60 : 90)) * 10) / 10,
   }));
   const riskAllocation: AllocationSlice[] = [
-    { label: riskMeta.strong.label, pct: 34, color: riskMeta.strong.color },
-    { label: riskMeta.good.label, pct: 28, color: riskMeta.good.color },
-    { label: riskMeta.medium.label, pct: 22, color: riskMeta.medium.color },
-    { label: riskMeta.high.label, pct: 12, color: riskMeta.high.color },
-    { label: riskMeta.critical.label, pct: 4, color: riskMeta.critical.color },
+    { label: riskMeta.strong.label, pct: 34, color: "#2FD98B" },
+    { label: riskMeta.good.label, pct: 28, color: "#17B890" },
+    { label: riskMeta.medium.label, pct: 22, color: "#3E9BFF" },
+    { label: riskMeta.high.label, pct: 12, color: "#FFB020" },
+    { label: riskMeta.critical.label, pct: 4, color: "#F0476B" },
   ];
   const winLoss: WinLossBucket[] = [
     { label: "Büyük Kazanç", count: 14 }, { label: "Kazanç", count: 38 },
@@ -414,7 +414,7 @@ const positions: Position[] = POSITION_TOKENS.map((tok, i) => {
     entryPrice: entry, currentPrice: current, sizeSol: size,
     pnlSol: Math.round(size * (pnlPct / 100) * 10) / 10, pnlPct,
     stopLossPct: 12 + (seed % 10), takeProfitPct: 40 + (seed % 60),
-    tokenRisk: scoreToLevel(30 + (seed % 65)), creatorRisk: scoreToLevel(35 + ((seed * 3) % 60)),
+    tokenRisk: scoreToLevel(10 + (seed % 85)), creatorRisk: scoreToLevel(35 + ((seed * 3) % 60)),
     ageLabel: `${1 + (seed % 46)} dk`, openedAt: `${1 + (seed % 46)} dk önce`,
   };
 });
