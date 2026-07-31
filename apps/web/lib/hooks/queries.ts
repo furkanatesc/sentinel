@@ -30,3 +30,9 @@ export function useCreators() {
 export function useCreator(address: string) {
   return useQuery({ queryKey: qk.creator(address), queryFn: () => getApi().getCreator(address) });
 }
+export function useStrategies() {
+  return useQuery({ queryKey: qk.strategies, queryFn: () => getApi().getStrategies() });
+}
+export function useStrategy(id: string) {
+  return useQuery({ queryKey: qk.strategy(id), queryFn: () => getApi().getStrategy(id) });
+}

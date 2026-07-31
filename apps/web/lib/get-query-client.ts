@@ -16,4 +16,6 @@ export const qk = {
   walletGraph: ["wallet-graph"] as const,
   creators: ["creators"] as const,
   creator: (address: string) => ["creator", address] as const,
+  strategies: ["strategies"] as const,
+  strategy: (id: string) => ["strategy", id] as const,
 };
