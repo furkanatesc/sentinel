@@ -12,7 +12,7 @@ export function RiskAllocationChart({ data }: { data: AllocationSlice[] }) {
             <Pie data={data} dataKey="pct" nameKey="label" innerRadius={55} outerRadius={85} paddingAngle={2} stroke="#0B0F17" strokeWidth={2}>
               {data.map((d) => <Cell key={d.label} fill={d.color} />)}
             </Pie>
-            <Tooltip contentStyle={{ background: "#151C28", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(v: number, n) => [`%${v}`, n]} />
+            <Tooltip contentStyle={{ background: "#151C28", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} formatter={(v, n) => [`%${Number(v ?? 0)}`, n ?? ""]} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
           </PieChart>
         </ResponsiveContainer>
