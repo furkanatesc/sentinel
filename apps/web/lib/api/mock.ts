@@ -1,9 +1,9 @@
 import type { SentinelApi } from "./contract";
 import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
-import { scoreToLevel, formatUsd } from "@/lib/format";
+import { scoreToLevel, formatUsd, riskMeta } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
@@ -356,6 +356,69 @@ function buildStrategy(id: string): StrategyDetail {
   };
 }
 
+// --- Portfolio & Positions (Increment 7) ---
+function portfolioEquity(seed: number, len = 40): EquityPoint[] {
+  const out: EquityPoint[] = [];
+  let v = 500;
+  for (let i = 0; i < len; i++) {
+    v += Math.sin(seed + i * 0.5) * 12 + ((seed * (i + 1)) % 9) - 4;
+    out.push({ t: i, v: Math.round(Math.max(50, v) * 100) / 100 });
+  }
+  return out;
+}
+
+const portfolioOverview: PortfolioOverview = (() => {
+  const seed = 4242;
+  const invested = 640, available = 210;
+  const unrealized = 84.5, realized = 312.7, daily = -18.2;
+  const summary: PortfolioSummary = {
+    totalValueSol: Math.round((invested + available + unrealized) * 10) / 10,
+    availableSol: available, investedSol: invested,
+    realizedPnlSol: realized, unrealizedPnlSol: unrealized, dailyPnlSol: daily,
+    maxDrawdownPct: 22, riskExposurePct: 68, rugExposurePct: 4,
+  };
+  const pnlByStrategy: StrategyPnl[] = STRATEGY_DEFS.slice(0, 5).map((d, i) => ({
+    strategyId: d.id, name: d.name, pnlSol: Math.round((Math.sin(seed + i) * 120 + (i % 3 === 2 ? -60 : 90)) * 10) / 10,
+  }));
+  const riskAllocation: AllocationSlice[] = [
+    { label: riskMeta.strong.label, pct: 34, color: riskMeta.strong.color },
+    { label: riskMeta.good.label, pct: 28, color: riskMeta.good.color },
+    { label: riskMeta.medium.label, pct: 22, color: riskMeta.medium.color },
+    { label: riskMeta.high.label, pct: 12, color: riskMeta.high.color },
+    { label: riskMeta.critical.label, pct: 4, color: riskMeta.critical.color },
+  ];
+  const winLoss: WinLossBucket[] = [
+    { label: "Büyük Kazanç", count: 14 }, { label: "Kazanç", count: 38 },
+    { label: "Başabaş", count: 9 }, { label: "Kayıp", count: 21 }, { label: "Büyük Kayıp", count: 6 },
+  ];
+  return { summary, equityCurve: portfolioEquity(seed), pnlByStrategy, riskAllocation, winLoss };
+})();
+
+const POSITION_TOKENS: { symbol: string; mint: string }[] = [
+  { symbol: "PULSE", mint: "9xQeWv...4Fk2" }, { symbol: "LMN", mint: "Cd93Kf...6Rt4" },
+  { symbol: "HLS", mint: "Hh77Nb...2Kl9" }, { symbol: "PXL", mint: "Ii22Vc...5Dw3" },
+  { symbol: "MCAT", mint: "Ff01Xq...3Bn7" }, { symbol: "NOVA", mint: "Ap12Rd...9Zk1" },
+  { symbol: "ZAP", mint: "Gg44Lm...8Yu2" }, { symbol: "GFROG", mint: "7mLp2c...1Qw8" },
+];
+
+const positions: Position[] = POSITION_TOKENS.map((tok, i) => {
+  const strat = STRATEGY_DEFS[i % STRATEGY_DEFS.length];
+  const seed = seedOf(tok.symbol + strat.id);
+  const entry = Math.round((0.0004 + (seed % 90) / 100000) * 1e6) / 1e6;
+  const pnlPct = ((seed % 160) - 60);
+  const current = Math.round(entry * (1 + pnlPct / 100) * 1e6) / 1e6;
+  const size = 4 + (seed % 30);
+  return {
+    id: `pos-${i + 1}`, tokenMint: tok.mint, tokenSymbol: tok.symbol,
+    strategyId: strat.id, strategyName: strat.name,
+    entryPrice: entry, currentPrice: current, sizeSol: size,
+    pnlSol: Math.round(size * (pnlPct / 100) * 10) / 10, pnlPct,
+    stopLossPct: 12 + (seed % 10), takeProfitPct: 40 + (seed % 60),
+    tokenRisk: scoreToLevel(30 + (seed % 65)), creatorRisk: scoreToLevel(35 + ((seed * 3) % 60)),
+    ageLabel: `${1 + (seed % 46)} dk`, openedAt: `${1 + (seed % 46)} dk önce`,
+  };
+});
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
@@ -367,6 +430,8 @@ export const mockApi: SentinelApi = {
   getCreator: (address) => delay(buildCreator(address)),
   getStrategies: () => delay(strategyRows),
   getStrategy: (id) => delay(buildStrategy(id)),
+  getPortfolio: () => delay(portfolioOverview),
+  getPositions: () => delay(positions),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();

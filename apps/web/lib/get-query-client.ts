@@ -18,4 +18,6 @@ export const qk = {
   creator: (address: string) => ["creator", address] as const,
   strategies: ["strategies"] as const,
   strategy: (id: string) => ["strategy", id] as const,
+  portfolio: ["portfolio"] as const,
+  positions: ["positions-list"] as const,
 };

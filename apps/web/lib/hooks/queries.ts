@@ -36,3 +36,9 @@ export function useStrategies() {
 export function useStrategy(id: string) {
   return useQuery({ queryKey: qk.strategy(id), queryFn: () => getApi().getStrategy(id) });
 }
+export function usePortfolio() {
+  return useQuery({ queryKey: qk.portfolio, queryFn: () => getApi().getPortfolio() });
+}
+export function usePositions() {
+  return useQuery({ queryKey: qk.positions, queryFn: () => getApi().getPositions() });
+}

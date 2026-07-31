@@ -175,3 +175,29 @@ export interface StrategyDetail {
   performance: StrategyPerformance; equityCurve: EquityPoint[]; backtest: BacktestSummary;
   versions: StrategyVersion[]; audit: AuditEntry[];
 }
+
+// --- Portfolio & Positions (Increment 7) ---
+export interface PortfolioSummary {
+  totalValueSol: number; availableSol: number; investedSol: number;
+  realizedPnlSol: number; unrealizedPnlSol: number; dailyPnlSol: number;
+  maxDrawdownPct: number; riskExposurePct: number; rugExposurePct: number;
+}
+export interface StrategyPnl { strategyId: string; name: string; pnlSol: number; }
+export interface AllocationSlice { label: string; pct: number; color: string; }
+export interface WinLossBucket { label: string; count: number; }
+export interface PortfolioOverview {
+  summary: PortfolioSummary;
+  equityCurve: EquityPoint[];
+  pnlByStrategy: StrategyPnl[];
+  riskAllocation: AllocationSlice[];
+  winLoss: WinLossBucket[];
+}
+export interface Position {
+  id: string; tokenMint: string; tokenSymbol: string;
+  strategyId: string; strategyName: string;
+  entryPrice: number; currentPrice: number; sizeSol: number;
+  pnlSol: number; pnlPct: number;
+  stopLossPct: number; takeProfitPct: number;
+  tokenRisk: RiskLevel; creatorRisk: RiskLevel;
+  ageLabel: string; openedAt: string;
+}
