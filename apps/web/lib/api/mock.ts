@@ -464,6 +464,9 @@ const orders: Order[] = POSITION_TOKENS.slice(0, 6).map((t, i) => {
     amountSol: 5 + (seed % 25), createdAt: `${2 + (seed % 40)} dk önce`,
   };
 });
+// Guarantee at least one deterministically "open" order so the cancel (İptal) flow
+// always has something to exercise, regardless of how the seed-derived status lands.
+orders[0].status = "open";
 
 const TXN_KINDS = ["buy", "sell", "approve"] as const;
 const TXN_STATUSES = ["success", "pending", "failed"] as const;

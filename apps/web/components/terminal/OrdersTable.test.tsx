@@ -11,8 +11,7 @@ test("lists orders and cancels an open one with a simulate toast", async () => {
   render(<QueryClientProvider client={getQueryClient()}><OrdersTable /></QueryClientProvider>);
   await waitFor(() => expect(screen.getAllByText(/Al|Sat/).length).toBeGreaterThan(0));
   const cancelButtons = screen.queryAllByRole("button", { name: "İptal" });
-  if (cancelButtons.length > 0) {
-    fireEvent.click(cancelButtons[0]);
-    expect(toast).toHaveBeenCalled();
-  }
+  expect(cancelButtons.length).toBeGreaterThan(0);
+  fireEvent.click(cancelButtons[0]);
+  expect(toast).toHaveBeenCalled();
 });

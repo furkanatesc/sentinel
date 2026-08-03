@@ -62,6 +62,7 @@ export function OrderPanel({ mint }: { mint: string }) {
         </>
       )}
 
+      {/* sizePct is captured in the draft but not yet wired into sizing/exit logic (future increment). */}
       <NumberField id="size" label="Pozisyon %" value={draft.sizePct} onChange={(v) => set({ sizePct: v })} />
       <NumberField id="slippage" label="Slippage %" value={draft.slippagePct} onChange={(v) => set({ slippagePct: v })} />
       {errors.slippagePct && <span style={{ fontSize: 11, color: "#F0476B" }}>{errors.slippagePct}</span>}
@@ -71,6 +72,7 @@ export function OrderPanel({ mint }: { mint: string }) {
       {errors.stopLossPct && <span style={{ fontSize: 11, color: "#F0476B" }}>{errors.stopLossPct}</span>}
       <NumberField id="tp" label="Take-Profit %" value={draft.takeProfitPct ?? 0} onChange={(v) => set({ takeProfitPct: v })} />
       {errors.takeProfitPct && <span style={{ fontSize: 11, color: "#F0476B" }}>{errors.takeProfitPct}</span>}
+      {/* trailingPct is captured in the draft but not yet wired into sizing/exit logic (future increment). */}
       <NumberField id="trail" label="Trailing %" value={draft.trailingPct ?? 0} onChange={(v) => set({ trailingPct: v })} />
 
       <div className="mt-auto rounded-md border border-border p-2" style={{ fontSize: 12 }}>
