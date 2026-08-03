@@ -36,7 +36,7 @@ export function OrderPanel({ mint }: { mint: string }) {
       <div className="flex gap-1">
         {ORDER_SIDE_DEFS.map((s) => (
           <button key={s.key} onClick={() => set({ side: s.key })}
-            className={cn("flex-1 rounded-md px-2 py-1.5", draft.side === s.key && "text-black")}
+            className="flex-1 rounded-md px-2 py-1.5"
             style={{ fontSize: 12, fontWeight: 600, backgroundColor: draft.side === s.key ? s.color : "transparent", color: draft.side === s.key ? "#08210F" : s.color, border: `1px solid ${s.color}` }}>
             {s.label}
           </button>
@@ -66,8 +66,11 @@ export function OrderPanel({ mint }: { mint: string }) {
       <NumberField id="slippage" label="Slippage %" value={draft.slippagePct} onChange={(v) => set({ slippagePct: v })} />
       {errors.slippagePct && <span style={{ fontSize: 11, color: "#F0476B" }}>{errors.slippagePct}</span>}
       <NumberField id="fee" label="Öncelik Ücreti (SOL)" value={draft.priorityFee} onChange={(v) => set({ priorityFee: v })} />
+      {errors.priorityFee && <span style={{ fontSize: 11, color: "#F0476B" }}>{errors.priorityFee}</span>}
       <NumberField id="sl" label="Stop-Loss %" value={draft.stopLossPct ?? 0} onChange={(v) => set({ stopLossPct: v })} />
+      {errors.stopLossPct && <span style={{ fontSize: 11, color: "#F0476B" }}>{errors.stopLossPct}</span>}
       <NumberField id="tp" label="Take-Profit %" value={draft.takeProfitPct ?? 0} onChange={(v) => set({ takeProfitPct: v })} />
+      {errors.takeProfitPct && <span style={{ fontSize: 11, color: "#F0476B" }}>{errors.takeProfitPct}</span>}
       <NumberField id="trail" label="Trailing %" value={draft.trailingPct ?? 0} onChange={(v) => set({ trailingPct: v })} />
 
       <div className="mt-auto rounded-md border border-border p-2" style={{ fontSize: 12 }}>
