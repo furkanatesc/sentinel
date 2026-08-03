@@ -1,4 +1,4 @@
-import type { Kpi, TokenRow, AlertEvent, RadarPoint, TokenDetail, FeedEvent, WalletGraph, CreatorRow, CreatorProfile, StrategyRow, StrategyDetail, PortfolioOverview, Position, Candle, MarketData, Order, Txn, TradeLog } from "./types";
+import type { Kpi, TokenRow, AlertEvent, RadarPoint, TokenDetail, FeedEvent, WalletGraph, CreatorRow, CreatorProfile, StrategyRow, StrategyDetail, PortfolioOverview, Position, Candle, MarketData, Order, Txn, TradeLog, BacktestParams, BacktestResult } from "./types";
 
 export interface SentinelApi {
   getKpis(): Promise<Kpi[]>;
@@ -19,6 +19,7 @@ export interface SentinelApi {
   getOrders(): Promise<Order[]>;
   getTransactions(): Promise<Txn[]>;
   getTradeLogs(): Promise<TradeLog[]>;
+  runBacktest(params: BacktestParams): Promise<BacktestResult>;
   /** Real-time seam — mock: interval, http: WebSocket. Returns unsubscribe fn. */
   subscribeTokens(cb: (tokens: TokenRow[]) => void): () => void;
   subscribeAlerts(cb: (alert: AlertEvent) => void): () => void;

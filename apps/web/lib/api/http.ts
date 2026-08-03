@@ -23,6 +23,7 @@ export const httpApi: SentinelApi = {
   getOrders: notReady,
   getTransactions: notReady,
   getTradeLogs: notReady,
+  runBacktest: notReady,
   subscribeTokens: () => () => {},
   subscribeAlerts: () => () => {},
   subscribeEvents: () => () => {},

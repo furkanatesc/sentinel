@@ -223,3 +223,31 @@ export interface Txn {
   tokenSymbol: string; amountSol: number; status: "success" | "pending" | "failed"; time: string;
 }
 export interface TradeLog { id: string; level: "info" | "warn" | "error"; message: string; time: string; }
+
+// --- Backtesting (Increment 9) ---
+export interface BacktestParams {
+  strategyId: string; rangePreset: string;
+  initialCapitalSol: number; maxPositions: number;
+  slippageModel: string; priorityFee: number;
+  latencyModel: string; liquidityModel: string;
+  minCreatorScore: number; minTokenSafety: number;
+}
+export interface BacktestMetrics {
+  netPnlSol: number; winRatePct: number; profitFactor: number; sharpe: number; sortino: number;
+  maxDrawdownPct: number; avgTradeSol: number; rugExposurePct: number; trades: number; avgHoldingHours: number;
+}
+export interface MonthlyReturn { label: string; pct: number; }
+export interface DistributionBucket { label: string; count: number; }
+export interface ScorePnl { scoreBucket: string; pnlSol: number; }
+export interface DrawdownPoint { t: number; v: number; }
+export interface BacktestTrade { time: number; price: number; side: "buy" | "sell"; pnlSol: number; }
+export interface BacktestResult {
+  metrics: BacktestMetrics;
+  equityCurve: EquityPoint[];
+  drawdown: DrawdownPoint[];
+  monthlyReturns: MonthlyReturn[];
+  tradeDistribution: DistributionBucket[];
+  pnlByScore: ScorePnl[];
+  priceSeries: EquityPoint[];
+  trades: BacktestTrade[];
+}

@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getApi } from "@/lib/api";
 import { qk } from "@/lib/get-query-client";
+import type { BacktestParams } from "@/lib/api/types";
 
 export function useKpis() {
   return useQuery({ queryKey: qk.kpis, queryFn: () => getApi().getKpis() });
@@ -56,4 +57,12 @@ export function useTransactions() {
 }
 export function useTradeLogs() {
   return useQuery({ queryKey: qk.tradeLogs, queryFn: () => getApi().getTradeLogs() });
+}
+
+export function useBacktest(params: BacktestParams | null) {
+  return useQuery({
+    queryKey: params ? qk.backtest(params) : ["backtest", "idle"],
+    queryFn: () => getApi().runBacktest(params as BacktestParams),
+    enabled: !!params,
+  });
 }

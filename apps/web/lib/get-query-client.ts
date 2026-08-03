@@ -25,4 +25,5 @@ export const qk = {
   orders: ["orders"] as const,
   transactions: ["transactions"] as const,
   tradeLogs: ["trade-logs"] as const,
+  backtest: (params: import("./api/types").BacktestParams) => ["backtest", JSON.stringify(params)] as const,
 };
