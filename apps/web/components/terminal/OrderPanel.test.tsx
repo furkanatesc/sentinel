@@ -30,9 +30,6 @@ test("priority fee error is displayed and disables preview", async () => {
   renderPanel();
   const fee = await screen.findByLabelText("Öncelik Ücreti (SOL)");
   fireEvent.change(fee, { target: { value: "-1" } });
-  // Wait for error message to appear (may have different exact text based on validation)
-  await waitFor(() => {
-    const previewBtn = screen.getByRole("button", { name: "Önizle" });
-    expect(previewBtn).toBeDisabled();
-  });
+  expect(screen.getByText("Öncelik ücreti negatif olamaz")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Önizle" })).toBeDisabled();
 });
