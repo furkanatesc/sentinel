@@ -201,3 +201,25 @@ export interface Position {
   tokenRisk: RiskLevel; creatorRisk: RiskLevel;
   ageLabel: string; openedAt: string;
 }
+
+// --- Trading Terminal (Increment 8) ---
+export interface Candle { time: number; open: number; high: number; low: number; close: number; }
+export interface MarketData {
+  mint: string; symbol: string;
+  price: number; change24hPct: number;
+  liquiditySol: number; volume24hSol: number; marketCapSol: number;
+  tokenScore: number; creatorScore: number;
+}
+export type OrderSide = "buy" | "sell";
+export type OrderType = "market" | "limit";
+export type OrderStatus = "open" | "filled" | "cancelled";
+export interface Order {
+  id: string; tokenSymbol: string; tokenMint: string;
+  side: OrderSide; type: OrderType; status: OrderStatus;
+  price: number; amountSol: number; createdAt: string;
+}
+export interface Txn {
+  id: string; hash: string; kind: "buy" | "sell" | "approve";
+  tokenSymbol: string; amountSol: number; status: "success" | "pending" | "failed"; time: string;
+}
+export interface TradeLog { id: string; level: "info" | "warn" | "error"; message: string; time: string; }
