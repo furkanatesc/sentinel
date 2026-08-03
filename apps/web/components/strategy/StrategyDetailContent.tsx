@@ -6,7 +6,7 @@ import { StatusBadge } from "./StatusBadge";
 import { ConditionList } from "./ConditionList";
 import { StrategyPerformancePanel } from "./StrategyPerformancePanel";
 import { BacktestSummaryPanel } from "./BacktestSummaryPanel";
-import { EquityCurve } from "./EquityCurve";
+import { EquityCurve } from "@/components/sentinel/EquityCurve";
 import { VersionHistory } from "./VersionHistory";
 import { AuditLog } from "./AuditLog";
 

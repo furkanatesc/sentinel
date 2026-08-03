@@ -1,4 +1,4 @@
-import type { Kpi, TokenRow, AlertEvent, RadarPoint, TokenDetail, FeedEvent, WalletGraph, CreatorRow, CreatorProfile, StrategyRow, StrategyDetail } from "./types";
+import type { Kpi, TokenRow, AlertEvent, RadarPoint, TokenDetail, FeedEvent, WalletGraph, CreatorRow, CreatorProfile, StrategyRow, StrategyDetail, PortfolioOverview, Position } from "./types";
 
 export interface SentinelApi {
   getKpis(): Promise<Kpi[]>;
@@ -12,6 +12,8 @@ export interface SentinelApi {
   getCreator(address: string): Promise<CreatorProfile>;
   getStrategies(): Promise<StrategyRow[]>;
   getStrategy(id: string): Promise<StrategyDetail>;
+  getPortfolio(): Promise<PortfolioOverview>;
+  getPositions(): Promise<Position[]>;
   /** Real-time seam — mock: interval, http: WebSocket. Returns unsubscribe fn. */
   subscribeTokens(cb: (tokens: TokenRow[]) => void): () => void;
   subscribeAlerts(cb: (alert: AlertEvent) => void): () => void;
