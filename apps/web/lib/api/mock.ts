@@ -502,7 +502,7 @@ const BT_SCORE_BUCKETS = ["0-24", "25-49", "50-69", "70-84", "85-100"];
 function runBacktestResult(p: BacktestParams): BacktestResult {
   const seed = seedOf(
     p.strategyId + p.rangePreset + p.initialCapitalSol + p.maxPositions +
-    p.slippageModel + p.latencyModel + p.liquidityModel + p.minCreatorScore + p.minTokenSafety
+    p.slippageModel + p.priorityFee + p.latencyModel + p.liquidityModel + p.minCreatorScore + p.minTokenSafety
   );
   const trades = 40 + (seed % 300);
   const netPnl = (seed % 200) - 60 + p.initialCapitalSol * 0.1;

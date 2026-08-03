@@ -17,6 +17,12 @@ test("runBacktest is params-sensitive", async () => {
   expect(a.metrics.netPnlSol).not.toBe(b.metrics.netPnlSol);
 });
 
+test("runBacktest is sensitive to priorityFee alone", async () => {
+  const a = await mockApi.runBacktest(base);
+  const b = await mockApi.runBacktest({ ...base, priorityFee: base.priorityFee + 0.05 });
+  expect(a.metrics.netPnlSol).not.toBe(b.metrics.netPnlSol);
+});
+
 test("runBacktest returns full metrics + series + trades", async () => {
   const r = await mockApi.runBacktest(base);
   expect(r.metrics.trades).toBeGreaterThan(0);
