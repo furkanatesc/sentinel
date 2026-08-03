@@ -7,6 +7,7 @@ import type { Position } from "@/lib/api/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PositionsTable, type SortKey } from "./PositionsTable";
 import { PositionDetailDrawer } from "./PositionDetailDrawer";
+import { sortPositions } from "@/lib/position/sort";
 
 export function PositionsContent() {
   const { data, isError } = usePositions();
@@ -17,9 +18,10 @@ export function PositionsContent() {
   if (isError) return <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">Pozisyonlar yüklenemedi.</div>;
   if (!data) return <div className="space-y-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-56 w-full" /></div>;
 
-  const rows = data
-    .filter((p) => (risk ? p.tokenRisk === risk : true))
-    .sort((a, b) => (sortKey === "ageLabel" ? parseInt(b.ageLabel, 10) - parseInt(a.ageLabel, 10) : (b[sortKey] as number) - (a[sortKey] as number)));
+  const rows = sortPositions(
+    data.filter((p) => (risk ? p.tokenRisk === risk : true)),
+    sortKey
+  );
 
   return (
     <div className="space-y-4">

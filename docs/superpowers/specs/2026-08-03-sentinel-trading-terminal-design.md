@@ -2,7 +2,7 @@
 ### Trading Terminal
 
 - **Tarih:** 2026-08-03
-- **Durum:** Onaylandı (2026-08-03) — plan yazılacak.
+- **Durum:** Uygulandı (2026-08-03) — branch `feat/terminal`, 147/147 test, build + whole-branch review + fix wave temiz, görsel doğrulandı; master merge onayı bekliyor. Plan: `docs/superpowers/plans/2026-08-03-sentinel-frontend-increment-8-trading-terminal.md`. SDD ledger: `.superpowers/sdd/2026-08-03-sentinel-frontend-increment-8-trading-terminal/progress.md`.
 - **Önkoşul:** Increment 1–7 master'da (Portfolio/Positions dahil).
 - **Kaynaklar:** `docs/design/sentinel-ui-ux-design.md` (Ekran 7: Trading Terminal + Güvenlik UX'i), `ROADMAP.md` (§7 Trading engine), `docs/progress.md`.
 

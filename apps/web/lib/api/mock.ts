@@ -3,7 +3,7 @@ import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd, riskMeta } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position, Candle, MarketData, Order, OrderStatus, Txn, TradeLog } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
@@ -419,6 +419,81 @@ const positions: Position[] = POSITION_TOKENS.map((tok, i) => {
   };
 });
 
+// --- Trading Terminal (Increment 8) ---
+const px = (n: number) => Math.round(n * 1e6) / 1e6;
+
+function buildCandles(mint: string): Candle[] {
+  const seed = seedOf(mint);
+  const out: Candle[] = [];
+  let base = 0.001 + (seed % 60) / 20000;
+  for (let i = 0; i < 60; i++) {
+    const open = base;
+    const drift = Math.sin(seed + i * 0.7) * base * 0.05 + (((seed * (i + 1)) % 7) - 3) * base * 0.01;
+    const close = Math.max(base * 0.4, open + drift);
+    const high = Math.max(open, close) * (1 + ((seed + i) % 4) / 100);
+    const low = Math.min(open, close) * (1 - ((seed + i) % 3) / 100);
+    out.push({ time: 1_700_000_000 + i * 300, open: px(open), high: px(high), low: px(low), close: px(close) });
+    base = close;
+  }
+  return out;
+}
+
+function buildMarketData(mint: string): MarketData {
+  const q = mint.toLowerCase();
+  const row = tokens.find((t) => t.mint.toLowerCase() === q || t.symbol.toLowerCase() === q || t.id.toLowerCase() === q) ?? tokens[0];
+  const seed = seedOf(row.mint);
+  return {
+    mint: row.mint, symbol: row.symbol,
+    price: row.price, change24hPct: (seed % 40) - 15,
+    liquiditySol: Math.round(row.liquidity / 100),
+    volume24hSol: Math.round((row.vol5m * 12) / 100),
+    marketCapSol: Math.round((row.liquidity * 4) / 100),
+    tokenScore: row.safetyScore, creatorScore: row.creatorScore,
+  };
+}
+
+const ORDER_STATUSES: OrderStatus[] = ["open", "filled", "cancelled"];
+const orders: Order[] = POSITION_TOKENS.slice(0, 6).map((t, i) => {
+  const seed = seedOf(t.mint) + i;
+  return {
+    id: `ord-${i + 1}`, tokenSymbol: t.symbol, tokenMint: t.mint,
+    side: seed % 2 === 0 ? "buy" : "sell",
+    type: seed % 3 === 0 ? "limit" : "market",
+    status: ORDER_STATUSES[seed % 3],
+    price: px(0.001 + (seed % 40) / 10000),
+    amountSol: 5 + (seed % 25), createdAt: `${2 + (seed % 40)} dk önce`,
+  };
+});
+// Guarantee at least one deterministically "open" order so the cancel (İptal) flow
+// always has something to exercise, regardless of how the seed-derived status lands.
+orders[0].status = "open";
+
+const TXN_KINDS = ["buy", "sell", "approve"] as const;
+const TXN_STATUSES = ["success", "pending", "failed"] as const;
+const transactions: Txn[] = POSITION_TOKENS.map((t, i) => {
+  const seed = seedOf(t.mint) + i * 3;
+  return {
+    id: `tx-${i + 1}`,
+    hash: `${t.mint.slice(0, 4)}${seed.toString(16)}...${(seed * 7).toString(16).slice(-4)}`,
+    kind: TXN_KINDS[seed % 3], tokenSymbol: t.symbol, amountSol: 3 + (seed % 30),
+    status: TXN_STATUSES[seed % 3], time: `${1 + (seed % 55)} dk önce`,
+  };
+});
+
+const LOG_MESSAGES = [
+  "Sinyal alındı: momentum eşiği aşıldı",
+  "Emir simülasyonu tamamlandı",
+  "Likidite kontrolü geçti",
+  "Creator skoru güncellendi",
+  "Slippage toleransı yeniden hesaplandı",
+  "Risk limiti kontrolü: uygun",
+];
+const LOG_LEVELS = ["info", "warn", "error"] as const;
+const tradeLogs: TradeLog[] = Array.from({ length: 10 }, (_, i) => {
+  const seed = 41 + i * 7;
+  return { id: `log-${i + 1}`, level: LOG_LEVELS[seed % 3], message: LOG_MESSAGES[i % LOG_MESSAGES.length], time: `${i * 2 + 1} dk önce` };
+});
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
@@ -432,6 +507,11 @@ export const mockApi: SentinelApi = {
   getStrategy: (id) => delay(buildStrategy(id)),
   getPortfolio: () => delay(portfolioOverview),
   getPositions: () => delay(positions),
+  getCandles: (mint) => delay(buildCandles(mint)),
+  getMarketData: (mint) => delay(buildMarketData(mint)),
+  getOrders: () => delay(orders),
+  getTransactions: () => delay(transactions),
+  getTradeLogs: () => delay(tradeLogs),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();

@@ -20,4 +20,9 @@ export const qk = {
   strategy: (id: string) => ["strategy", id] as const,
   portfolio: ["portfolio"] as const,
   positions: ["positions-list"] as const,
+  candles: (mint: string) => ["candles", mint] as const,
+  marketData: (mint: string) => ["market-data", mint] as const,
+  orders: ["orders"] as const,
+  transactions: ["transactions"] as const,
+  tradeLogs: ["trade-logs"] as const,
 };

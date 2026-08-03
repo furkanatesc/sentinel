@@ -102,3 +102,33 @@ mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
 - **CI hijyeni tekrar teyit (typecheck script):** Task 13'te `next build` tsc'si, vitest'in kaçırdığı bir
   Recharts `Formatter` tip hatasını yakaladı (RiskAllocationChart tooltip). `"typecheck": "tsc --noEmit"`
   script'i build'den önce tsc-only hataları yakalardı — yukarıdaki CI hijyeni maddesini pekiştirir. (Task 13.)
+
+## Trading Terminal (Increment 8)
+- **Order paneli sağ kolonu dar viewport'ta kırpılıyor (Minor, deferred — görsel doğrulama 2026-08-03):**
+  `TerminalContent` grid'i `lg:grid-cols-[220px_1fr_300px]`; sidebar + içerik dar kaldığında sağ order
+  paneli (300px) yatayda kısmen görünüm dışına taşar. Build/işlev etkilenmez; daha küçük min genişlik,
+  order panelini alta yığma (md breakpoint) veya `1fr`'yi daraltma ile iyileştirilebilir. Mobilde tam
+  terminal zaten kapsam dışı. (Görsel doğrulama — Minor.)
+- **`lightweight-charts` v4 → v5 yükseltme notu (deferred):** `^4.2.3` pinli; v5 seri API'sini değiştirdi
+  (`addCandlestickSeries` → `chart.addSeries(CandlestickSeries, ...)`). İleride v5'e geçilirse
+  `PriceChartCanvas.tsx` + test mock'u güncellenmeli. (Task 6 — deferred.)
+- **`series.setData(candles as never)` geniş cast (Minor, deferred):** lightweight-charts'ın markalı
+  `CandlestickData` tipi yerine `as never` kullanılıyor; tek çağrı, runtime riski yok. Dar bir yapısal
+  cast (`CandlestickData[]`) tip güvenliğini korurdu. (Task 6 — Minor.)
+- **`[candles]` effect chart'ı tümden yeniden kurar (Minor, deferred):** `PriceChartCanvas` her yeni
+  `candles` referansında chart'ı `remove()` + `createChart` ile yeniden yaratıyor (WalletGraphCanvas
+  konvansiyonuyla tutarlı). `candles` per-mint stabil olduğu için nadir; sık güncellemede `series.setData`
+  ile in-place güncelleme perf iyileştirmesi olur. (Task 6 — Minor.)
+- **Order-form hata `<span>`'leri `aria-describedby` taşımıyor (Minor, a11y):** Her alanın hata mesajı
+  görsel var ama input'una `aria-describedby`/`role="alert"` ile bağlı değil; ekran okuyucu bağlamda
+  duyurmaz. Erişilebilirlik follow-up'ı. (Task 8 — Minor.)
+- **`sizePct`/`trailingPct` inert (kasıtlı, yorumlandı):** Order formunda "Pozisyon %" ve "Trailing %"
+  alanları draft'a yazılıyor ama sizing/exit mantığına bağlı değil (gelecek artım). Kod yorumla işaretli;
+  gerçek trade/otomatik-exit backend'i gelince devreye girecek. (Final review — kasıtlı.)
+- **`onRowClick={() => {}}` no-op (kasıtlı, yorumlandı):** Terminal alt Pozisyonlar sekmesinde satır
+  tıklaması detay drawer açmaz (terminal bağlamında bilinçle atlandı; drawer `/positions` ekranında var).
+  Kod yorumla işaretli. (Final review — kasıtlı.)
+- **`Txn.kind`/`Txn.status` inline union, `buildMarketData` tokens[0] fallback (Minor, plan-mandated):**
+  `Order` named type'lar kullanırken `Txn`'de inline union; `buildMarketData` bilinmeyen mint'te reject
+  yerine `tokens[0]`'a düşer (UI'da ulaşılmaz — activeMint hep geçerli). Backend'e geçişte hizalanabilir.
+  (Task 1 — Minor, plan-mandated.)

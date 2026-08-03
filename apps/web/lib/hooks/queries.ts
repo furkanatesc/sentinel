@@ -42,3 +42,18 @@ export function usePortfolio() {
 export function usePositions() {
   return useQuery({ queryKey: qk.positions, queryFn: () => getApi().getPositions() });
 }
+export function useCandles(mint: string) {
+  return useQuery({ queryKey: qk.candles(mint), queryFn: () => getApi().getCandles(mint) });
+}
+export function useMarketData(mint: string) {
+  return useQuery({ queryKey: qk.marketData(mint), queryFn: () => getApi().getMarketData(mint) });
+}
+export function useOrders() {
+  return useQuery({ queryKey: qk.orders, queryFn: () => getApi().getOrders() });
+}
+export function useTransactions() {
+  return useQuery({ queryKey: qk.transactions, queryFn: () => getApi().getTransactions() });
+}
+export function useTradeLogs() {
+  return useQuery({ queryKey: qk.tradeLogs, queryFn: () => getApi().getTradeLogs() });
+}
