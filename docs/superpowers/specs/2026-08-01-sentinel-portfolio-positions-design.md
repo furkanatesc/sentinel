@@ -2,7 +2,7 @@
 ### Portfolio & Positions
 
 - **Tarih:** 2026-08-01
-- **Durum:** Onaylandı (2026-08-01) — plan yazıldı: `docs/superpowers/plans/2026-08-01-sentinel-frontend-increment-7-portfolio-positions.md`
+- **Durum:** Uygulandı (2026-08-03) — branch `feat/portfolio`, 119/119 test, build + whole-branch review + fix wave temiz, görsel doğrulandı; master merge onayı bekliyor. Plan: `docs/superpowers/plans/2026-08-01-sentinel-frontend-increment-7-portfolio-positions.md`. SDD ledger: `.superpowers/sdd/2026-08-01-sentinel-frontend-increment-7-portfolio-positions/progress.md`.
 - **Önkoşul:** Increment 1–6 master'da.
 - **Kaynaklar:** `docs/design/sentinel-ui-ux-design.md` (Ekran 8: Portfolio ve Positions), `docs/progress.md`, `ROADMAP.md`.
 

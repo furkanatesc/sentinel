@@ -65,10 +65,11 @@ Final review doğruladı: `.font-mono` tek kez tanımlı ve `--font-sans` `@them
 mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
 
 ## Strategies (Increment 6)
-- **EquityCurve statik gradient id (Minor, deferred):** `EquityCurve.tsx` `<defs>` içinde sabit
-  `id="equity-grad"` kullanıyor; kopya alındığı `MiniChart` çakışmayı önlemek için id'yi renkten
-  türetiyor (`g-${color.slice(1)}`). Bugün sayfada tek curve olduğu için zararsız; deseni korumak için
-  id'yi türetilir/benzersiz yap. (Final review — Minor, 2026-07-31.)
+- ~~**EquityCurve statik gradient id (Minor, deferred)**~~ — **KAPANDI (2026-08-03, Increment 7 Task 2):**
+  `EquityCurve` `components/strategy/` → `components/sentinel/`'e taşındı (git mv, history korundu) ve
+  gradient id artık renkten türetiliyor (`equity-grad-${color.replace("#","")}`). Statik `equity-grad`
+  çakışma riski kalktı. Kalıntı: aynı sayfada **aynı renkli** iki EquityCurve instance'ı hâlâ id
+  paylaşır (bugün ulaşılmaz — tek tüketici); tam güvenlik için ileride `useId()`. (Increment 7 Task 2.)
 - **TileGrid DRY (Minor, deferred):** `grid grid-cols-2 gap-3 md:grid-cols-4` + `tiles.map(MetricTile)`
   deseni `StrategyPerformancePanel`, `BacktestSummaryPanel` ve `StrategyDetailContent` risk/sizing
   bloğunda tekrar ediyor. Küçük bir `TileGrid tiles={...}` presentational bileşeni tekrarı kaldırır
@@ -82,3 +83,22 @@ mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
 - **mock buildStrategy strategyRow'u yeniden hesaplıyor (Minor):** `buildStrategy` precomputed
   `strategyRows` dizisini kullanmak yerine her id için `strategyRow(def)`'i yeniden çağırıyor — saf,
   deterministik, ucuz; httpApi'ye geçişte tek kaynaktan üretilebilir. (Task 1 — Minor.)
+
+## Portfolio / Positions (Increment 7)
+- **EquityCurve aynı-renk id çakışması → `useId()` (Minor, deferred):** Gradient id renkten türetiliyor
+  ama aynı sayfada aynı renkli iki EquityCurve id paylaşır. Bugün ulaşılmaz (her sayfada tek instance);
+  React `useId()` ile tam benzersizlik ileride. (Increment 7 — Minor; yukarıdaki Increment 6 kaydının devamı.)
+- **risk-allocation `good` (#17B890) vs `strong` (#2FD98B) yakın hue (Minor, deferred):** Fix wave dilim
+  renklerini ayrıklaştırdı (donut + legend artık okunur) ama iki yeşil tonu hâlâ komşu hue'da. Daha güçlü
+  ayrım için palet ileride ayarlanabilir. Kritik değil. (Fix wave re-review — Minor, 2026-08-03.)
+- **`creatorRisk` mock aralığı `critical`'a ulaşamıyor (parked):** Fix wave `tokenRisk` aralığını genişletti
+  (Kritik filtresi artık satır bırakır) ama `creatorRisk` hâlâ `critical` üretmiyor. **Dead filter yok** —
+  filtre yalnız `tokenRisk`'e göre (creator-risk filtresi mevcut değil). Backend gerçek veriyle değiştirecek.
+  (Fix wave re-review — parked, 2026-08-03.)
+- **Filtre çipleri `aria-pressed` yok (Minor):** `PositionsContent` risk filtre çipleri seçili durumu
+  görsel (renk) veriyor ama `aria-pressed` taşımıyor; erişilebilirlik için eklenebilir. (Task 12 — Minor.)
+- **Artan (ascending) sıralama toggle yok (Minor, kasıtlı):** `PositionsTable` yalnız azalan sıralar
+  (brief'e uygun); tıklayınca yön değiştiren toggle ileride eklenebilir. (Task 12 — Minor, brief ile uyumlu.)
+- **CI hijyeni tekrar teyit (typecheck script):** Task 13'te `next build` tsc'si, vitest'in kaçırdığı bir
+  Recharts `Formatter` tip hatasını yakaladı (RiskAllocationChart tooltip). `"typecheck": "tsc --noEmit"`
+  script'i build'den önce tsc-only hataları yakalardı — yukarıdaki CI hijyeni maddesini pekiştirir. (Task 13.)
