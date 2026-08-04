@@ -4,7 +4,7 @@
 > dallanma olunca **aynı turda** güncellenir. Tek gerçek kaynaklar: ürün için
 > `ROADMAP.md`, tasarım için `docs/design/sentinel-ui-ux-design.md`.
 >
-> Son güncelleme: 2026-08-04 (Backend Alt-proje 0 kod tamam — deploy bekliyor)
+> Son güncelleme: 2026-08-04 (Backend Alt-proje 0 CANLI — Railway+Vercel doğrulandı)
 
 ## Genel bakış
 
@@ -68,7 +68,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 
 | # | Alt-proje | Kontrat dilimi | Durum |
 |---|---|---|---|
-| **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **Kod tamam — branch `feat/backend-skeleton`, whole-branch review temiz; DEPLOY bekliyor (kullanıcı: Railway+Vercel)** |
+| **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
 | 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ⬜ |
 | 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
@@ -78,7 +78,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 **Sıra:** 0 → 1 → 2/3 → 4 → 5. Gerekçe: iskele önkoşul; ingestion çekirdek değer + çoğu ekranın veri kaynağı;
 trading en riskli (gerçek para) en son (tasarım paper-default). Alt-proje 0 spec: `docs/superpowers/specs/2026-08-04-sentinel-backend-platform-skeleton-design.md`; plan: `docs/superpowers/plans/2026-08-04-sentinel-backend-platform-skeleton.md`.
 
-**Alt-proje 0 teslim (2026-08-04, branch `feat/backend-skeleton`):** SDD ile 7 kod task'ı (fresh subagent + task-review döngüsü; Task 1'de go.mod `1.25.0`→`1.23` fix round'u) + final whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important, 2 Minor) + 1 fix wave (`db.Close` hata-yolu sızıntısı) + re-review temiz. Yeni Go servisi `apps/api-go/` (chi router, katmanlı config/api/store, `GET /api/strategies` + `/healthz`, graceful shutdown), Postgres store (goose migration + `SeedRows` 6 satır mock ile birebir + `ON CONFLICT DO NOTHING`), frontend hibrit `getApi()` (`LIVE_ENDPOINTS`={getStrategies}; canlı runtime'da mock'a düşmez; diğer 8 ekran regresyonsuz mock). CI `.github/workflows/api-go.yml` (go 1.23). 179/179 frontend test + Go build/vet/test yeşil. **DB round-trip runtime doğrulanmadı** (yerel Postgres yok) → Railway deploy'da doğrulanacak. Ertelenen: CORS preflight Allow-Methods/Headers (Alt-proje 1, YAGNI), `ON CONFLICT` update-etmez (ileri migration). **DEPLOY kullanıcı adımı bekliyor:** Railway servisi (root `apps/api-go`) + Postgres eklentisi + `CORS_ORIGIN`; Vercel `NEXT_PUBLIC_API_BASE_URL` + `NEXT_PUBLIC_DATA_SOURCE=http`.
+**Alt-proje 0 teslim (2026-08-04, branch `feat/backend-skeleton`):** SDD ile 7 kod task'ı (fresh subagent + task-review döngüsü; Task 1'de go.mod `1.25.0`→`1.23` fix round'u) + final whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important, 2 Minor) + 1 fix wave (`db.Close` hata-yolu sızıntısı) + re-review temiz. Yeni Go servisi `apps/api-go/` (chi router, katmanlı config/api/store, `GET /api/strategies` + `/healthz`, graceful shutdown), Postgres store (goose migration + `SeedRows` 6 satır mock ile birebir + `ON CONFLICT DO NOTHING`), frontend hibrit `getApi()` (`LIVE_ENDPOINTS`={getStrategies}; canlı runtime'da mock'a düşmez; diğer 8 ekran regresyonsuz mock). CI `.github/workflows/api-go.yml` (go 1.23). 179/179 frontend test + Go build/vet/test yeşil. **DB round-trip runtime doğrulanmadı** (yerel Postgres yok) → Railway deploy'da doğrulanacak. Ertelenen: CORS preflight Allow-Methods/Headers (Alt-proje 1, YAGNI), `ON CONFLICT` update-etmez (ileri migration). **DEPLOY EDİLDİ + DOĞRULANDI (2026-08-04):** Railway servisi (root `apps/api-go`, Postgres eklentisi, `CORS_ORIGIN`, public domain **`sentinel-production-e14d.up.railway.app`**) — `/healthz` 200, `/api/strategies` 6 satır → **DB round-trip canlıda kanıtlı**. Vercel env `NEXT_PUBLIC_API_BASE_URL`+`NEXT_PUBLIC_DATA_SOURCE=http`. Canlı doğrulama: `/strategies` gerçek Railway API'den 6 kart (`status: success`), Overview + diğer ekranlar mock ile regresyonsuz (hibrit çalışıyor). **Deploy dersi:** Vercel "Redeploy" eski build'i sundu (kod + `NEXT_PUBLIC_*` env stale kaldı → eski `getApi` her şeyi notReady httpApi'ye yönlendirip TÜM ekranları bozdu); çözüm master'a taze commit push → cache'siz otomatik build (commit 64d2acb). İleride: env/kod değişince Vercel'de "Use existing Build Cache" KAPALI ile deploy ya da yeni commit.
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
@@ -146,14 +146,13 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 
 ## Sırada
 
-**Şimdi: Backend Alt-proje 0 DEPLOY.** Kod tamam (branch `feat/backend-skeleton`, SDD + review temiz).
-Sırayla: (1) merge onayı (kullanıcı) → master; (2) push (Vercel frontend redeploy); (3) **kullanıcı adımları:**
-Railway servisi (root `apps/api-go`) + Postgres eklentisi + `CORS_ORIGIN`; (4) Vercel env
-`NEXT_PUBLIC_API_BASE_URL=<railway-url>` + `NEXT_PUBLIC_DATA_SOURCE=http`; (5) canlı doğrulama (birlikte):
-Railway `/healthz`+`/api/strategies` 200, Vercel'de Strategies gerçek API'den + diğer 8 ekran mock ile
-regresyonsuz. Bu, DB round-trip'ini de runtime doğrular (yerel Postgres yoktu).
+**Backend Alt-proje 0 CANLI ve doğrulandı** (Railway `sentinel-production-e14d.up.railway.app` + Vercel http modu;
+`/strategies` gerçek API'den, diğer ekranlar mock — hibrit çalışıyor).
 
-Sonra: Backend Alt-proje 1 (ingestion) → 2/3 → 4 → 5 (bkz Backend programı bölümü).
+**Şimdi: Backend Alt-proje 1 (Solana ingestion).** `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` +
+`subscribe*` + WebSocket transport'u gerçeğe çevirir. Gerçek Solana veri kaynağı (Helius/QuickNode/Geyser)
+gerekir → **kullanıcı: RPC sağlayıcı API key'i**. Kendi spec → plan → SDD döngüsünden geçer; `LIVE_ENDPOINTS`'e
+ilgili endpoint'ler eklenir. Sonra: 2/3 → 4 → 5 (bkz Backend programı bölümü).
 
 **Frontend Increment 10 (Alerts/Telegram):** frontend-mock olarak DURAKLATILDI; Alerts/Telegram yeteneği
 (frontend + gerçek Telegram delivery) Backend Alt-proje 3'te teslim edilecek. Increment 11 (Research) / 12
