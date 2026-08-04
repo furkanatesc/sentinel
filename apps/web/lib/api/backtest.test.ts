@@ -23,6 +23,36 @@ test("runBacktest is sensitive to priorityFee alone", async () => {
   expect(a.metrics.netPnlSol).not.toBe(b.metrics.netPnlSol);
 });
 
+test.each([
+  ["strategyId", { strategyId: "safe-graduation" }],
+  ["rangePreset", { rangePreset: "90g" }],
+  ["initialCapitalSol", { initialCapitalSol: 250 }],
+  ["maxPositions", { maxPositions: 9 }],
+  ["slippageModel", { slippageModel: "pessimistic" }],
+  ["priorityFee", { priorityFee: base.priorityFee + 0.05 }],
+  ["latencyModel", { latencyModel: "high" }],
+  ["liquidityModel", { liquidityModel: "unconstrained" }],
+  ["minCreatorScore", { minCreatorScore: 55 }],
+  ["minTokenSafety", { minTokenSafety: 60 }],
+] as [string, Partial<BacktestParams>][])(
+  "runBacktest result differs when %s alone changes",
+  async (_field, override) => {
+    const baseline = await mockApi.runBacktest(base);
+    const changed = await mockApi.runBacktest({ ...base, ...override });
+    expect(changed).not.toEqual(baseline);
+  },
+);
+
+test("runBacktest is sensitive to swapping minCreatorScore <-> minTokenSafety (former seed-collision case)", async () => {
+  const baseline = await mockApi.runBacktest(base);
+  const swapped = await mockApi.runBacktest({
+    ...base,
+    minCreatorScore: base.minTokenSafety,
+    minTokenSafety: base.minCreatorScore,
+  });
+  expect(swapped).not.toEqual(baseline);
+});
+
 test("runBacktest returns full metrics + series + trades", async () => {
   const r = await mockApi.runBacktest(base);
   expect(r.metrics.trades).toBeGreaterThan(0);

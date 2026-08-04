@@ -500,10 +500,19 @@ const BT_DIST = ["< -5", "-5..0", "0..5", "5..10", "> 10"];
 const BT_SCORE_BUCKETS = ["0-24", "25-49", "50-69", "70-84", "85-100"];
 
 function runBacktestResult(p: BacktestParams): BacktestResult {
-  const seed = seedOf(
-    p.strategyId + p.rangePreset + p.initialCapitalSol + p.maxPositions +
-    p.slippageModel + p.priorityFee + p.latencyModel + p.liquidityModel + p.minCreatorScore + p.minTokenSafety
-  );
+  // `seedOf` is a shared helper (flat char-code sum) used by many other mock builders, so it is
+  // NOT modified here. A plain delimited concatenation would still collide on multiset-preserving
+  // param swaps (e.g. minCreatorScore=60/minTokenSafety=55 vs 55/60) because char-code summation is
+  // commutative regardless of delimiters. Instead each field's stringified value is repeated
+  // (index + 1) times before joining, which folds its ordinal position into the char-sum as a
+  // multiplicative weight (charSum(v.repeat(n)) === n * charSum(v)) — a standard transposition-
+  // detecting checksum technique — making the seed order-sensitive without touching `seedOf`.
+  const btFields = [
+    p.strategyId, p.rangePreset, String(p.initialCapitalSol), String(p.maxPositions),
+    p.slippageModel, String(p.priorityFee), p.latencyModel, p.liquidityModel,
+    String(p.minCreatorScore), String(p.minTokenSafety),
+  ];
+  const seed = seedOf(btFields.map((v, i) => v.repeat(i + 1)).join("|"));
   const trades = 40 + (seed % 300);
   const netPnl = (seed % 200) - 60 + p.initialCapitalSol * 0.1;
   const r2 = (n: number) => Math.round(n * 100) / 100;
