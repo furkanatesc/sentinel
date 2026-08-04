@@ -4,7 +4,7 @@
 > dallanma olunca **aynı turda** güncellenir. Tek gerçek kaynaklar: ürün için
 > `ROADMAP.md`, tasarım için `docs/design/sentinel-ui-ux-design.md`.
 >
-> Son güncelleme: 2026-08-04 (Backend Alt-proje 0 CANLI — Railway+Vercel doğrulandı)
+> Son güncelleme: 2026-08-04 (Alt-proje 0 CANLI; Alt-proje 1 slice 1a spec yazıldı — plan yarın)
 
 ## Genel bakış
 
@@ -69,7 +69,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 | # | Alt-proje | Kontrat dilimi | Durum |
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
-| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ⬜ |
+| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | 📝 **Tam vizyon; dilimlere bölündü. Slice 1a (tespit+WS transport) spec yazıldı (2026-08-04) — plan yarın.** Helius; 1b enrichment sonra |
 | 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
@@ -141,6 +141,8 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 - Increment 1 spec: `docs/superpowers/specs/2026-07-30-sentinel-frontend-increment-1-design.md`
 - Increment 1 plan: `docs/superpowers/plans/2026-07-30-sentinel-frontend-increment-1.md`
 - **Backend Alt-proje 0 spec:** `docs/superpowers/specs/2026-08-04-sentinel-backend-platform-skeleton-design.md`
+- **Backend Alt-proje 1 slice 1a spec:** `docs/superpowers/specs/2026-08-04-sentinel-backend-ingestion-1a-design.md`
+- **API key checklist:** `api_key_alinacakplatformlar.md` (repo kökü)
 - Takip listesi: `docs/superpowers/followups-frontend.md`
 - Knowledge graph: `graphify-out/graph.html` (+ `GRAPH_REPORT.md`)
 
@@ -149,10 +151,11 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 **Backend Alt-proje 0 CANLI ve doğrulandı** (Railway `sentinel-production-e14d.up.railway.app` + Vercel http modu;
 `/strategies` gerçek API'den, diğer ekranlar mock — hibrit çalışıyor).
 
-**Şimdi: Backend Alt-proje 1 (Solana ingestion).** `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` +
-`subscribe*` + WebSocket transport'u gerçeğe çevirir. Gerçek Solana veri kaynağı (Helius/QuickNode/Geyser)
-gerekir → **kullanıcı: RPC sağlayıcı API key'i**. Kendi spec → plan → SDD döngüsünden geçer; `LIVE_ENDPOINTS`'e
-ilgili endpoint'ler eklenir. Sonra: 2/3 → 4 → 5 (bkz Backend programı bölümü).
+**Şimdi: Backend Alt-proje 1 — Slice 1a (gerçek-zaman çoklu-launchpad tespit + WS transport).** Tasarım onaylı,
+**spec yazıldı** (`docs/superpowers/specs/2026-08-04-sentinel-backend-ingestion-1a-design.md`). Veri kaynağı **Helius**
+(WebSocket logsSubscribe + DAS). **YARIN:** writing-plans ile plan → SDD. `getEvents`/`getTokens` + `subscribe*`
+gerçeğe döner (LIVE_ENDPOINTS); `getKpis`/`getRadar`/`getToken` 1a'da mock (→Slice 1b enrichment).
+**Kullanıcı aksiyonu (tek):** Helius hesabı + API key — bkz repo kökü `api_key_alinacakplatformlar.md`. Sonra: Slice 1b → Alt-proje 2/3 → 4 → 5.
 
 **Frontend Increment 10 (Alerts/Telegram):** frontend-mock olarak DURAKLATILDI; Alerts/Telegram yeteneği
 (frontend + gerçek Telegram delivery) Backend Alt-proje 3'te teslim edilecek. Increment 11 (Research) / 12
