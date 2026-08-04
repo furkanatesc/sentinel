@@ -1,0 +1,19 @@
+name: api-go
+on:
+  push:
+    paths: ["apps/api-go/**", ".github/workflows/api-go.yml"]
+  pull_request:
+    paths: ["apps/api-go/**"]
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api-go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - run: go build ./...
+      - run: go test ./...
