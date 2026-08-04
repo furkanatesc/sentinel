@@ -20,12 +20,15 @@ func OpenPostgres(ctx context.Context, dsn string) (StrategyStore, func() error,
 		return nil, nil, fmt.Errorf("open: %w", err)
 	}
 	if err := db.PingContext(ctx); err != nil {
+		db.Close()
 		return nil, nil, fmt.Errorf("ping: %w", err)
 	}
 	if err := runMigrations(db); err != nil {
+		db.Close()
 		return nil, nil, fmt.Errorf("migrate: %w", err)
 	}
 	if err := seedStrategies(ctx, db); err != nil {
+		db.Close()
 		return nil, nil, fmt.Errorf("seed: %w", err)
 	}
 	return &postgresStore{db: db}, db.Close, nil
