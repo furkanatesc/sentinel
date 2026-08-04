@@ -12,15 +12,17 @@ import (
 
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/api"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg := config.Load()
 
+	st := store.NewFakeStore(store.SeedRows(), nil)
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg.CORSOrigin),
+		Handler: api.NewRouter(st, cfg.CORSOrigin),
 	}
 
 	go func() {

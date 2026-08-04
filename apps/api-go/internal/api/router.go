@@ -6,14 +6,17 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
-// NewRouter, HTTP yönlendiricisini kurar. (Task 3'te StrategyStore parametresi eklenecek.)
-func NewRouter(corsOrigin string) http.Handler {
+// NewRouter, HTTP yönlendiricisini kurar.
+func NewRouter(st store.StrategyStore, corsOrigin string) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware(corsOrigin))
 	r.Get("/healthz", healthHandler)
+	r.Get("/api/strategies", strategiesHandler(st))
 	return r
 }
 
