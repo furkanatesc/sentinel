@@ -4,7 +4,7 @@
 > dallanma olunca **aynı turda** güncellenir. Tek gerçek kaynaklar: ürün için
 > `ROADMAP.md`, tasarım için `docs/design/sentinel-ui-ux-design.md`.
 >
-> Son güncelleme: 2026-08-04 (Increment 9)
+> Son güncelleme: 2026-08-04 (Backend programı başladı — Alt-proje 0 spec)
 
 ## Genel bakış
 
@@ -12,9 +12,10 @@ SENTINEL = Solana'da yeni çıkan tokenları saniyeler içinde tespit eden, crea
 güven skorlaması yapan, açıklanabilir risk analizi üreten, Telegram bildirimi gönderen ve
 (ileride) otomatik trade eden gerçek zamanlı istihbarat + trading platformu.
 
-- **Backend:** AWS'de, Go (event ingestion, düşük gecikmeli worker'lar, trading dispatch) +
-  Python (scoring, clustering, ML, backtest, RAG). *Henüz başlanmadı.*
-- **Frontend:** `apps/web/` (monorepo). Next.js (App Router, server-first). *Increment 1 tamam.*
+- **Backend:** Go (serving/ingestion/trading) + Python (scoring/ML/backtest, sonra). **Program başladı
+  (2026-08-04):** 6 alt-projeye ayrıştırıldı; **Alt-proje 0 (Platform iskeleti) spec'lendi**. Hosting: Railway
+  (AWS uzun-vade). Bkz "Backend programı" bölümü.
+- **Frontend:** `apps/web/` (monorepo). Next.js (App Router, server-first). *Increment 1–9 tamam, Vercel'de canlı.*
 
 ## Teknoloji kararları (onaylı)
 
@@ -46,13 +47,36 @@ hiçbiri mock'u doğrudan import etmez. Backend gelince yalnız `lib/api/http.ts
 | **6** | **Strategies** (liste + read-only detay: koşullar/risk/performans/equity/backtest/versiyon/audit) | ✅ **Tamam — master'a merge (4d43309), 101/101 test** |
 | **7** | **Portfolio / Positions** (portföy genel bakış + KPI + 4 grafik + pozisyon tablosu + detay drawer) | ✅ **Tamam — master'a merge (22b4f0e), 119/119 test** |
 | **8** | **Trading Terminal** (4 bölme: watchlist + candlestick grafik + order paneli + alt sekmeler) | ✅ **Tamam — master'a merge (41342d6), 147/147 test** |
-| **9** | **Backtesting** (parametre formu + simüle çalıştır + 10 metrik + 6 grafik; Event Replay ertelendi) | ✅ **Branch `feat/backtesting` tamam — 164/164 test, build + task-review'lar temiz; görsel doğrulandı; merge onayı bekliyor** |
-| 10 | Alerts / Telegram | ⬜ |
-| 11 | Research Assistant | ⬜ |
-| 12 | System Health | ⬜ |
+| **9** | **Backtesting** (parametre formu + simüle çalıştır + 10 metrik + 6 grafik; Event Replay ertelendi) | ✅ **Tamam — master'a merge (6029ff6), 175/175 test; Vercel'de canlı** |
+| 10 | Alerts / Telegram | ⏸️ **Duraklatıldı** — frontend-mock yerine backend ile birlikte gelecek (Backend Alt-proje 3). Bkz aşağı. |
+| 11 | Research Assistant | ⬜ (frontend-mock; sıralama backend sonrası netleşir) |
+| 12 | System Health | ⬜ (frontend-mock; sıralama backend sonrası netleşir) |
 
-Her ekran kendi spec → plan → implementasyon (SDD) döngüsünden geçer; hepsi mevcut
-shell + veri seam'i üzerine kurulur.
+Her frontend ekranı kendi spec → plan → implementasyon (SDD) döngüsünden geçer; hepsi mevcut
+shell + veri seam'i üzerine kurulur. **Karar (2026-08-04):** Increment 10 (Alerts/Telegram) frontend-mock
+olarak yapılmak yerine **backend programına** geçildi; Alerts/Telegram yeteneği (frontend + gerçek Telegram)
+Backend Alt-proje 3'te teslim edilecek (sessiz düşürme yok — aşağıdaki Backend programı bölümü).
+
+## Backend programı
+
+Tam prod backend vizyonu (kullanıcı onayı 2026-08-04) tek spec'e sığmayacağından 6 alt-projeye ayrıştırıldı;
+her biri frontend kontratının (`apps/web/lib/api/contract.ts` → `SentinelApi`) bir dilimini gerçeğe çevirir.
+Frontend endpoint-endpoint göç eder (**hibrit adapter**: `LIVE_ENDPOINTS`'te olan gerçek, kalanı mock).
+
+**Stack kararları (2026-08-04, onaylı):** Go API (serving/ingestion/trading) — Python (scoring/ML) Alt-proje 2'de;
+Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgres (goose migration).
+
+| # | Alt-proje | Kontrat dilimi | Durum |
+|---|---|---|---|
+| **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | 📝 **Spec yazıldı (2026-08-04)** — plan sırada |
+| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ⬜ |
+| 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
+| 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
+| 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
+| 5 | Trading engine (Jupiter, emir icra, pozisyon) | `getPortfolio`/`getPositions`/`getOrders`/`getTransactions`/`getTradeLogs`/`getMarketData`/`getCandles` | ⬜ |
+
+**Sıra:** 0 → 1 → 2/3 → 4 → 5. Gerekçe: iskele önkoşul; ingestion çekirdek değer + çoğu ekranın veri kaynağı;
+trading en riskli (gerçek para) en son (tasarım paper-default). Alt-proje 0 spec: `docs/superpowers/specs/2026-08-04-sentinel-backend-platform-skeleton-design.md`.
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
@@ -94,7 +118,8 @@ shell + veri seam'i üzerine kurulur.
 - 2026-07-30 — **Clean code + SOLID** kullanıcı önceliği: tüm spec/plan/review'larda ölçüt (SRP/OCP/DIP/ISP; config-driven; küçük dosyalar).
 - 2026-07-30 — **Increment 3 (Live Feed) tamamlandı ve master'a merge edildi** (2cbfe4e). `/live-feed` event terminali: `FeedEvent` seam (getEvents/subscribeEvents/useLiveEvents 200-cap), `EVENT_TYPE_DEFS` registry, saf `filterEvents` (10 filtre), FeedFilters/FeedTable/EventDetailDrawer (shadcn Sheet). 55/55 test. Görsel doğrulandı.
 - 2026-07-31 — **Increment 5 (Creators) tamamlandı ve master'a merge edildi** (5904288). `/creators` liste + `/creators/[address]` profil: `getCreators`/`getCreator` seam, reputation Token Detail'in `ScoreCard`+`ExplainableScore`'unu reuse (ScoreCard'a `hideExplain` prop eklendi), 8 metrik (paylaşımlı `MetricTile`), token geçmişi tablosu (outcome/liquidity/riskFlags), davranış paterni, Wallet Graph creator node linki. 81/81 test. Görsel doğrulandı. Parked: mock derivation dup (bkz followups).
-- 2026-08-04 — **Increment 9 (Backtesting) branch `feat/backtesting` tamamlandı; merge onayı bekliyor.** SDD ile 9 task (fresh subagent + task-review döngüsü, hepsi spec ✅ + kalite Approved; Task 1 priorityFee seed eksiğini 1 fix round'da kapattı). Tasarım Ekran 9'un **backtest sonuç yarısı** (Event Replay bilinçli sonraki artıma ertelendi). `/backtesting` nav placeholder'ı gerçeğe döndü (rename yok). Yerleşim: sol ~300px `BacktestParamsForm` (useStrategies dropdown[DIP] + 4 registry select + 5 sayısal alan, saf `validateParams` — 6 alan Türkçe hata span'i, Çalıştır gating) + ana sonuç alanı (submittedParams state → boş/loading/error/sonuç). Seam: **simüle, deterministik-seeded** `runBacktest(params)` + `useBacktest(params|null)` (enabled-on-submit; `qk.backtest`=`["backtest",JSON.stringify(params)]` → her run taze cache key, stale-flash yok), httpApi→`notReady`; hiçbir bileşen mock import etmez (DIP). Sonuçlar: **10 metrik** (config-driven `BACKTEST_METRIC_DEFS` + `MetricTile` reuse + `pnlColor`) + **6 grafik** — `EquityCurve` reuse (Sermaye Eğrisi) + DrawdownChart(Area, domain [dataMin,0]) + MonthlyReturnChart/PnlByScoreChart (Bar + pnlColor Cells) + TradeDistributionChart (Bar) + EntryExitChart (ComposedChart: fiyat Line + al/sat Scatter, trade.time===price.t merge). RSC page qk.strategies prefetch + HydrationBoundary. **Reuse:** `EquityCurve`/`MetricTile`/`pnlColor`/`useStrategies`/native-select Header deseni. Kapsam dışı bilinçle: Event Replay (look-ahead engelleme + timeline playback), gerçek backend backtest motoru, kaçırılan-fırsat/rug-timeline grafikleri, parametre preset kaydetme, sonuç export/karşılaştırma. 164/164 test, `npm run build` başarılı (`○ /backtesting` statik). Görsel doğrulandı (2026-08-04): boş durum → form dolu (strateji dropdown strategies'ten) → Çalıştır → 10 metrik (Net PnL renkli) + 6 grafik → sermaye 100→250 yeniden çalıştır sayılar değişti (Net PnL -18 kırmızı → 3 yeşil) → sermaye=0 alan altında "Sermaye 0'dan büyük olmalı" + çalıştırma bloke. Deferred minor'lar: `docs/superpowers/followups-frontend.md` (Inc9 bölümü).
+- 2026-08-04 — **Backend programı BAŞLADI (kullanıcı kararı).** Kullanıcı "Increment 10 spec yazalım" derken tam prod backend'e geçmek istedi. Brainstorming ile ayrıştırıldı: tam backend vizyonu (Solana ingestion + scoring/ML + trading) tek spec'e sığmaz → **6 alt-proje** (0 Platform iskeleti → 1 ingestion → 2 scoring → 3 alerts/telegram → 4 strategies/backtest → 5 trading), her biri `SentinelApi` kontratının bir dilimini gerçeğe çevirir; frontend **hibrit adapter** (`LIVE_ENDPOINTS`) ile endpoint-endpoint göç eder. **Stack (onaylı):** Go API (Python scoring Alt-proje 2), Hosting **Railway** (Go + yönetilen Postgres, AWS uzun-vade), DB Postgres/goose. **Alt-proje 0 (Platform iskeleti) spec yazıldı** (`docs/superpowers/specs/2026-08-04-sentinel-backend-platform-skeleton-design.md`): Go servisi + Railway Postgres + tek gerçek endpoint `getStrategies` uçtan uca + frontend hibrit adapter (seam flip kanıtı); auth yok (public read-only, sonra), WS Alt-proje 1'e taşındı. **Increment 10 (Alerts/Telegram) frontend-mock DURAKLATILDI** → Backend Alt-proje 3'te frontend+gerçek Telegram ile gelecek (bkz Backend programı bölümü).
+- 2026-08-04 — **Increment 9 (Backtesting) tamamlandı ve master'a merge edildi (6029ff6).** SDD ile 9 task (fresh subagent + task-review döngüsü, hepsi spec ✅ + kalite Approved; Task 1 priorityFee seed eksiğini 1 fix round'da kapattı). Tasarım Ekran 9'un **backtest sonuç yarısı** (Event Replay bilinçli sonraki artıma ertelendi). `/backtesting` nav placeholder'ı gerçeğe döndü (rename yok). Yerleşim: sol ~300px `BacktestParamsForm` (useStrategies dropdown[DIP] + 4 registry select + 5 sayısal alan, saf `validateParams` — 6 alan Türkçe hata span'i, Çalıştır gating) + ana sonuç alanı (submittedParams state → boş/loading/error/sonuç). Seam: **simüle, deterministik-seeded** `runBacktest(params)` + `useBacktest(params|null)` (enabled-on-submit; `qk.backtest`=`["backtest",JSON.stringify(params)]` → her run taze cache key, stale-flash yok), httpApi→`notReady`; hiçbir bileşen mock import etmez (DIP). Sonuçlar: **10 metrik** (config-driven `BACKTEST_METRIC_DEFS` + `MetricTile` reuse + `pnlColor`) + **6 grafik** — `EquityCurve` reuse (Sermaye Eğrisi) + DrawdownChart(Area, domain [dataMin,0]) + MonthlyReturnChart/PnlByScoreChart (Bar + pnlColor Cells) + TradeDistributionChart (Bar) + EntryExitChart (ComposedChart: fiyat Line + al/sat Scatter, trade.time===price.t merge). RSC page qk.strategies prefetch + HydrationBoundary. **Reuse:** `EquityCurve`/`MetricTile`/`pnlColor`/`useStrategies`/native-select Header deseni. Kapsam dışı bilinçle: Event Replay (look-ahead engelleme + timeline playback), gerçek backend backtest motoru, kaçırılan-fırsat/rug-timeline grafikleri, parametre preset kaydetme, sonuç export/karşılaştırma. 164/164 test, `npm run build` başarılı (`○ /backtesting` statik). Görsel doğrulandı (2026-08-04): boş durum → form dolu (strateji dropdown strategies'ten) → Çalıştır → 10 metrik (Net PnL renkli) + 6 grafik → sermaye 100→250 yeniden çalıştır sayılar değişti (Net PnL -18 kırmızı → 3 yeşil) → sermaye=0 alan altında "Sermaye 0'dan büyük olmalı" + çalıştırma bloke. Whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important, 4 Minor) → tek fix wave (order-sensitive seed: `seedOf` paylaşımlı olduğu için dokunulmadı, backtest seed'i `v.repeat(i+1)` ile pozisyon-ağırlıklı → transpozisyon çakışması cebirsel kapandı; + 10-satır per-param sensitivity table testi) → scoped re-review CLEAN. **164→175 test**, master'a merge `6029ff6`, Vercel'de canlı. Deferred minor'lar: `docs/superpowers/followups-frontend.md` (Inc9 bölümü).
 - 2026-08-03 — **Increment 8 (Trading Terminal) branch `feat/terminal` tamamlandı ve master'a merge edildi (41342d6).** SDD ile 14 implementasyon/wiring task'ı (fresh subagent + task-review döngüsü, hepsi spec ✅ + kalite Approved; Task 8 OrderPanel 2 fix round'da hata-render eksiğini kapattı), ardından final whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important) + tek fix wave + scoped re-review temiz. Tasarım Ekran 7'nin tamamı: `/terminal` rotası (eski "Emirler"/`/orders` placeholder'ı **"Terminal"/`/terminal`** olarak yeniden adlandırıldı) — 4 bölme: sol token watchlist (aktif token seçer), orta market data başlığı + **candlestick fiyat grafiği (lightweight-charts v4, `next/dynamic ssr:false`** — Cytoscape deseni), sağ order paneli (kontrollü form + `validateOrder`/`simulateOrder` + simulation status) + **`OrderConfirmDialog`** (yeni shadcn Base-UI `Dialog` primitive), alt sekmeli panel (Pozisyonlar[Inc7 `PositionsTable` reuse] / Emirler / İşlemler / Loglar). Seam: `getCandles`/`getMarketData`/`getOrders`/`getTransactions`/`getTradeLogs` + hook'ları, httpApi→`notReady`; hiçbir bileşen mock import etmez (DIP). **Emir davranışı: tam simüle + durumsuz** — canlı→`toast.warning` (güçlü uyarı, gerçek trade YOK), kağıt/gölge→simüle `toast`; **`SentinelApi`'de hiç mutation metodu yok → gerçek-trade yolu yapısal olarak imkânsız** (güvenlik özelliği review'da yapısal olarak doğrulandı). Yeni dep: `lightweight-charts@^4.2.3` (v4 pin; v5 seri API'sini değiştirdi). OCP: `lib/terminal/order-defs.ts` registries + saf `lib/terminal/order-logic.ts`. Kapsam dışı (bilinçli): gerçek emir/blockchain gönderimi, durumlu emir yaşam döngüsü, order book/depth, otomatik exit otomasyonu, RHF+Zod (kontrollü form yeterli), mobil tam terminal. Fix wave: paylaşımlı `sortPositions` helper (DRY, `lib/position/sort.ts` — BottomTabsPanel + PositionsContent ortak kullanır), OrdersTable iptal testi non-vacuous (mock `orders[0].status="open"` garantisi), inert `sizePct`/`trailingPct` + `onRowClick` no-op yorumları. 147/147 test, `npm run build` başarılı (20 rota, /terminal statik). Görsel doğrulandı (2026-08-03): token-switch header+grafik günceller, candlestick render, order paneli + onay modalı (düşük-skor uyarısı) + kağıt-mod simüle toast (durumsuz — Emirler tablosuna emir düşmez), alt sekme geçişleri. Deferred minor'lar: `docs/superpowers/followups-frontend.md`.
 - 2026-08-03 — **Increment 7 (Portfolio / Positions) branch `feat/portfolio` tamamlandı ve master'a merge edildi (22b4f0e).** SDD ile 13 implementasyon task'ı (fresh subagent + task review döngüsü), her biri spec ✅ + kalite Approved; ardından final whole-branch review (opus) + tek fix wave + scoped re-review temiz. İki read-only rota: `/portfolio` (KPI grid + equity curve + PnL-by-strateji bar + risk-allocation donut + win/loss bar + açık pozisyon özeti) ve `/positions` (sıralanabilir tablo + risk filtresi + detay drawer). Seam: `getPortfolio`/`getPositions` + `usePortfolio`/`usePositions`, httpApi→`notReady`; hiçbir bileşen mock import etmez (DIP). **Reuse kararı:** `EquityCurve` `components/strategy/` → `components/sentinel/` taşındı (`title?`/`color?` prop + renkten türetilen gradient id — eski sabit-id followup'ını kapattı); Strategies detay regresyonsuz aynı bileşeni kullanıyor. `MetricTile`'a geriye-uyumlu `valueColor?` eklendi (PnL renklendirmesi). OCP: `lib/position/risk-filter.ts` (`POSITION_RISK_LEVELS` + `pnlColor`). Read-only aksiyonlar (Kapat / SL-TP): canlı modda `toast.warning`, kağıt/gölge modda simüle `toast` — gerçek trade yok (Trading Terminal / Orders artımına ertelendi). Kapsam dışı (bilinçli): gerçek emir gönderimi, PnL-by-creator/token-age grafikleri, tablo saved views/CSV/kolon customization/virtual scroll, pozisyon düzenleme formu. Fix wave (5 bulgu): risk-allocation dilimlerine ayrık hex renkler (iki-yeşil çakışması), tokenRisk mock aralığı genişletildi + "Sonuç yok" boş-durum, PositionsContent loading/error (Skeleton), Türkçe tooltip name/formatter, yaş sıralaması `parseInt` (leksikografik değil). 119/119 test, `npm run build` başarılı (iki statik rota), whole-branch review "Ready to merge (with fixes)" → fix wave sonrası tüm bulgular ADDRESSED. Görsel doğrulandı (2026-08-03): her iki rota + KPI PnL renkleri + 4 grafik + donut ayrık renkler + filtre daraltma/Temizle + satır→drawer + aksiyon toast. Deferred minor'lar: `docs/superpowers/followups-frontend.md`.
 - 2026-08-01 — **Increment 6 (Strategies) branch `feat/strategies` tamamlandı ve master'a merge edildi (4d43309).** SDD ile 11 implementasyon task'ı (fresh subagent + task review döngüsü), her biri spec ✅ + kalite Approved. `/strategies` liste (durum filtresi) + `/strategies/[id]` read-only detay. Seam: `getStrategies`/`getStrategy` + `useStrategies`/`useStrategy`; OCP `STATUS_DEFS`/`CONDITION_LABELS` + `formatCondition`; SRP bileşen ağacı (StatusBadge/StrategyCard/ConditionList/StrategyPerformancePanel/BacktestSummaryPanel/EquityCurve/VersionHistory/AuditLog/StrategiesListContent/StrategyDetailContent); paylaşımlı `MetricTile` reuse; EquityCurve OverviewTab MiniChart desenini takip eder. Read-only kapsam (builder/deploy/execution bilinçli dışarıda). 101/101 test, `npm run build` başarılı, whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important). Görsel doğrulandı (liste + filtre + detay: koşullar/risk/performans/equity curve/backtest/launchpad/versiyon/audit). Deferred minor'lar: `docs/superpowers/followups-frontend.md`.
@@ -113,21 +138,27 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 - Tasarım spec'i (12 ekran): `docs/design/sentinel-ui-ux-design.md`
 - Increment 1 spec: `docs/superpowers/specs/2026-07-30-sentinel-frontend-increment-1-design.md`
 - Increment 1 plan: `docs/superpowers/plans/2026-07-30-sentinel-frontend-increment-1.md`
+- **Backend Alt-proje 0 spec:** `docs/superpowers/specs/2026-08-04-sentinel-backend-platform-skeleton-design.md`
 - Takip listesi: `docs/superpowers/followups-frontend.md`
 - Knowledge graph: `graphify-out/graph.html` (+ `GRAPH_REPORT.md`)
 
 ## Sırada
 
-**Önce:** `feat/backtesting` branch'inin master'a merge'i (kullanıcı onayı bekliyor).
+**Şimdi: Backend Alt-proje 0 (Platform iskeleti).** Spec yazıldı + kullanıcı review'ı bekliyor →
+onaylanınca **writing-plans** ile implementasyon planı → SDD. Go API + Railway Postgres + tek gerçek
+endpoint `getStrategies` uçtan uca + frontend hibrit adapter. Kullanıcı aksiyonları (Railway hesabı/Postgres,
+Vercel env) kod hazır olunca ayrı ayrı istenecek. Spec:
+`docs/superpowers/specs/2026-08-04-sentinel-backend-platform-skeleton-design.md`.
 
-Sonraki artım: Increment 10 = **Alerts / Telegram** ekranı. Uyarı kuralları/kanalları, Telegram bot
-entegrasyonu durumu, bildirim geçmişi/timeline. Seam'e `getAlerts*`/`getTelegram*` endpoint'leri
-eklenir. Kendi spec → plan → SDD döngüsünden geçer.
+Sonra: Backend Alt-proje 1 (ingestion) → 2/3 → 4 → 5 (bkz Backend programı bölümü).
 
-**Backtesting devamı (sonraki artım, ertelendi):** **Event Replay** — look-ahead bias'sız timeline
-oynatma (playback state'li oynatıcı + look-ahead engelleme), kaçırılan-fırsat/rug-timeline grafikleri,
-parametre preset kaydetme, sonuç export/karşılaştırma. Gerçek backtest motoru backend'e (Python) bağlı;
-Increment 9 tam simüle deterministik-seeded çalıştı.
+**Frontend Increment 10 (Alerts/Telegram):** frontend-mock olarak DURAKLATILDI; Alerts/Telegram yeteneği
+(frontend + gerçek Telegram delivery) Backend Alt-proje 3'te teslim edilecek. Increment 11 (Research) / 12
+(System Health) frontend-mock ekranlarının sırası backend ilerledikçe netleşecek.
+
+**Backtesting devamı (ertelendi):** **Event Replay** — look-ahead bias'sız timeline oynatma (playback
+state'li oynatıcı + look-ahead engelleme), kaçırılan-fırsat/rug-timeline grafikleri, parametre preset
+kaydetme, sonuç export/karşılaştırma. Gerçek backtest motoru Backend Alt-proje 4'e (Python) bağlı.
 
 **Trading Terminal devamı (sonraki artım, ertelendi):** gerçek emir/blockchain gönderimi (Jupiter route,
 tx sign/submit/retry), durumlu emir yaşam döngüsü (gönderilen emrin listeye/pozisyona yansıması), order
