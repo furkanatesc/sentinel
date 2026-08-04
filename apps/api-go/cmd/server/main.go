@@ -19,7 +19,23 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg := config.Load()
 
-	st := store.NewFakeStore(store.SeedRows(), nil)
+	var st store.StrategyStore
+	var cleanup func() error = func() error { return nil }
+	if cfg.DatabaseURL != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		pst, cl, err := store.OpenPostgres(ctx, cfg.DatabaseURL)
+		cancel()
+		if err != nil {
+			logger.Error("postgres init failed", "err", err)
+			os.Exit(1)
+		}
+		st, cleanup = pst, cl
+	} else {
+		logger.Warn("DATABASE_URL yok — in-memory fake store kullanılıyor")
+		st = store.NewFakeStore(store.SeedRows(), nil)
+	}
+	defer cleanup()
+
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: api.NewRouter(st, cfg.CORSOrigin),
