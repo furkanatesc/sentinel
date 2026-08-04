@@ -3,7 +3,7 @@ import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd, riskMeta } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position, Candle, MarketData, Order, OrderStatus, Txn, TradeLog } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position, Candle, MarketData, Order, OrderStatus, Txn, TradeLog, BacktestParams, BacktestResult, BacktestMetrics, DrawdownPoint, BacktestTrade } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
@@ -494,6 +494,53 @@ const tradeLogs: TradeLog[] = Array.from({ length: 10 }, (_, i) => {
   return { id: `log-${i + 1}`, level: LOG_LEVELS[seed % 3], message: LOG_MESSAGES[i % LOG_MESSAGES.length], time: `${i * 2 + 1} dk önce` };
 });
 
+// --- Backtesting (Increment 9) ---
+const BT_MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu"];
+const BT_DIST = ["< -5", "-5..0", "0..5", "5..10", "> 10"];
+const BT_SCORE_BUCKETS = ["0-24", "25-49", "50-69", "70-84", "85-100"];
+
+function runBacktestResult(p: BacktestParams): BacktestResult {
+  // `seedOf` is a shared helper (flat char-code sum) used by many other mock builders, so it is
+  // NOT modified here. A plain delimited concatenation would still collide on multiset-preserving
+  // param swaps (e.g. minCreatorScore=60/minTokenSafety=55 vs 55/60) because char-code summation is
+  // commutative regardless of delimiters. Instead each field's stringified value is repeated
+  // (index + 1) times before joining, which folds its ordinal position into the char-sum as a
+  // multiplicative weight (charSum(v.repeat(n)) === n * charSum(v)) — a standard transposition-
+  // detecting checksum technique — making the seed order-sensitive without touching `seedOf`.
+  const btFields = [
+    p.strategyId, p.rangePreset, String(p.initialCapitalSol), String(p.maxPositions),
+    p.slippageModel, String(p.priorityFee), p.latencyModel, p.liquidityModel,
+    String(p.minCreatorScore), String(p.minTokenSafety),
+  ];
+  const seed = seedOf(btFields.map((v, i) => v.repeat(i + 1)).join("|"));
+  const trades = 40 + (seed % 300);
+  const netPnl = (seed % 200) - 60 + p.initialCapitalSol * 0.1;
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const metrics: BacktestMetrics = {
+    netPnlSol: Math.round(netPnl * 10) / 10,
+    winRatePct: 40 + (seed % 45),
+    profitFactor: r2(1 + (seed % 250) / 100),
+    sharpe: r2((seed % 300) / 100),
+    sortino: r2((seed % 350) / 100),
+    maxDrawdownPct: 5 + (seed % 35),
+    avgTradeSol: r2(netPnl / Math.max(1, trades)),
+    rugExposurePct: seed % 10,
+    trades,
+    avgHoldingHours: 1 + (seed % 12),
+  };
+  const equityCurve = toSeries(seed, 30);
+  const priceSeries = toSeries(seed + 7, 40);
+  const drawdown: DrawdownPoint[] = equityCurve.map((pt, i) => ({ t: pt.t, v: -(((seed + i * 3) % 30)) }));
+  const monthlyReturns = BT_MONTHS.map((m, i) => ({ label: m, pct: ((seed + i * 13) % 40) - 15 }));
+  const tradeDistribution = BT_DIST.map((b, i) => ({ label: b, count: 3 + ((seed + i * 7) % 25) }));
+  const pnlByScore = BT_SCORE_BUCKETS.map((b, i) => ({ scoreBucket: b, pnlSol: ((seed + i * 11) % 60) - 20 }));
+  const btTrades: BacktestTrade[] = [];
+  priceSeries.forEach((pt, i) => {
+    if (i % 6 === 2) btTrades.push({ time: pt.t, price: pt.v, side: btTrades.length % 2 === 0 ? "buy" : "sell", pnlSol: ((seed + i) % 20) - 8 });
+  });
+  return { metrics, equityCurve, drawdown, monthlyReturns, tradeDistribution, pnlByScore, priceSeries, trades: btTrades };
+}
+
 export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
@@ -512,6 +559,7 @@ export const mockApi: SentinelApi = {
   getOrders: () => delay(orders),
   getTransactions: () => delay(transactions),
   getTradeLogs: () => delay(tradeLogs),
+  runBacktest: (params) => delay(runBacktestResult(params)),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();

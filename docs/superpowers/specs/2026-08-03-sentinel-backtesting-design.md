@@ -2,7 +2,7 @@
 ### Backtesting
 
 - **Tarih:** 2026-08-03
-- **Durum:** Onaylandı (2026-08-03) — plan yazılacak.
+- **Durum:** Uygulandı (2026-08-04) — branch `feat/backtesting`, SDD 9 task, 164/164 test, `npm run build` başarılı (`○ /backtesting` statik), task-review'lar temiz; görsel doğrulandı (2026-08-04); **merge onayı bekliyor**. Event Replay ertelendi (bkz followups Inc9).
 - **Önkoşul:** Increment 1–8 master'da (Trading Terminal dahil).
 - **Kaynaklar:** `docs/design/sentinel-ui-ux-design.md` (Ekran 9: Backtesting + Event Replay), `ROADMAP.md` (§Backtest), `docs/progress.md`.
 

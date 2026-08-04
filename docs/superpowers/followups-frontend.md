@@ -132,3 +132,27 @@ mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
   `Order` named type'lar kullanırken `Txn`'de inline union; `buildMarketData` bilinmeyen mint'te reject
   yerine `tokens[0]`'a düşer (UI'da ulaşılmaz — activeMint hep geçerli). Backend'e geçişte hizalanabilir.
   (Task 1 — Minor, plan-mandated.)
+
+## Backtesting (Increment 9)
+- **Event Replay ertelendi (spec-level, sonraki artım):** Ekran 9'un look-ahead-bias'sız timeline playback
+  yarısı bilinçle kapsam dışı bırakıldı (playback state'li oynatıcı + look-ahead engelleme ayrı bir etkileşim).
+  Kaçırılan-fırsat/rug-timeline grafikleri, parametre preset kaydetme, sonuç export/karşılaştırma da ertelendi.
+  Sessiz düşürme yok — `docs/progress.md` "Sırada" + spec §1'de işaretli. (Spec — deferred.)
+- **`isError` dalı mock seam'de ulaşılamaz (ileri-dönük, parked):** `BacktestContent`'in "Backtest çalıştırılamadı"
+  dalı `runBacktest` hiç throw etmediği için mock'ta ulaşılmaz (httpApi→`notReady` reject edince gerçek olur);
+  strategies/tokens not-found dallarıyla tutarlı savunma kodu. Gerçek httpApi gelene kadar test edilmiş
+  davranış değil. (Task 7 — parked.)
+- **`BacktestParamsForm` hata `<span>`'leri `aria-describedby` taşımıyor (Minor, a11y):** 6 alanın hata mesajı
+  görsel var ama input'una `aria-describedby`/`role="alert"` ile bağlı değil (Inc8 order-form ile aynı a11y
+  follow-up'ı). Ekran okuyucu bağlamda duyurmaz. (Task 3 — Minor.)
+- **Çalıştır butonu dar viewport'ta katlanma-altında (Minor, görsel doğrulama 2026-08-04):** Sol parametre
+  paneli 10 alan + buton; 772px yükseklikte "Çalıştır" ilk ekranda görünüm-altında kaldı (kaydırma gerekti).
+  Panel'i `sticky` buton footer'ı veya daha kompakt alan aralığıyla iyileştirilebilir. Kritik değil. (Görsel — Minor.)
+- **Sonuç metrik grid'i geniş viewport'ta yatay taşabiliyor (Minor, görsel doğrulama 2026-08-04):** 10-tile
+  grid + yan yana grafikler dar-ana-alanda yatay taşma yapabiliyor (sidebar açıkken 5-tile sırası görünüm
+  dışına uzadı). Responsive kolon sayısı/`min-w-0` ile sıkılaştırılabilir. (Görsel — Minor.)
+- **`BacktestMetrics` (bileşen) vs `BacktestMetrics` (tip) ad çakışması (kasıtlı, çözüldü):** Task 4 tipi
+  `as Metrics` alias'ıyla import ederek çakışmayı çözdü — kalıcı; not olarak kayıt. (Task 4 — kasıtlı.)
+- **`BacktestMetrics` tip / `BacktestSummary` DRY örtüşmesi (Minor, plan-mandated, parked):** İki özet tipi
+  benzer alanlar taşıyor; httpApi'ye geçişte tek kaynaktan türetilebilir. Plan-mandated, düşük etki.
+  (Task 1 — Minor, plan-mandated.)
