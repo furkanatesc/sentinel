@@ -50,7 +50,7 @@ func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow
 	}
 	defer rows.Close()
 	now := time.Now().Unix()
-	var out []TokenRow
+	out := make([]TokenRow, 0, limit)
 	for rows.Next() {
 		var t TokenRow
 		var firstSeen int64

@@ -87,3 +87,43 @@ func TestFakeTokenStoreSparkNormalization(t *testing.T) {
 		t.Fatalf("spark = %v, want empty array", spark)
 	}
 }
+
+// TestEmptyResultsSerializeAsArrayNotNull, RecentEvents/RecentTokens sıfır satır
+// döndürdüğünde JSON'da "null" değil "[]" çıktığını kilitler (plan Global
+// Constraints: boş sonuçlar [] olarak serileşir). postgresStore aynı
+// make([]T, 0, limit) deseniyle inşa edildiği için bu, o davranışın
+// kontratını da güvenceye alır (DB'siz ortamda doğrudan postgres yolu
+// egzersiz edilemez; postgres_ingest_test.go DATABASE_URL ile bunu kapsar).
+func TestEmptyResultsSerializeAsArrayNotNull(t *testing.T) {
+	ctx := context.Background()
+
+	evs, err := NewFakeEventStore().RecentEvents(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evs == nil {
+		t.Fatal("RecentEvents on empty store returned nil slice, want non-nil empty slice")
+	}
+	eb, err := json.Marshal(evs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(eb) != "[]" {
+		t.Fatalf("RecentEvents empty JSON = %s, want []", eb)
+	}
+
+	toks, err := NewFakeTokenStore().RecentTokens(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if toks == nil {
+		t.Fatal("RecentTokens on empty store returned nil slice, want non-nil empty slice")
+	}
+	tb, err := json.Marshal(toks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(tb) != "[]" {
+		t.Fatalf("RecentTokens empty JSON = %s, want []", tb)
+	}
+}

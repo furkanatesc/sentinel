@@ -53,7 +53,7 @@ func (p *postgresStore) RecentEvents(ctx context.Context, limit int) ([]EventRow
 		return nil, err
 	}
 	defer rows.Close()
-	var out []EventRow
+	out := make([]EventRow, 0, limit)
 	for rows.Next() {
 		var e EventRow
 		var slot int64
