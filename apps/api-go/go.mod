@@ -3,6 +3,7 @@ module github.com/furkanatesc/sentinel/apps/api-go
 go 1.24.0
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/gagliardetto/solana-go v1.22.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/jackc/pgx/v5 v5.6.0
