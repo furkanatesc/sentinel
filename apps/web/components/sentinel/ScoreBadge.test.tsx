@@ -11,3 +11,10 @@ test("ScoreBadge maps 88 to Strong", () => {
   render(<ScoreBadge score={88} />);
   expect(screen.getByText("Güçlü")).toBeInTheDocument();
 });
+
+test("ScoreBadge score 0 dürüst nötr gösterir (fake '0' değil)", () => {
+  render(<ScoreBadge score={0} />);
+  expect(screen.getByText("—")).toBeInTheDocument();
+  expect(screen.queryByText("0")).not.toBeInTheDocument();
+  expect(screen.queryByText("Kritik")).not.toBeInTheDocument();
+});
