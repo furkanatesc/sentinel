@@ -70,10 +70,11 @@ func (w *Worker) Process(ctx context.Context, n LogNotification) {
 			w.d.Logger.Warn("insert event", "err", err)
 			continue
 		}
+		w.d.Broadcast.Broadcast("events", e)
 		if err := w.d.Tokens.UpsertToken(ctx, item.Token, now); err != nil {
 			w.d.Logger.Warn("upsert token", "err", err)
+			continue // persist edilmemiş token'ı yayınlama; olay yine de yayınlandı (gerçek)
 		}
-		w.d.Broadcast.Broadcast("events", e)
 		w.d.Broadcast.Broadcast("tokens", item.Token)
 	}
 }
@@ -113,8 +114,16 @@ func (w *Worker) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		}
-		if backoff < maxBackoff {
-			backoff *= 2
-		}
+		backoff = nextBackoff(backoff, maxBackoff)
 	}
+}
+
+// nextBackoff, mevcut backoff'u ikiye katlar ve max'ta kırpar (asla max'ı aşmaz).
+// Saf fonksiyon: Run'ın select/kanal mantığından ayrık, doğrudan test edilebilir.
+func nextBackoff(cur, max time.Duration) time.Duration {
+	next := cur * 2
+	if next > max {
+		next = max
+	}
+	return next
 }
