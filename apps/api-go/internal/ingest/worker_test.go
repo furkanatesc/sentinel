@@ -32,7 +32,7 @@ func TestProcessPersistsAndBroadcasts(t *testing.T) {
 	w, es, ts, bc := newTestWorker()
 	var mint [32]byte
 	mint[0] = 3
-	data := buildCreateEventB64("Cat", "CAT", "u", mint, [32]byte{}, [32]byte{})
+	data := buildCreateEventB64("Cat", "CAT", "https://x/c.json", mint, [32]byte{}, [32]byte{})
 	n := LogNotification{Signature: "sig", Slot: 1, ProgramID: PumpFunProgramID,
 		Logs: []string{"Program log: Instruction: Create", "Program data: " + data}}
 
@@ -88,7 +88,7 @@ func TestProcessPersistsAndBroadcasts(t *testing.T) {
 func TestProcessDedup(t *testing.T) {
 	w, es, _, _ := newTestWorker()
 	var mint [32]byte
-	data := buildCreateEventB64("Cat", "CAT", "u", mint, [32]byte{}, [32]byte{})
+	data := buildCreateEventB64("Cat", "CAT", "https://x/c.json", mint, [32]byte{}, [32]byte{})
 	n := LogNotification{Signature: "sig", Slot: 1, ProgramID: PumpFunProgramID,
 		Logs: []string{"Program log: Instruction: Create", "Program data: " + data}}
 	w.Process(context.Background(), n)
@@ -128,7 +128,7 @@ func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	w := NewWorker(WorkerDeps{Registry: reg, Events: es, Tokens: ts, Broadcast: bc, Now: func() int64 { return 111 }})
 
 	var mint [32]byte
-	data := buildCreateEventB64("Cat", "CAT", "u", mint, [32]byte{}, [32]byte{})
+	data := buildCreateEventB64("Cat", "CAT", "https://x/c.json", mint, [32]byte{}, [32]byte{})
 	n := LogNotification{Signature: "sig", Slot: 1, ProgramID: PumpFunProgramID,
 		Logs: []string{"Program log: Instruction: Create", "Program data: " + data}}
 
@@ -177,7 +177,7 @@ func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {
 	w := NewWorker(WorkerDeps{Registry: reg, Events: es, Tokens: ts, Broadcast: bc, Now: func() int64 { return 111 }})
 
 	var mint [32]byte
-	data := buildCreateEventB64("Cat", "CAT", "u", mint, [32]byte{}, [32]byte{})
+	data := buildCreateEventB64("Cat", "CAT", "https://x/c.json", mint, [32]byte{}, [32]byte{})
 	n := LogNotification{Signature: "sig", Slot: 1, ProgramID: PumpFunProgramID,
 		Logs: []string{"Program log: Instruction: Create", "Program data: " + data}}
 

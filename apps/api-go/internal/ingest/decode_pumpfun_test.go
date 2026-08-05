@@ -71,3 +71,81 @@ func TestPumpFunIgnoresNonCreate(t *testing.T) {
 		t.Fatalf("create olmayan log 0 olay vermeli; got %d, err=%v", len(out), err)
 	}
 }
+
+// buildCreateEventWithPrefix, verilen boyutta bir discriminator öneğiyle CreateEvent üretir
+// (emit! = 8, emit_cpi! = 16 baytlık öneki simüle etmek için).
+func buildCreateEventWithPrefix(prefixLen int, name, symbol, uri string, mint [32]byte) string {
+	var b []byte
+	b = append(b, make([]byte, prefixLen)...)
+	putStr := func(s string) {
+		var n [4]byte
+		binary.LittleEndian.PutUint32(n[:], uint32(len(s)))
+		b = append(b, n[:]...)
+		b = append(b, []byte(s)...)
+	}
+	putStr(name)
+	putStr(symbol)
+	putStr(uri)
+	b = append(b, mint[:]...)         // mint
+	b = append(b, make([]byte, 32)...) // bondingCurve
+	b = append(b, make([]byte, 32)...) // user
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// Gerçek pump.fun emit_cpi! olayları 16 baytlık önek taşır; decoder offset'i otomatik tespit etmeli.
+func TestPumpFunDecodeEmitCpi16BytePrefix(t *testing.T) {
+	var mint [32]byte
+	mint[0], mint[31] = 7, 3
+	data := buildCreateEventWithPrefix(16, "Solana Cat", "SCAT", "https://ipfs.io/ipfs/abc", mint)
+	n := LogNotification{
+		Signature: "sig16", ProgramID: PumpFunProgramID,
+		Logs: []string{"Program log: Instruction: Create", "Program data: " + data},
+	}
+	out, err := NewPumpFunDecoder().Decode(context.Background(), n, nil, nil)
+	if err != nil {
+		t.Fatalf("16-byte önek parse edilemedi: %v", err)
+	}
+	if len(out) != 2 || out[0].Token.Symbol != "SCAT" || out[0].Token.Name != "Solana Cat" {
+		t.Fatalf("emit_cpi decode yanlış: %+v", out)
+	}
+}
+
+// Bir pump.fun BUY işlemi alıcının ATA'sını "Instruction: CreateIdempotent" ile oluşturur;
+// bu, "Instruction: Create" substring'ini içerse de bir create DEĞİLDİR ve decode edilmemelidir.
+func TestPumpFunIgnoresCreateIdempotent(t *testing.T) {
+	// Buy'ın Program data'sı bir TradeEvent'tir (create layout'una uymaz).
+	trade := base64.StdEncoding.EncodeToString(append(make([]byte, 8), make([]byte, 120)...))
+	n := LogNotification{
+		Signature: "buySig", ProgramID: PumpFunProgramID,
+		Logs: []string{
+			"Program log: Instruction: Buy",
+			"Program log: Instruction: CreateIdempotent",
+			"Program data: " + trade,
+		},
+	}
+	out, err := NewPumpFunDecoder().Decode(context.Background(), n, nil, nil)
+	if err != nil || len(out) != 0 {
+		t.Fatalf("CreateIdempotent (buy ATA) create sanılmamalı; got %d olay, err=%v", len(out), err)
+	}
+}
+
+// Create+dev-buy bundle'ında hem CreateEvent hem TradeEvent Program data satırı olur;
+// decoder TradeEvent'i eleyip CreateEvent'i seçmeli.
+func TestPumpFunPicksCreateAmongMultiplePDLines(t *testing.T) {
+	var mint [32]byte
+	mint[5] = 42
+	trade := base64.StdEncoding.EncodeToString(append(make([]byte, 8), make([]byte, 120)...)) // TradeEvent-benzeri
+	create := buildCreateEventWithPrefix(8, "Multi", "MLT", "https://x/m.json", mint)
+	n := LogNotification{
+		Signature: "multiSig", ProgramID: PumpFunProgramID,
+		Logs: []string{
+			"Program log: Instruction: Create",
+			"Program data: " + trade,  // önce (yanlış) TradeEvent
+			"Program data: " + create, // sonra gerçek CreateEvent
+		},
+	}
+	out, err := NewPumpFunDecoder().Decode(context.Background(), n, nil, nil)
+	if err != nil || len(out) != 2 || out[0].Token.Symbol != "MLT" {
+		t.Fatalf("çoklu pdata'dan CreateEvent seçilmeli; got %d err=%v out=%+v", len(out), err, out)
+	}
+}
