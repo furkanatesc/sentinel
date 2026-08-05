@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/jackc/pgx/v5 v5.6.0
+	github.com/mr-tron/base58 v1.3.0
 	github.com/pressly/goose/v3 v3.21.1
 )
 
