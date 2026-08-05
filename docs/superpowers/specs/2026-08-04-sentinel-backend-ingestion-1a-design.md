@@ -2,7 +2,7 @@
 ### Gerçek-zaman çoklu-launchpad yeni-token tespiti + WebSocket transport
 
 - **Tarih:** 2026-08-04
-- **Durum:** Onaylandı (2026-08-04) — plan yazılacak (yarın).
+- **Durum:** Onaylandı (2026-08-04) — **plan yazıldı (2026-08-05):** `docs/superpowers/plans/2026-08-05-sentinel-backend-ingestion-1a.md` (11 task, SDD). Implementasyon sırada; canlı Helius yalnız deploy'da.
 - **Önkoşul:** Backend Alt-proje 0 (Platform iskeleti) master'da + Railway/Vercel'de canlı (Go `apps/api-go`, hibrit `getApi()`, Postgres, goose migration, CI). Helius hesabı + API key (implementasyon/deploy'da; bkz repo kökü `api_key_alinacakplatformlar.md`).
 - **Kaynaklar:** `docs/design/sentinel-ui-ux-design.md` (Live Feed / Discover), `apps/web/lib/api/contract.ts` (`SentinelApi`), `apps/web/lib/api/types.ts` (`TokenRow`/`FeedEvent`/`EventType`), `apps/web/lib/feed/` (EVENT_TYPE_DEFS, sources), `docs/progress.md`.
 
