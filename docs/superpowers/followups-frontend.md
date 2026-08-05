@@ -145,12 +145,15 @@ dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve Slice 1b'ye 
   geçen token) event'lerini yakalamıyor. Ayrıca `apps/web/lib/feed/sources.ts` LAUNCHPADS/DEXES listesine
   "PumpSwap" eklenmedi.
 - **Moonshot / Meteora decoder'ları** eksik (framework-ready, aynı registry deseniyle eklenir).
-- **Gerçek pump.fun fixture eksik:** Decoder testi şu an elle üretilmiş bir test vektörü kullanıyor
-  (discriminator doğrulamalı ama gerçek bir Solscan/Chainstack tx snapshot'ı değil). Ayrıca malformed/truncated
-  buffer decode hata-yolu testi eklenmedi.
-- **pump.fun `hasMarker`/`programDataB64` anchor'lama:** Bundled create+buy tx'leri (aynı tx'te birden fazla
-  `Program data:` satırı) durumunda decoder'ın pump.fun invoke/success bracket'ına doğru anchor'lanması
-  gerekiyor — şu an ilk eşleşen markera güveniliyor.
+- **Gerçek pump.fun fixture (kısmen kapandı):** Decoder **deploy'da gerçek Helius akışına karşı doğrulandı**
+  (2026-08-05: 14 gerçek token/28 event, doğru mint/symbol/name). Regresyon için kayıtlı bir gerçek
+  Solscan/Chainstack snapshot fixture'ı hâlâ nice-to-have; elle üretilen test vektörleri korunuyor.
+- **pump.fun marker + Program data anchor'lama — ÇÖZÜLDÜ (2026-08-05, deploy hotfix `4e2396f`):** Kök neden
+  deploy'da bulundu — `hasMarker` substring'i her buy'daki ATA `Instruction: CreateIdempotent` satırıyla
+  eşleşip TradeEvent'i CreateEvent sanıp parse ediyordu (`kısa buffer`). Fix: create marker'ı **trimmed-suffix**
+  ile birebir eşleştir (CreateIdempotent hariç) + CreateEvent byte offset'ini **otomatik tespit** et
+  (emit! 8B / emit_cpi! 16B; u32 3-string + uri `://` + ardından ≥96 bayt doğrulaması, tüm `Program data:`
+  satırlarını dener). Bundled create+buy artık doğru satırı seçer.
 - **Worker dedup bounded/TTL değil:** `seen` map şu an sınırsız büyüyor (process ömrü boyunca temizlenmiyor).
   Ayrıca dedup, insert'ten ÖNCE "seen" işaretliyor — geçici bir insert hatası kalıcı skip'e yol açabilir
   (düşük etki; `logsSubscribe` replay yapmıyor).
@@ -161,9 +164,9 @@ dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve Slice 1b'ye 
 - **WS hub:** origin allowlist yok (şu an `InsecureSkipVerify: true` — 1a'da public read-only olduğu için kabul
   edilebilir); shutdown-sıralaması net değil (register/unregister blocking send'leri shutdown'a karşı
   `select`lenmiyor — process çıkışında reap ediliyor, 1a için yeterli); `json.Marshal` hata guard'ı yok.
-- **Frontend `lib/api/ws.ts`:** reconnect / `onerror`/`onclose` yok — bağlantı koparsa sessizce başarısız olur.
-  `components/terminal/MarketDataHeader.tsx`'te yerel bir `ScoreBadge` var; terminal canlıya geçince gözden
-  geçirilmeli.
+- **Frontend `lib/api/ws.ts`:** reconnect-with-backoff + `onerror`/`onclose` **eklendi** (final review fix wave
+  `f05b277`). Kalan: `components/terminal/MarketDataHeader.tsx`'te yerel bir `ScoreBadge` var; terminal canlıya
+  geçince gözden geçirilmeli.
 - **Slice 1b'ye ertelenen:** `getKpis`/`getRadar`/`getToken` gerçeğe dönecek; price/liquidity/vol5m/holders/
   momentum/spark zenginleştirmesi; `first_swap`/`liquidity_added` event tipleri.
 

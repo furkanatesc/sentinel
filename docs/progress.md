@@ -4,7 +4,7 @@
 > dallanma olunca **aynı turda** güncellenir. Tek gerçek kaynaklar: ürün için
 > `ROADMAP.md`, tasarım için `docs/design/sentinel-ui-ux-design.md`.
 >
-> Son güncelleme: 2026-08-05 (Alt-proje 1 slice 1a kod tamam, branch `feat/backend-ingestion-1a` — whole-branch review + deploy sırada)
+> Son güncelleme: 2026-08-05 (Alt-proje 1 slice 1a **CANLI + DOĞRULANDI** — Railway backend gerçek pump.fun token'larını ingest ediyor; master'a merge + deploy edildi)
 
 ## Genel bakış
 
@@ -69,7 +69,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 | # | Alt-proje | Kontrat dilimi | Durum |
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
-| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | 🔶 **Slice 1a kod TAMAM (branch `feat/backend-ingestion-1a`), deploy + canlı doğrulama bekliyor.** `getKpis`/`getRadar`/`getToken` → Slice 1b |
+| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı.** `getKpis`/`getRadar`/`getToken` → Slice 1b |
 | 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
@@ -100,6 +100,20 @@ tipleri: `new_mint`, `metadata_created`, `pool_created` (`first_swap`/`liquidity
 (0 / riskLevel "medium") — Alt-proje 2 (scoring) dolduracak. **Canlı Helius + DB round-trip yalnızca DEPLOY'da
 doğrulanacak** (yerel Postgres/key yok) — Alt-proje 0 ile aynı desen. Ertelenen maddelerin tam listesi:
 `docs/superpowers/followups-frontend.md` "Backend Alt-proje 1 slice 1a — deferred" bölümü.
+
+**MERGE + DEPLOY + CANLI DOĞRULANDI (2026-08-05):** Whole-branch review (opus) "With fixes" → 1 Critical
+(SubscribeLogs canlı kopmada dönmüyordu → reconnect deadlock) + 2 Important (tokens index, ws.ts reconnect) fix
+wave + scoped re-review temiz. Master'a `--no-ff` merge (kullanıcı onayı), `git push origin master`. Railway
+backend (Go 1.24) build oldu; migration 0002 uygulandı; `HELIUS_API_KEY` Railway Variables'a girildi → worker
+Helius WS'e bağlandı. **Deploy hotfix (`4e2396f`):** İlk deploy'da worker gerçek create'leri alıyor ama her buy'da
+`decode error` (`kısa buffer`) — kök neden: `hasMarker` substring'i her buy'ın ATA `Instruction: CreateIdempotent`
+satırıyla eşleşip TradeEvent'i CreateEvent sanıyordu. Fix: exact create marker (trimmed-suffix) + CreateEvent byte
+offset otomatik-tespit (emit! 8B / emit_cpi! 16B; uri `://` doğrulaması). **Doğrulama:** `/api/events` & `/api/tokens`
+200 + gerçek veri — 14 gerçek pump.fun token (Stark/PEPE/ORANGECHIP/…), doğru mint/symbol/name, 2 event/token
+(new_mint+metadata_created), skorlar dürüst-nötr (0 / "medium"). **AÇIK GÜVENLİK MADDESİ:** Railway'deki
+`HELIUS_API_KEY` hâlâ sohbete sızan `5f5e…` key'i — kullanıcı rotate ETMEDİ (re-paste etti); Helius'ta Regenerate
+edilip taze key Railway'e konmalı. **Frontend (Vercel) push'ta yeniden build edildi** — Live Feed/Overview artık
+gerçek akışı göstermeli (görsel doğrulama kullanıcıda).
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
