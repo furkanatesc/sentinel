@@ -99,6 +99,13 @@ func (w *Worker) Run(ctx context.Context) {
 		w.d.Logger.Warn("HELIUS_WS_URL yok — ingestion worker başlamadı (REST yine çalışır)")
 		return
 	}
+	w.d.Logger.Info("ingestion worker başladı", "programlar", len(w.d.Registry.ProgramIDs()))
+	// Teşhis heartbeat'i: Helius'un teslim ettiği bildirim/işlenen sayısını periyodik logla.
+	// (Başarılı decode sessizdir; bu, "bağlı ama veri gelmiyor" durumunu görünür kılar.)
+	stats := time.NewTicker(30 * time.Second)
+	defer stats.Stop()
+	var received, processed int64
+
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
 	for ctx.Err() == nil {
@@ -113,7 +120,14 @@ func (w *Worker) Run(ctx context.Context) {
 			case <-ctx.Done():
 				cancel()
 				return
+			case <-stats.C:
+				w.d.Logger.Info("ingest heartbeat", "alınan_30s", received, "işlenen_30s", processed)
+				received, processed = 0, 0
 			case n := <-ch:
+				received++
+				if _, ok := w.d.Registry.Decoder(n.ProgramID); ok {
+					processed++
+				}
 				w.Process(ctx, n)
 				backoff = time.Second // sağlıklı trafik → backoff sıfırla
 			case err := <-done:
