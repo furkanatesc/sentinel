@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Go sürümü:** `go 1.23` (go.mod + CI `.github/workflows/api-go.yml` ile eşleşir — DEĞİŞTİRME).
+- **Go sürümü:** ~~`go 1.23`~~ → **`go 1.24`** (go.mod + CI `.github/workflows/api-go.yml` hizalı kalmalı). **NOT (Task 6, 2026-08-05):** `solana-go` transitif bağımlılığı Go 1.24 gerektirdiğinden go.mod + CI birlikte 1.24'e yükseltildi (kısıtın asıl amacı = go.mod/CI hizası, korundu). Deploy: Railway build'i Go 1.24 kullanır (go.mod'dan otomatik).
 - **DB erişimi:** `database/sql` + pgx/v5 **stdlib** driver (`_ "github.com/jackc/pgx/v5/stdlib"`, `sql.Open("pgx", dsn)`), pgx native pool DEĞİL — Alt-proje 0 deseni.
 - **Migration:** goose/v3, `//go:embed migrations/*.sql` (embed `..` üst dizini kabul etmez — yalnız `migrations/*.sql`). Yeni dosya `internal/store/migrations/0002_*.sql`, `-- +goose Up`/`-- +goose Down` bloklu.
 - **JSON kontrat kilidi:** Go struct'ların JSON çıktısı frontend `apps/web/lib/api/types.ts` ile **birebir** olacak. `FeedEvent` alanları: `id,type,symbol,mint,launchpad,dex,liquidity,creatorScore,riskLevel,tokenAgeSeconds,volume5m,holderGrowthPct,severity,detail,time,ts,watchlisted`. `TokenRow` alanları: `id,name,symbol,mint,ageSeconds,price,liquidity,vol5m,holders,creatorScore,safetyScore,momentum,spark,signal,watchlisted`. Her JSON key'i bir testte kilitle (Alt-proje 0 `TestStrategyRowJSONKeys` deseni).
