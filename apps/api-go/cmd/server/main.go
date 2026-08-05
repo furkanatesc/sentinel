@@ -23,13 +23,13 @@ func main() {
 	var cleanup func() error = func() error { return nil }
 	if cfg.DatabaseURL != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		pst, cl, err := store.OpenPostgres(ctx, cfg.DatabaseURL)
+		b, cl, err := store.OpenPostgres(ctx, cfg.DatabaseURL)
 		cancel()
 		if err != nil {
 			logger.Error("postgres init failed", "err", err)
 			os.Exit(1)
 		}
-		st, cleanup = pst, cl
+		st, cleanup = b.Strategies, cl
 	} else {
 		logger.Warn("DATABASE_URL yok — in-memory fake store kullanılıyor")
 		st = store.NewFakeStore(store.SeedRows(), nil)

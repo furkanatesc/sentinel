@@ -49,9 +49,9 @@ func TestFakeStoresRoundTrip(t *testing.T) {
 		t.Fatalf("RecentEvents = %+v, err=%v, want newest-first [e2 e1]", got, err)
 	}
 	ts := NewFakeTokenStore()
-	_ = ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S"})
-	_ = ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S2"}) // upsert = tek satır
-	_ = ts.UpsertToken(ctx, TokenRow{ID: "M3", Mint: "M3", Symbol: "S3"})
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S"}, 0)
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S2"}, 0) // upsert = tek satır
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "M3", Mint: "M3", Symbol: "S3"}, 0)
 	toks, _ := ts.RecentTokens(ctx, 10)
 	if len(toks) != 2 || toks[0].Symbol != "S3" || toks[1].Symbol != "S2" {
 		t.Fatalf("RecentTokens = %+v, want newest-first [S3 S2]", toks)
@@ -64,7 +64,7 @@ func TestFakeStoresRoundTrip(t *testing.T) {
 func TestFakeTokenStoreSparkNormalization(t *testing.T) {
 	ctx := context.Background()
 	ts := NewFakeTokenStore()
-	if err := ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S"}); err != nil { // Spark nil bırakıldı
+	if err := ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S"}, 0); err != nil { // Spark nil bırakıldı
 		t.Fatal(err)
 	}
 	toks, err := ts.RecentTokens(ctx, 10)

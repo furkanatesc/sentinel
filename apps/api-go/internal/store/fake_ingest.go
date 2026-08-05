@@ -39,7 +39,7 @@ type fakeTokenStore struct {
 // NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür.
 func NewFakeTokenStore() TokenStore { return &fakeTokenStore{byID: map[string]TokenRow{}} }
 
-func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow) error {
+func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, _ int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if t.Spark == nil {
