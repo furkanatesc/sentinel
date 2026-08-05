@@ -4,7 +4,7 @@
 > dallanma olunca **aynı turda** güncellenir. Tek gerçek kaynaklar: ürün için
 > `ROADMAP.md`, tasarım için `docs/design/sentinel-ui-ux-design.md`.
 >
-> Son güncelleme: 2026-08-04 (Alt-proje 0 CANLI; Alt-proje 1 slice 1a spec yazıldı — plan yarın)
+> Son güncelleme: 2026-08-05 (Alt-proje 1 slice 1a kod tamam, branch `feat/backend-ingestion-1a` — whole-branch review + deploy sırada)
 
 ## Genel bakış
 
@@ -69,7 +69,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 | # | Alt-proje | Kontrat dilimi | Durum |
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
-| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | 📝 **Tam vizyon; dilimlere bölündü. Slice 1a (tespit+WS transport) spec yazıldı (2026-08-04) — plan yarın.** Helius; 1b enrichment sonra |
+| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | 🔶 **Slice 1a kod TAMAM (branch `feat/backend-ingestion-1a`), deploy + canlı doğrulama bekliyor.** `getKpis`/`getRadar`/`getToken` → Slice 1b |
 | 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
@@ -79,6 +79,27 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 trading en riskli (gerçek para) en son (tasarım paper-default). Alt-proje 0 spec: `docs/superpowers/specs/2026-08-04-sentinel-backend-platform-skeleton-design.md`; plan: `docs/superpowers/plans/2026-08-04-sentinel-backend-platform-skeleton.md`.
 
 **Alt-proje 0 teslim (2026-08-04, branch `feat/backend-skeleton`):** SDD ile 7 kod task'ı (fresh subagent + task-review döngüsü; Task 1'de go.mod `1.25.0`→`1.23` fix round'u) + final whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important, 2 Minor) + 1 fix wave (`db.Close` hata-yolu sızıntısı) + re-review temiz. Yeni Go servisi `apps/api-go/` (chi router, katmanlı config/api/store, `GET /api/strategies` + `/healthz`, graceful shutdown), Postgres store (goose migration + `SeedRows` 6 satır mock ile birebir + `ON CONFLICT DO NOTHING`), frontend hibrit `getApi()` (`LIVE_ENDPOINTS`={getStrategies}; canlı runtime'da mock'a düşmez; diğer 8 ekran regresyonsuz mock). CI `.github/workflows/api-go.yml` (go 1.23). 179/179 frontend test + Go build/vet/test yeşil. **DB round-trip runtime doğrulanmadı** (yerel Postgres yok) → Railway deploy'da doğrulanacak. Ertelenen: CORS preflight Allow-Methods/Headers (Alt-proje 1, YAGNI), `ON CONFLICT` update-etmez (ileri migration). **DEPLOY EDİLDİ + DOĞRULANDI (2026-08-04):** Railway servisi (root `apps/api-go`, Postgres eklentisi, `CORS_ORIGIN`, public domain **`sentinel-production-e14d.up.railway.app`**) — `/healthz` 200, `/api/strategies` 6 satır → **DB round-trip canlıda kanıtlı**. Vercel env `NEXT_PUBLIC_API_BASE_URL`+`NEXT_PUBLIC_DATA_SOURCE=http`. Canlı doğrulama: `/strategies` gerçek Railway API'den 6 kart (`status: success`), Overview + diğer ekranlar mock ile regresyonsuz (hibrit çalışıyor). **Deploy dersi:** Vercel "Redeploy" eski build'i sundu (kod + `NEXT_PUBLIC_*` env stale kaldı → eski `getApi` her şeyi notReady httpApi'ye yönlendirip TÜM ekranları bozdu); çözüm master'a taze commit push → cache'siz otomatik build (commit 64d2acb). İleride: env/kod değişince Vercel'de "Use existing Build Cache" KAPALI ile deploy ya da yeni commit.
+
+**Alt-proje 1 Slice 1a teslim (2026-08-05, branch `feat/backend-ingestion-1a`):** SDD ile 10 kod task'ı (fresh
+subagent + task-review döngüsü) tamam ve tek tek review edildi; whole-branch review + deploy bu turda (Task 11).
+Yeni Go paketleri: `internal/ingest/` (decoder registry [OCP] + pump.fun log-only CreateEvent decoder + Raydium
+CPMM tx-based decoder + Helius client [logsSubscribe WS + getTransaction + DAS getAsset] + ingestion worker
+[route/dedup/persist/broadcast + exponential-backoff reconnect]) ve `internal/ws/` (frontend-facing WebSocket
+hub, topic broadcast). Postgres migration `0002_create_events_tokens.sql` (events + tokens tabloları);
+`OpenPostgres` artık `store.Bundle{Strategies, Events, Tokens}` döndürüyor. Yeni endpoint'ler: `GET /api/events`,
+`GET /api/tokens` (gerçek, DB-backed), `GET /ws` (WebSocket; `events` topic'i tekil `FeedEvent`, `tokens` topic'i
+tam `TokenRow[]` snapshot yayınlar). Frontend: `getEvents`/`getTokens` gerçek fetch + `subscribeEvents`/
+`subscribeTokens` gerçek WebSocket (`lib/api/ws.ts`); `LIVE_ENDPOINTS`'e +4; dürüst nötr skor gösterimi (0 →
+"—"). Yeni bağımlılıklar: `github.com/gagliardetto/solana-go`, `github.com/coder/websocket`,
+`github.com/mr-tron/base58`. **Go 1.23 → 1.24 yükseltildi** (solana-go transitive dep zorladı; `go.mod` + CI
+`.github/workflows/api-go.yml` ikisi de 1.24). Env: `HELIUS_API_KEY` (worker bunsuz başlamaz, REST/mock yine
+çalışır), `EVENTS_WINDOW` (default 200). **Kapsam kararları:** pump.fun + Raydium CPMM decoder'ları somut
+teslim edildi; PumpSwap + Moonshot/Meteora decoder'ları framework-ready ama **ertelendi**. Teslim edilen event
+tipleri: `new_mint`, `metadata_created`, `pool_created` (`first_swap`/`liquidity_added` → Slice 1b).
+`getKpis`/`getRadar`/`getToken` **MOCK kalmaya devam ediyor** (Slice 1b). Skorlar dürüst-nötr placeholder
+(0 / riskLevel "medium") — Alt-proje 2 (scoring) dolduracak. **Canlı Helius + DB round-trip yalnızca DEPLOY'da
+doğrulanacak** (yerel Postgres/key yok) — Alt-proje 0 ile aynı desen. Ertelenen maddelerin tam listesi:
+`docs/superpowers/followups-frontend.md` "Backend Alt-proje 1 slice 1a — deferred" bölümü.
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
@@ -127,6 +148,11 @@ trading en riskli (gerçek para) en son (tasarım paper-default). Alt-proje 0 sp
 - 2026-08-01 — **Increment 6 (Strategies) branch `feat/strategies` tamamlandı ve master'a merge edildi (4d43309).** SDD ile 11 implementasyon task'ı (fresh subagent + task review döngüsü), her biri spec ✅ + kalite Approved. `/strategies` liste (durum filtresi) + `/strategies/[id]` read-only detay. Seam: `getStrategies`/`getStrategy` + `useStrategies`/`useStrategy`; OCP `STATUS_DEFS`/`CONDITION_LABELS` + `formatCondition`; SRP bileşen ağacı (StatusBadge/StrategyCard/ConditionList/StrategyPerformancePanel/BacktestSummaryPanel/EquityCurve/VersionHistory/AuditLog/StrategiesListContent/StrategyDetailContent); paylaşımlı `MetricTile` reuse; EquityCurve OverviewTab MiniChart desenini takip eder. Read-only kapsam (builder/deploy/execution bilinçli dışarıda). 101/101 test, `npm run build` başarılı, whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important). Görsel doğrulandı (liste + filtre + detay: koşullar/risk/performans/equity curve/backtest/launchpad/versiyon/audit). Deferred minor'lar: `docs/superpowers/followups-frontend.md`.
 - 2026-07-30 — **Increment 4 (Wallet Graph) tamamlandı ve master'a merge edildi** (540436e). `/wallet-graph` Cytoscape entity graph: `WalletGraph` seam (getWalletGraph/useWalletGraph), `NODE_TYPE_DEFS`(8)+`EDGE_TYPE_DEFS`(9) registry → stylesheet/legend/filtre türer, saf `toCytoscapeElements`/`neighborsOf`/`buildStylesheet`, canvas dynamic ssr:false, stabil-instance focus fade. Yeni dep cytoscape. 71/71 test. Görsel doğrulandı. Parked minor: stale-fade (bkz followups).
 
+- 2026-08-05 — **Backend Alt-proje 1 Slice 1a kod tamamlandı (branch `feat/backend-ingestion-1a`).** SDD ile
+  10 kod task'ı (fresh subagent + task-review döngüsü, hepsi spec ✅ + kalite Approved) + Task 11 (bu doküman
+  turu — living docs). Detay: yukarıdaki "Backend programı" bölümü "Alt-proje 1 Slice 1a teslim" paragrafı.
+  Whole-branch review + master'a merge + Railway/Helius deploy henüz yapılmadı (Task 11 sonrası sıradaki adım).
+
 ## Açık takip maddeleri
 
 Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkanlar:
@@ -151,11 +177,12 @@ Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkan
 **Backend Alt-proje 0 CANLI ve doğrulandı** (Railway `sentinel-production-e14d.up.railway.app` + Vercel http modu;
 `/strategies` gerçek API'den, diğer ekranlar mock — hibrit çalışıyor).
 
-**Şimdi: Backend Alt-proje 1 — Slice 1a (gerçek-zaman çoklu-launchpad tespit + WS transport).** Tasarım onaylı,
-**spec yazıldı** (`docs/superpowers/specs/2026-08-04-sentinel-backend-ingestion-1a-design.md`). Veri kaynağı **Helius**
-(WebSocket logsSubscribe + DAS). **YARIN:** writing-plans ile plan → SDD. `getEvents`/`getTokens` + `subscribe*`
-gerçeğe döner (LIVE_ENDPOINTS); `getKpis`/`getRadar`/`getToken` 1a'da mock (→Slice 1b enrichment).
-**Kullanıcı aksiyonu (tek):** Helius hesabı + API key — bkz repo kökü `api_key_alinacakplatformlar.md`. Sonra: Slice 1b → Alt-proje 2/3 → 4 → 5.
+**Şimdi: Backend Alt-proje 1 — Slice 1a kod TAMAM** (branch `feat/backend-ingestion-1a`, `getEvents`/`getTokens`
++ `subscribe*` gerçeğe döndü — LIVE_ENDPOINTS'e +4). Sırada: whole-branch review (opus) → kullanıcı onayıyla
+master'a merge → **deploy DUR-noktası:** Railway'e `HELIUS_API_KEY` girmeden önce kullanıcıdan Helius key'i
+**rotate** ettirilir (sohbete sızan key iptal), taze key Railway Variables'a girilir; `/api/events` + `/ws`
+canlı doğrulanır (Live Feed gerçek Solana akışı). `getKpis`/`getRadar`/`getToken` 1a'da mock (→Slice 1b
+enrichment). Sonra: Slice 1b → Alt-proje 2/3 → 4 → 5.
 
 **Frontend Increment 10 (Alerts/Telegram):** frontend-mock olarak DURAKLATILDI; Alerts/Telegram yeteneği
 (frontend + gerçek Telegram delivery) Backend Alt-proje 3'te teslim edilecek. Increment 11 (Research) / 12

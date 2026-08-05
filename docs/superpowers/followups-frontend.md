@@ -133,6 +133,40 @@ mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
   yerine `tokens[0]`'a düşer (UI'da ulaşılmaz — activeMint hep geçerli). Backend'e geçişte hizalanabilir.
   (Task 1 — Minor, plan-mandated.)
 
+## Backend Alt-proje 1 slice 1a — deferred
+
+Slice 1a (`feat/backend-ingestion-1a`, 2026-08-05) teslim edildi; aşağıdaki maddeler bilinçle bu dilime
+dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve Slice 1b'ye bağlı.
+
+- **Raydium CPMM `initialize` account pozisyon-index kalibrasyonu:** Şu an "WSOL olmayan ilk base58-uzunluğunda
+  account" heuristiği kullanılıyor; gerçek Raydium CPMM `initialize` tx'inde account sırasının kesin index'lerle
+  doğrulanması gerekiyor. Deploy'da gerçek bir tx ile kalibre edilecek.
+- **PumpSwap decoder** eksik (framework-ready — registry OCP ile eklenebilir). pump.fun graduation (PumpSwap'e
+  geçen token) event'lerini yakalamıyor. Ayrıca `apps/web/lib/feed/sources.ts` LAUNCHPADS/DEXES listesine
+  "PumpSwap" eklenmedi.
+- **Moonshot / Meteora decoder'ları** eksik (framework-ready, aynı registry deseniyle eklenir).
+- **Gerçek pump.fun fixture eksik:** Decoder testi şu an elle üretilmiş bir test vektörü kullanıyor
+  (discriminator doğrulamalı ama gerçek bir Solscan/Chainstack tx snapshot'ı değil). Ayrıca malformed/truncated
+  buffer decode hata-yolu testi eklenmedi.
+- **pump.fun `hasMarker`/`programDataB64` anchor'lama:** Bundled create+buy tx'leri (aynı tx'te birden fazla
+  `Program data:` satırı) durumunda decoder'ın pump.fun invoke/success bracket'ına doğru anchor'lanması
+  gerekiyor — şu an ilk eşleşen markera güveniliyor.
+- **Worker dedup bounded/TTL değil:** `seen` map şu an sınırsız büyüyor (process ömrü boyunca temizlenmiyor).
+  Ayrıca dedup, insert'ten ÖNCE "seen" işaretliyor — geçici bir insert hatası kalıcı skip'e yol açabilir
+  (düşük etki; `logsSubscribe` replay yapmıyor).
+- **Worker perf:** `RecentTokens` snapshot sorgusu ingest hot path'inde her decode edilen item için çalışıyor;
+  ileride batch/debounce edilebilir.
+- **Helius client:** `getTransaction` cevap zarfı (envelope) nil-check eksik; `SubscribeLogs`'ın spawn ettiği
+  recvLoop goroutine'leri için `WaitGroup` yok; `tx==nil` typed-nil interface guard'ı eksik.
+- **WS hub:** origin allowlist yok (şu an `InsecureSkipVerify: true` — 1a'da public read-only olduğu için kabul
+  edilebilir); shutdown-sıralaması net değil (register/unregister blocking send'leri shutdown'a karşı
+  `select`lenmiyor — process çıkışında reap ediliyor, 1a için yeterli); `json.Marshal` hata guard'ı yok.
+- **Frontend `lib/api/ws.ts`:** reconnect / `onerror`/`onclose` yok — bağlantı koparsa sessizce başarısız olur.
+  `components/terminal/MarketDataHeader.tsx`'te yerel bir `ScoreBadge` var; terminal canlıya geçince gözden
+  geçirilmeli.
+- **Slice 1b'ye ertelenen:** `getKpis`/`getRadar`/`getToken` gerçeğe dönecek; price/liquidity/vol5m/holders/
+  momentum/spark zenginleştirmesi; `first_swap`/`liquidity_added` event tipleri.
+
 ## Backtesting (Increment 9)
 - **Event Replay ertelendi (spec-level, sonraki artım):** Ekran 9'un look-ahead-bias'sız timeline playback
   yarısı bilinçle kapsam dışı bırakıldı (playback state'li oynatıcı + look-ahead engelleme ayrı bir etkileşim).
