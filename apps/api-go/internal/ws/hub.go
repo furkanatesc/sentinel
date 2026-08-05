@@ -103,6 +103,7 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 			}
 			b, _ := json.Marshal(msg)
 			if err := conn.Write(ctx, cws.MessageText, b); err != nil {
+				conn.Close(cws.StatusInternalError, "write failed")
 				return
 			}
 		}
