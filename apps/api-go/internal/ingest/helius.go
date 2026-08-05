@@ -61,9 +61,16 @@ func parseGetAsset(body []byte) (TokenMeta, error) {
 				} `json:"metadata"`
 			} `json:"content"`
 		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
 		return TokenMeta{}, err
+	}
+	if r.Error != nil {
+		return TokenMeta{}, fmt.Errorf("helius getAsset error %d: %s", r.Error.Code, r.Error.Message)
 	}
 	return TokenMeta{Name: r.Result.Content.Metadata.Name, Symbol: r.Result.Content.Metadata.Symbol, URI: r.Result.Content.JSONURI}, nil
 }

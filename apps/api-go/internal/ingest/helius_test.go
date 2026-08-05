@@ -19,3 +19,14 @@ func TestParseGetAssetResponse(t *testing.T) {
 		t.Fatalf("m=%+v err=%v", m, err)
 	}
 }
+
+func TestParseGetAssetErrorEnvelope(t *testing.T) {
+	body := []byte(`{"jsonrpc":"2.0","error":{"code":-32000,"message":"boom"},"id":"1"}`)
+	m, err := parseGetAsset(body)
+	if err == nil {
+		t.Fatalf("expected non-nil error for JSON-RPC error envelope, got nil (m=%+v)", m)
+	}
+	if m != (TokenMeta{}) {
+		t.Fatalf("expected empty TokenMeta on error, got m=%+v", m)
+	}
+}
