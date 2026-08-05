@@ -102,17 +102,11 @@ func (w *Worker) Run(ctx context.Context) {
 	w.d.Logger.Info("ingestion worker başladı", "programlar", len(w.d.Registry.ProgramIDs()))
 	// Teşhis heartbeat'i: Helius'un teslim ettiği bildirim/işlenen sayısını periyodik logla.
 	// (Başarılı decode sessizdir; bu, "bağlı ama veri gelmiyor" durumunu görünür kılar.)
+	// Ops görünürlüğü: başarılı decode sessizdir; heartbeat, Helius'un teslim ettiği
+	// bildirim/işlenen sayısını periyodik loglar ("bağlı ama veri gelmiyor"u görünür kılar).
 	stats := time.NewTicker(30 * time.Second)
 	defer stats.Stop()
 	var received, processed int64
-
-	// Free-tier workaround: Helius standart logsSubscribe kısa bir teslimat penceresinden
-	// sonra (bağlantıyı kapatmadan) susuyor. Aboneliği periyodik olarak proaktif yenileyerek
-	// taze teslimat penceresi açıyoruz. Bu "zorunlu yenileme" gerçek kopmadan farklıdır:
-	// backoff uygulanmaz, hemen (kısa bir bağlantı-kapanma boşluğuyla) yeniden abone olunur.
-	const refreshInterval = 25 * time.Second
-	refresh := time.NewTicker(refreshInterval)
-	defer refresh.Stop()
 
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
@@ -121,9 +115,8 @@ func (w *Worker) Run(ctx context.Context) {
 		done := make(chan error, 1)
 		subCtx, cancel := context.WithCancel(ctx)
 		go func() { done <- SubscribeLogs(subCtx, w.d.WSURL, w.d.Registry.ProgramIDs(), ch) }()
-		refresh.Reset(refreshInterval) // yenileme süresini yeni bağlantıdan itibaren ölç
 
-		connected, forced := true, false
+		connected := true
 		for connected {
 			select {
 			case <-ctx.Done():
@@ -132,9 +125,6 @@ func (w *Worker) Run(ctx context.Context) {
 			case <-stats.C:
 				w.d.Logger.Info("ingest heartbeat", "alınan_30s", received, "işlenen_30s", processed)
 				received, processed = 0, 0
-			case <-refresh.C:
-				forced = true
-				connected = false
 			case n := <-ch:
 				received++
 				if _, ok := w.d.Registry.Decoder(n.ProgramID); ok {
@@ -148,16 +138,6 @@ func (w *Worker) Run(ctx context.Context) {
 			}
 		}
 		cancel()
-		if forced {
-			// Proaktif yenileme: eski bağlantının kapanması için kısa boşluk, sonra hemen yeniden abone ol.
-			select {
-			case <-time.After(time.Second):
-			case <-ctx.Done():
-				return
-			}
-			backoff = time.Second
-			continue
-		}
 		select {
 		case <-time.After(backoff):
 		case <-ctx.Done():

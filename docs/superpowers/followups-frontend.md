@@ -138,6 +138,17 @@ mevcut. Task 1'de işaretlenen iki font notu artık geçerli değil.
 Slice 1a (`feat/backend-ingestion-1a`, 2026-08-05) teslim edildi; aşağıdaki maddeler bilinçle bu dilime
 dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve Slice 1b'ye bağlı.
 
+- **🔴 SÜREKLİ INGESTION AKIŞI — güvenilir WS sağlayıcısı gerekli (deploy'da bulundu, kod DEĞİL sağlayıcı).**
+  Deploy'da pipeline kanıtlandı (gerçek pump.fun token'ları decode edilip DB'ye yazıldı) AMA **Helius free-tier
+  standart `logsSubscribe` sürekli teslimat yapmıyor**: kısa bir başlangıç penceresinden sonra susuyor (worker
+  heartbeat `alınan_30s=0` doğruladı, bağlantı düşmeden). Denenen ve **işe yaramayan** ücretsiz workaround:
+  periyodik proaktif resubscribe (25s) — geri alındı (band-aid, kodu kirletiyordu). **Kalıcı çözüm (kullanıcı
+  kararı, ertelendi):** Helius ücretli plan (Developer ~$49/ay, aynı kod) VEYA güvenilir free WS sağlayıcısı
+  (Chainstack/QuickNode — WS/RPC URL config değişikliği). Worker kodu doğru; sadece `HELIUS_WS_URL`/`HELIUS_API_KEY`
+  yerine güvenilir bir kaynak bağlanacak. Kullanıcı 2026-08-05'te "şimdilik böyle bırak" (D) dedi — demo'da
+  gerçek token snapshot'ı var, canlı akış sağlayıcı kararına bağlı. Worker'da kalıcı **heartbeat** logu (`ingest
+  heartbeat alınan_30s/işlenen_30s`) sağlayıcı sağlığını görünür kılar.
+
 - **Raydium CPMM `initialize` account pozisyon-index kalibrasyonu:** Şu an "WSOL olmayan ilk base58-uzunluğunda
   account" heuristiği kullanılıyor; gerçek Raydium CPMM `initialize` tx'inde account sırasının kesin index'lerle
   doğrulanması gerekiyor. Deploy'da gerçek bir tx ile kalibre edilecek.

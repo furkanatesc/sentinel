@@ -110,10 +110,15 @@ Helius WS'e bağlandı. **Deploy hotfix (`4e2396f`):** İlk deploy'da worker ger
 satırıyla eşleşip TradeEvent'i CreateEvent sanıyordu. Fix: exact create marker (trimmed-suffix) + CreateEvent byte
 offset otomatik-tespit (emit! 8B / emit_cpi! 16B; uri `://` doğrulaması). **Doğrulama:** `/api/events` & `/api/tokens`
 200 + gerçek veri — 14 gerçek pump.fun token (Stark/PEPE/ORANGECHIP/…), doğru mint/symbol/name, 2 event/token
-(new_mint+metadata_created), skorlar dürüst-nötr (0 / "medium"). **AÇIK GÜVENLİK MADDESİ:** Railway'deki
-`HELIUS_API_KEY` hâlâ sohbete sızan `5f5e…` key'i — kullanıcı rotate ETMEDİ (re-paste etti); Helius'ta Regenerate
-edilip taze key Railway'e konmalı. **Frontend (Vercel) push'ta yeniden build edildi** — Live Feed/Overview artık
-gerçek akışı göstermeli (görsel doğrulama kullanıcıda).
+(new_mint+metadata_created), skorlar dürüst-nötr (0 / "medium"). **Frontend (Vercel) push'ta yeniden build edildi.**
+Helius key **rotate edildi** (sızıntı kapandı, taze/özel key Railway'de).
+
+**SÜREKLİ AKIŞ BLOKÖRÜ (sağlayıcı, kod değil):** Pipeline kanıtlandı ama **Helius free-tier `logsSubscribe`
+sürekli teslimat yapmıyor** — kısa patlamadan sonra susuyor (worker heartbeat `alınan_30s=0`, bağlantı
+düşmeden). Ücretsiz workaround (periyodik resubscribe) denendi, **işe yaramadı**, geri alındı. **Kullanıcı kararı
+(2026-08-05): D — şimdilik böyle bırak; slice 1a tamam.** Canlı sürekli akış, güvenilir WS sağlayıcısına bağlı
+(Helius paid ~$49/ay VEYA Chainstack/QuickNode free — worker kodu doğru, sadece kaynak URL'i değişir). Detay:
+`followups-frontend.md` "SÜREKLİ INGESTION AKIŞI" maddesi. Worker'da kalıcı heartbeat logu eklendi (ops görünürlük).
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
