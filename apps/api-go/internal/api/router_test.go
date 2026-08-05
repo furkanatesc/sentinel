@@ -11,7 +11,7 @@ import (
 )
 
 func newTestServer(st store.StrategyStore, origin string) *httptest.Server {
-	return httptest.NewServer(NewRouter(st, origin))
+	return httptest.NewServer(NewRouter(RouterDeps{Strategies: st, CORSOrigin: origin}))
 }
 
 func TestHealthz(t *testing.T) {

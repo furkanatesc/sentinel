@@ -8,15 +8,35 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
 )
 
+// RouterDeps, router'ın bağımlılıklarıdır (DIP: nil olan store'lar için route atlanır).
+type RouterDeps struct {
+	Strategies   store.StrategyStore
+	Events       store.EventStore
+	Tokens       store.TokenStore
+	Hub          *ws.Hub
+	CORSOrigin   string
+	EventsWindow int
+}
+
 // NewRouter, HTTP yönlendiricisini kurar.
-func NewRouter(st store.StrategyStore, corsOrigin string) http.Handler {
+func NewRouter(d RouterDeps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
-	r.Use(corsMiddleware(corsOrigin))
+	r.Use(corsMiddleware(d.CORSOrigin))
 	r.Get("/healthz", healthHandler)
-	r.Get("/api/strategies", strategiesHandler(st))
+	if d.Strategies != nil {
+		r.Get("/api/strategies", strategiesHandler(d.Strategies))
+	}
+	if d.Events != nil {
+		r.Get("/api/events", eventsHandler(d.Events, d.EventsWindow))
+	}
+	if d.Tokens != nil {
+		r.Get("/api/tokens", tokensHandler(d.Tokens, d.EventsWindow))
+	}
+	r.Get("/ws", wsHandler(d.Hub))
 	return r
 }
 
