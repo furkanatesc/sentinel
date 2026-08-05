@@ -12,35 +12,69 @@ import (
 
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/api"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
 )
+
+// Derleme zamanı sözleşme kilidi: ws.Hub, ingest.Broadcaster'ı karşılamalı.
+// Bu satır derlenmezse Broadcast imzaları sapmış demektir — assertion'ı silme, uyumsuzluğu düzelt.
+var _ ingest.Broadcaster = (*ws.Hub)(nil)
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg := config.Load()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	var st store.StrategyStore
-	var cleanup func() error = func() error { return nil }
+	var bundle store.Bundle
+	cleanup := func() error { return nil }
 	if cfg.DatabaseURL != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		pst, cl, err := store.OpenPostgres(ctx, cfg.DatabaseURL)
+		dbctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		b, cl, err := store.OpenPostgres(dbctx, cfg.DatabaseURL)
 		cancel()
 		if err != nil {
 			logger.Error("postgres init failed", "err", err)
 			os.Exit(1)
 		}
-		st, cleanup = pst, cl
+		bundle, cleanup = b, cl
 	} else {
-		logger.Warn("DATABASE_URL yok — in-memory fake store kullanılıyor")
-		st = store.NewFakeStore(store.SeedRows(), nil)
+		logger.Warn("DATABASE_URL yok — in-memory fake store")
+		bundle = store.Bundle{
+			Strategies: store.NewFakeStore(store.SeedRows(), nil),
+			Events:     store.NewFakeEventStore(),
+			Tokens:     store.NewFakeTokenStore(),
+		}
 	}
 	defer cleanup()
 
-	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(st, cfg.CORSOrigin),
-	}
+	hub := ws.NewHub()
+	go hub.Run(ctx)
 
+	// ingestion worker (Helius key varsa)
+	reg := ingest.NewRegistry()
+	reg.Register(ingest.NewPumpFunDecoder())
+	reg.Register(ingest.NewRaydiumCpmmDecoder())
+	wsURL, rpcURL := "", ""
+	if cfg.HeliusAPIKey != "" {
+		wsURL, rpcURL = ingest.HeliusURLs(cfg.HeliusAPIKey)
+	} else {
+		logger.Warn("HELIUS_API_KEY yok — ingestion worker başlamayacak (REST/mock boş DB çalışır)")
+	}
+	worker := ingest.NewWorker(ingest.WorkerDeps{
+		Registry: reg, Events: bundle.Events, Tokens: bundle.Tokens, Broadcast: hub,
+		Tx: ingest.NewHeliusTx(rpcURL), Meta: ingest.NewHeliusMetadata(rpcURL),
+		WSURL: wsURL, Logger: logger, TokensWindow: cfg.EventsWindow,
+	})
+	go worker.Run(ctx)
+
+	srv := &http.Server{
+		Addr: ":" + cfg.Port,
+		Handler: api.NewRouter(api.RouterDeps{
+			Strategies: bundle.Strategies, Events: bundle.Events, Tokens: bundle.Tokens,
+			Hub: hub, CORSOrigin: cfg.CORSOrigin, EventsWindow: cfg.EventsWindow,
+		}),
+	}
 	go func() {
 		logger.Info("listening", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -49,12 +83,9 @@ func main() {
 		}
 	}()
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	<-ctx.Done()
+	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = srv.Shutdown(ctx)
+	_ = srv.Shutdown(shutCtx)
 	logger.Info("stopped")
 }

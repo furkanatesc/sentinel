@@ -9,16 +9,18 @@ Sıra, backend programının alt-projelerine göre. **Şimdi gereken: sadece Hel
 
 ---
 
-## 1. Helius — ŞİMDİ gerekli (Backend Alt-proje 1: Solana ingestion)
+## 1. Helius — İMPLEMENTASYON TAMAM, deploy'da key gir (Backend Alt-proje 1 slice 1a: Solana ingestion)
 
 - **Ne için:** Gerçek-zaman Solana verisi — WebSocket `logsSubscribe` (yeni token/mint tespiti) + DAS API (token metadata/holder).
 - **Hesap:** https://www.helius.dev → Sign up → Dashboard.
 - **Alınacak:** bir **API Key** (dashboard'da "API Keys" bölümü). Ayrıca RPC/WS URL'i key'i içerir (ör. `https://mainnet.helius-rpc.com/?api-key=...` ve `wss://mainnet.helius-rpc.com/?api-key=...`).
-- **Nereye:** **Railway → `api-go` servisi → Variables** →
-  - `HELIUS_API_KEY` = (key değeri)
-  - *(alternatif olarak tam URL isteyebiliriz — implementasyon aşamasında netleştireceğim)*
+- **Nereye:** **Railway → `api-go` servisi → Variables** → `HELIUS_API_KEY` = (key değeri).
+  **⚠️ Key değeri SADECE Railway Variables paneline girilir — repoya, bu dosyaya veya sohbete (chat'e) ASLA
+  yazılmaz/yapıştırılmaz.** Sohbete bir şekilde sızan bir key varsa Helius dashboard'undan **rotate/iptal**
+  edilip yenisi Railway'e girilmeli (deploy adımı — bkz `docs/progress.md` "Sırada" bölümü, deploy DUR-noktası).
 - **Tier/maliyet:** Ücretsiz tier ile başlanabilir; sürekli WebSocket + hacim artınca **ücretli plan** gerekebilir (rate limit/WS bağlantı sınırları). Free ile başla, gerekince yükselt.
-- **Durum:** ⬜ Bekliyor
+- **Kod durumu:** ✅ **İmplementasyon TAMAM** (branch `feat/backend-ingestion-1a`, worker + WS hub + `/api/events`/`/api/tokens`/`/ws` endpoint'leri hazır; `HELIUS_API_KEY` yoksa ingestion worker başlamaz ama REST endpoint'leri yine çalışır).
+- **Durum:** 🔶 **Deploy bekliyor** — kullanıcı Railway → `api-go` servisi → Variables → `HELIUS_API_KEY` girecek (deploy adımı, whole-branch review + master merge sonrası).
 
 ---
 
@@ -58,4 +60,6 @@ Sıra, backend programının alt-projelerine göre. **Şimdi gereken: sadece Hel
 ---
 
 ### Özet — şu an senden istenen tek şey
-**Helius hesabı aç + API key al** (madde 1). Key'i bana verme; hazır olduğunda söyle, implementasyon aşamasında onu Railway'e nereye/ nasıl gireceğini adım adım tarif ederim.
+Helius implementasyonu (madde 1) **kod tarafında tamam**. Deploy aşamasında (branch review + master merge
+sonrası): eğer key sohbette paylaşıldıysa önce **rotate/iptal** et, sonra Railway → `api-go` servisi →
+Variables → `HELIUS_API_KEY` = (taze key değeri). Key değerini bana verme — sadece Railway paneline gir.

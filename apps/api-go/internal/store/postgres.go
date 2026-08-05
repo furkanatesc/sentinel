@@ -12,26 +12,34 @@ type postgresStore struct {
 	db *sql.DB
 }
 
-// OpenPostgres, bağlantı açar, migration'ları çalıştırır, seed'i idempotent uygular
-// ve StrategyStore ile bir kapatma fonksiyonu döner.
-func OpenPostgres(ctx context.Context, dsn string) (StrategyStore, func() error, error) {
+// Bundle, açılan Postgres bağlantısının sunduğu store'ları toplar.
+type Bundle struct {
+	Strategies StrategyStore
+	Events     EventStore
+	Tokens     TokenStore
+}
+
+// OpenPostgres, bağlantı açar, migration'ları çalıştırır, strateji seed'ini uygular
+// ve store bundle'ı ile kapatma fonksiyonu döner.
+func OpenPostgres(ctx context.Context, dsn string) (Bundle, func() error, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open: %w", err)
+		return Bundle{}, nil, fmt.Errorf("open: %w", err)
 	}
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
-		return nil, nil, fmt.Errorf("ping: %w", err)
+		return Bundle{}, nil, fmt.Errorf("ping: %w", err)
 	}
 	if err := runMigrations(db); err != nil {
 		db.Close()
-		return nil, nil, fmt.Errorf("migrate: %w", err)
+		return Bundle{}, nil, fmt.Errorf("migrate: %w", err)
 	}
 	if err := seedStrategies(ctx, db); err != nil {
 		db.Close()
-		return nil, nil, fmt.Errorf("seed: %w", err)
+		return Bundle{}, nil, fmt.Errorf("seed: %w", err)
 	}
-	return &postgresStore{db: db}, db.Close, nil
+	ps := &postgresStore{db: db}
+	return Bundle{Strategies: ps, Events: ps, Tokens: ps}, db.Close, nil
 }
 
 func seedStrategies(ctx context.Context, db *sql.DB) error {

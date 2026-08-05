@@ -15,5 +15,9 @@ it("mock modunda tüm endpoint'ler mockApi'den", () => {
 it("http modunda canlı endpoint httpApi'den, kalan mockApi'den", () => {
   process.env.NEXT_PUBLIC_DATA_SOURCE = "http";
   expect(getApi().getStrategies).toBe(httpApi.getStrategies);
-  expect(getApi().getTokens).toBe(mockApi.getTokens);
+  expect(getApi().getEvents).toBe(httpApi.getEvents);
+  expect(getApi().getTokens).toBe(httpApi.getTokens);
+  expect(getApi().subscribeEvents).toBe(httpApi.subscribeEvents);
+  expect(getApi().subscribeTokens).toBe(httpApi.subscribeTokens);
+  expect(getApi().getKpis).toBe(mockApi.getKpis);
 });
