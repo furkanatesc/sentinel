@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS events (
     ts                BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events (ts DESC);
+CREATE INDEX IF NOT EXISTS idx_tokens_first_seen ON tokens (first_seen_ts DESC);
 
 -- +goose Down
 DROP TABLE IF EXISTS events;

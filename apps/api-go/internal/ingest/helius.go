@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -114,6 +116,7 @@ func SubscribeLogs(ctx context.Context, wsURL string, programIDs []string, out c
 	}
 	defer client.Close()
 
+	var wg sync.WaitGroup
 	for _, pid := range programIDs {
 		pk, err := solana.PublicKeyFromBase58(pid)
 		if err != nil {
@@ -123,13 +126,29 @@ func SubscribeLogs(ctx context.Context, wsURL string, programIDs []string, out c
 		if err != nil {
 			return fmt.Errorf("logsSubscribe %s: %w", pid, err)
 		}
-		go recvLoop(ctx, sub, pid, out)
+		wg.Add(1)
+		go recvLoop(ctx, &wg, sub, pid, out)
 	}
-	<-ctx.Done()
-	return ctx.Err()
+
+	// Tüm recvLoop'lar döndüğünde (bağlantı koptuğunda) loopsDone kapanır.
+	// Böylece SubscribeLogs ctx iptalinde OLMASA BİLE canlı soket düşünce
+	// döner ve worker'daki reconnect (done <- SubscribeLogs(...)) tetiklenir.
+	loopsDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(loopsDone)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-loopsDone:
+		return errors.New("tüm log abonelikleri kapandı (bağlantı düştü)")
+	}
 }
 
-func recvLoop(ctx context.Context, sub *ws.LogSubscription, programID string, out chan<- LogNotification) {
+func recvLoop(ctx context.Context, wg *sync.WaitGroup, sub *ws.LogSubscription, programID string, out chan<- LogNotification) {
+	defer wg.Done()
 	defer sub.Unsubscribe()
 	for {
 		got, err := sub.Recv(ctx)
