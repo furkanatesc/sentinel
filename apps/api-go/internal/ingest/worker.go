@@ -15,15 +15,16 @@ type Broadcaster interface {
 }
 
 type WorkerDeps struct {
-	Registry  *Registry
-	Events    store.EventStore
-	Tokens    store.TokenStore
-	Broadcast Broadcaster
-	Tx        TxFetcher       // canlıda Helius; testte nil/fake
-	Meta      MetadataFetcher // canlıda Helius; testte nil/fake
-	WSURL     string          // canlı abonelik; testte boş
-	Now       func() int64    // enjekte edilebilir saat (test determinizmi)
-	Logger    *slog.Logger
+	Registry     *Registry
+	Events       store.EventStore
+	Tokens       store.TokenStore
+	Broadcast    Broadcaster
+	Tx           TxFetcher       // canlıda Helius; testte nil/fake
+	Meta         MetadataFetcher // canlıda Helius; testte nil/fake
+	WSURL        string          // canlı abonelik; testte boş
+	Now          func() int64    // enjekte edilebilir saat (test determinizmi)
+	Logger       *slog.Logger
+	TokensWindow int // "tokens" broadcast'i için snapshot penceresi (RecentTokens limit)
 }
 
 type Worker struct {
@@ -38,6 +39,9 @@ func NewWorker(d WorkerDeps) *Worker {
 	}
 	if d.Logger == nil {
 		d.Logger = slog.Default()
+	}
+	if d.TokensWindow <= 0 {
+		d.TokensWindow = 200
 	}
 	return &Worker{d: d, seen: map[string]struct{}{}}
 }
@@ -75,7 +79,16 @@ func (w *Worker) Process(ctx context.Context, n LogNotification) {
 			w.d.Logger.Warn("upsert token", "err", err)
 			continue // persist edilmemiş token'ı yayınlama; olay yine de yayınlandı (gerçek)
 		}
-		w.d.Broadcast.Broadcast("tokens", item.Token)
+		// Seam kontratı (apps/web/lib/api/contract.ts): subscribeTokens []TokenRow alır,
+		// useLiveTokens setQueryData ile TÜM listeyi bununla DEĞİŞTİRİR (prepend değil).
+		// Tekil token göndermek frontend listesini o tek token'a indirger — bu yüzden
+		// upsert sonrası tam snapshot okunup array olarak yayınlanır.
+		snapshot, err := w.d.Tokens.RecentTokens(ctx, w.d.TokensWindow)
+		if err != nil {
+			w.d.Logger.Warn("tokens snapshot", "err", err)
+			continue // kısmi/hatalı snapshot yayınlama
+		}
+		w.d.Broadcast.Broadcast("tokens", snapshot)
 	}
 }
 

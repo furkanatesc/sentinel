@@ -64,7 +64,7 @@ func main() {
 	worker := ingest.NewWorker(ingest.WorkerDeps{
 		Registry: reg, Events: bundle.Events, Tokens: bundle.Tokens, Broadcast: hub,
 		Tx: ingest.NewHeliusTx(rpcURL), Meta: ingest.NewHeliusMetadata(rpcURL),
-		WSURL: wsURL, Logger: logger,
+		WSURL: wsURL, Logger: logger, TokensWindow: cfg.EventsWindow,
 	})
 	go worker.Run(ctx)
 
