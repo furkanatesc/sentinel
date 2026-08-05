@@ -41,15 +41,49 @@ func TestFakeStoresRoundTrip(t *testing.T) {
 	if err := es.InsertEvent(ctx, EventRow{ID: "e1", Type: "new_mint", Mint: "M", Ts: 1}); err != nil {
 		t.Fatal(err)
 	}
+	if err := es.InsertEvent(ctx, EventRow{ID: "e2", Type: "new_mint", Mint: "M2", Ts: 2}); err != nil {
+		t.Fatal(err)
+	}
 	got, err := es.RecentEvents(ctx, 10)
-	if err != nil || len(got) != 1 || got[0].ID != "e1" {
-		t.Fatalf("RecentEvents = %+v, err=%v", got, err)
+	if err != nil || len(got) != 2 || got[0].ID != "e2" || got[1].ID != "e1" {
+		t.Fatalf("RecentEvents = %+v, err=%v, want newest-first [e2 e1]", got, err)
 	}
 	ts := NewFakeTokenStore()
 	_ = ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S"})
 	_ = ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S2"}) // upsert = tek satır
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "M3", Mint: "M3", Symbol: "S3"})
 	toks, _ := ts.RecentTokens(ctx, 10)
-	if len(toks) != 1 || toks[0].Symbol != "S2" {
-		t.Fatalf("RecentTokens = %+v", toks)
+	if len(toks) != 2 || toks[0].Symbol != "S3" || toks[1].Symbol != "S2" {
+		t.Fatalf("RecentTokens = %+v, want newest-first [S3 S2]", toks)
+	}
+}
+
+// TestFakeTokenStoreSparkNormalization, TokenStore'a nil Spark ile eklenen bir
+// satırın JSON'da "spark":null değil "spark":[] olarak çıktığını kilitler
+// (frontend kontratı: spark: number[], null değil).
+func TestFakeTokenStoreSparkNormalization(t *testing.T) {
+	ctx := context.Background()
+	ts := NewFakeTokenStore()
+	if err := ts.UpsertToken(ctx, TokenRow{ID: "M", Mint: "M", Symbol: "S"}); err != nil { // Spark nil bırakıldı
+		t.Fatal(err)
+	}
+	toks, err := ts.RecentTokens(ctx, 10)
+	if err != nil || len(toks) != 1 {
+		t.Fatalf("RecentTokens = %+v, err=%v", toks, err)
+	}
+	b, err := json.Marshal(toks[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	spark, ok := m["spark"].([]any)
+	if !ok {
+		t.Fatalf(`"spark" = %#v (%T), want a JSON array ([]), not null`, m["spark"], m["spark"])
+	}
+	if len(spark) != 0 {
+		t.Fatalf("spark = %v, want empty array", spark)
 	}
 }
