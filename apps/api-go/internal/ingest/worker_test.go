@@ -118,6 +118,13 @@ func (f *failingTokenStore) UpsertToken(_ context.Context, _ store.TokenRow, _ i
 func (f *failingTokenStore) RecentTokens(_ context.Context, _ int) ([]store.TokenRow, error) {
 	return nil, nil
 }
+func (f *failingTokenStore) UpsertDiscovered(context.Context, store.DiscoveredToken) (bool, error) {
+	return false, nil
+}
+func (f *failingTokenStore) UpdateMarket(context.Context, store.MarketUpdate) error { return nil }
+func (f *failingTokenStore) EnrichTargets(context.Context, int) ([]store.EnrichTarget, error) {
+	return nil, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -166,6 +173,15 @@ func (f *snapshotFailingTokenStore) UpsertToken(_ context.Context, _ store.Token
 }
 func (f *snapshotFailingTokenStore) RecentTokens(_ context.Context, _ int) ([]store.TokenRow, error) {
 	return nil, errors.New("snapshot boom")
+}
+func (f *snapshotFailingTokenStore) UpsertDiscovered(context.Context, store.DiscoveredToken) (bool, error) {
+	return false, nil
+}
+func (f *snapshotFailingTokenStore) UpdateMarket(context.Context, store.MarketUpdate) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) EnrichTargets(context.Context, int) ([]store.EnrichTarget, error) {
+	return nil, nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {

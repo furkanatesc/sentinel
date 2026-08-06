@@ -1,0 +1,7 @@
+-- +goose Up
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS pool_address TEXT NOT NULL DEFAULT '';
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS spark TEXT NOT NULL DEFAULT ''; -- JSON []float64
+
+-- +goose Down
+ALTER TABLE tokens DROP COLUMN IF EXISTS spark;
+ALTER TABLE tokens DROP COLUMN IF EXISTS pool_address;
