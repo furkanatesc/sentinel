@@ -79,9 +79,16 @@ func TestPostgresMarketRoundTrip(t *testing.T) {
 		t.Fatal("EnrichTargets keşfedilen token'ı içermeli")
 	}
 	toks, _ := b.Tokens.RecentTokens(ctx, 50)
+	var foundTok bool
 	for _, tk := range toks {
-		if tk.Mint == "MintMk" && (tk.Price != 0.5 || tk.Momentum != 72 || len(tk.Spark) != 3) {
-			t.Fatalf("RecentTokens piyasa alanlarını yansıtmadı: %+v", tk)
+		if tk.Mint == "MintMk" {
+			foundTok = true
+			if tk.Price != 0.5 || tk.Momentum != 72 || len(tk.Spark) != 3 {
+				t.Fatalf("RecentTokens piyasa alanlarını yansıtmadı: %+v", tk)
+			}
 		}
+	}
+	if !foundTok {
+		t.Fatal("RecentTokens keşfedilen token'ı içermeli")
 	}
 }
