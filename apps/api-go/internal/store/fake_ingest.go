@@ -108,6 +108,16 @@ func (f *fakeTokenStore) EnrichTargets(_ context.Context, limit int) ([]EnrichTa
 	return out, nil
 }
 
+func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenDetailBase, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	t, ok := f.byID[mint]
+	if !ok {
+		return TokenDetailBase{}, false, nil
+	}
+	return TokenDetailBase{Name: t.row.Name, Symbol: t.row.Symbol, PoolAddr: t.poolAddr, FirstSeenTs: t.firstSeen}, true, nil
+}
+
 func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

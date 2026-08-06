@@ -125,6 +125,9 @@ func (f *failingTokenStore) UpdateMarket(context.Context, store.MarketUpdate) er
 func (f *failingTokenStore) EnrichTargets(context.Context, int) ([]store.EnrichTarget, error) {
 	return nil, nil
 }
+func (f *failingTokenStore) TokenDetailBase(context.Context, string) (store.TokenDetailBase, bool, error) {
+	return store.TokenDetailBase{}, false, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -182,6 +185,9 @@ func (f *snapshotFailingTokenStore) UpdateMarket(context.Context, store.MarketUp
 }
 func (f *snapshotFailingTokenStore) EnrichTargets(context.Context, int) ([]store.EnrichTarget, error) {
 	return nil, nil
+}
+func (f *snapshotFailingTokenStore) TokenDetailBase(context.Context, string) (store.TokenDetailBase, bool, error) {
+	return store.TokenDetailBase{}, false, nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {
