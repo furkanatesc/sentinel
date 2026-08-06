@@ -13,6 +13,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/api"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
 )
@@ -67,6 +68,23 @@ func main() {
 		WSURL: wsURL, Logger: logger, TokensWindow: cfg.EventsWindow,
 	})
 	go worker.Run(ctx)
+
+	// market keşif + enrichment (GeckoTerminal REST — WS'ten bağımsız, Slice 1b)
+	if cfg.MarketEnabled {
+		gt := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil)
+		disc := market.NewDiscoverer(market.DiscovererDeps{
+			Provider: gt, Tokens: bundle.Tokens, Events: bundle.Events, Broadcast: hub,
+			Interval: time.Duration(cfg.DiscoverInterval) * time.Second, SnapshotLimit: cfg.EventsWindow, Logger: logger,
+		})
+		enr := market.NewEnricher(market.EnricherDeps{
+			Provider: gt, Tokens: bundle.Tokens, Broadcast: hub,
+			Interval: time.Duration(cfg.EnrichInterval) * time.Second, Limit: cfg.EnrichLimit, Logger: logger,
+		})
+		go disc.Run(ctx)
+		go enr.Run(ctx)
+	} else {
+		logger.Warn("MARKET_ENABLED=false — market keşif/enrichment kapalı")
+	}
 
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
