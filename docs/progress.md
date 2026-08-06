@@ -69,7 +69,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 | # | Alt-proje | Kontrat dilimi | Durum |
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
-| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı.** `getKpis`/`getRadar`/`getToken` → Slice 1b |
+| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı.** Slice 1b kod TAMAM (`feat/backend-ingestion-1b`, deploy bekliyor) — REST market enrichment (price/liquidity/vol5m/momentum/spark gerçek). `getToken`+OHLCV → Slice 1c; `getKpis`/`getRadar` → Alt-proje 2 |
 | 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
@@ -119,6 +119,30 @@ düşmeden). Ücretsiz workaround (periyodik resubscribe) denendi, **işe yarama
 (2026-08-05): D — şimdilik böyle bırak; slice 1a tamam.** Canlı sürekli akış, güvenilir WS sağlayıcısına bağlı
 (Helius paid ~$49/ay VEYA Chainstack/QuickNode free — worker kodu doğru, sadece kaynak URL'i değişir). Detay:
 `followups-frontend.md` "SÜREKLİ INGESTION AKIŞI" maddesi. Worker'da kalıcı heartbeat logu eklendi (ops görünürlük).
+
+**Alt-proje 1 Slice 1b teslim (2026-08-06, branch `feat/backend-ingestion-1b`):** Kapsam — **REST tabanlı token
+keşfi + market enrichment**, tamamen backend, **Helius WS'ten bağımsız** (1a'nın sürekli-akış blokörünü bypass
+eder — GeckoTerminal poll'u WS teslimatına bağlı değil). Stack: **GeckoTerminal v2 REST, keysiz** (yeni ücretli/harici
+bağımlılık yok). Teslim edilen paketler: yeni `internal/market/` — `MarketProvider` arayüzü (DIP) +
+`GeckoTerminalClient` (`new_pools` keşif + `pools/multi` enrichment, JSON:API parse, dex filtresi pump.fun/Raydium'a);
+`Discoverer` poller (yeni havuzları tarar, token identity + `pool_created` feed event yazar + ücretsiz ilk market
+enrichment uygular, insert-flag ile dedup, snapshot broadcast); `Enricher` poller (son token'ların
+price/liquidity/vol5m/momentum'unu batch tazeler + spark örneği ekler, snapshot broadcast); paylaşımlı
+`momentumFromChange`/`appendSpark` helper'ları (SRP: iki odaklı poller). Store: migration `0003` (tokens tablosuna
+`pool_address` + spark JSON kolonları), yeni metotlar `UpsertDiscovered` (inserted-flag döner), `UpdateMarket`,
+`EnrichTargets`; `RecentTokens` artık spark okuyor. Config (hepsi keysiz, varsayılanlı): `MARKET_ENABLED` (default
+true), `GECKOTERMINAL_BASE_URL`, `MARKET_DISCOVER_INTERVAL_SEC`/`MARKET_ENRICH_INTERVAL_SEC` (30s), `MARKET_ENRICH_LIMIT`
+(60) — main.go her iki poller'ı da (config-gated) mevcut Helius worker'ın yanında başlatıyor. **Dürüst alan durumu:**
+price/liquidity/vol5m/momentum/spark **GERÇEK** (GeckoTerminal'den); holders **boş** (→ Slice 1c, Helius DAS/holder
+sorgusu gerektirir); creatorScore/safetyScore/signal **nötr placeholder** (→ Alt-proje 2 scoring); Overview'un
+`getKpis`/`getRadar`'ı ve Token Detail'in `getToken`+OHLCV serisi **hâlâ MOCK** (kapsam dışı, aşağıda). **Kabul
+kriterleri (deploy'da doğrulanır):** Go build/vet/`test -race` yeşil + frontend dokunulmadı (seam zaten alanları
+taşıyordu, hiçbir `apps/web` dosyası değişmedi); canlı GeckoTerminal + DB round-trip **yalnızca deploy'da**
+doğrulanacak (yerel Postgres/ağ yok — 1a ile aynı desen). GeckoTerminal JSON alan-adı kalibrasyonu 1a'nın Raydium
+kalibrasyonu gibi açık ertelenen madde (placeholder değil, gerekçeli). **Kapsam dışı (bilinçli, sessiz düşürme
+yok):** Token Detail (`getToken`) + OHLCV serisi + Helius holders → **Slice 1c**; `getKpis`/`getRadar` (Overview) →
+**Alt-proje 2** (skorlara bağımlı); DexScreener ikinci provider → `MarketProvider` arayüzü zaten OCP-hazır, gerekince
+eklenir. Detay: `docs/superpowers/followups-frontend.md` "Backend Alt-proje 1 slice 1b — deferred" bölümü.
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
@@ -171,6 +195,11 @@ düşmeden). Ücretsiz workaround (periyodik resubscribe) denendi, **işe yarama
   10 kod task'ı (fresh subagent + task-review döngüsü, hepsi spec ✅ + kalite Approved) + Task 11 (bu doküman
   turu — living docs). Detay: yukarıdaki "Backend programı" bölümü "Alt-proje 1 Slice 1a teslim" paragrafı.
   Whole-branch review + master'a merge + Railway/Helius deploy henüz yapılmadı (Task 11 sonrası sıradaki adım).
+
+- 2026-08-06 — **Backend Alt-proje 1 Slice 1b kod tamamlandı (branch `feat/backend-ingestion-1b`).** SDD ile
+  7 kod task'ı (fresh subagent + task-review döngüsü) + Task 8 (bu doküman turu — living docs, Step 1-3).
+  Detay: yukarıdaki "Backend programı" bölümü "Alt-proje 1 Slice 1b teslim" paragrafı. Whole-branch review +
+  master'a merge + deploy henüz yapılmadı (Task 8'in Step 4'ü — ayrı, controller tarafından yürütülür).
 
 ## Açık takip maddeleri
 

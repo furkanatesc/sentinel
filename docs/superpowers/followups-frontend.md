@@ -181,6 +181,32 @@ dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve Slice 1b'ye 
 - **Slice 1b'ye ertelenen:** `getKpis`/`getRadar`/`getToken` gerçeğe dönecek; price/liquidity/vol5m/holders/
   momentum/spark zenginleştirmesi; `first_swap`/`liquidity_added` event tipleri.
 
+## Backend Alt-proje 1 slice 1b — deferred
+
+Slice 1b (`feat/backend-ingestion-1b`, 2026-08-06) teslim edildi: REST tabanlı token keşfi (GeckoTerminal
+`new_pools`) + market enrichment (`pools/multi`), Helius WS'ten bağımsız. Aşağıdaki maddeler bilinçle bu dilime
+dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dilimlere bağlı.
+
+- **Overview (`getKpis`/`getRadar`) → Alt-proje 2'ye bağlı.** İkisi de creator/safety skorlarını (KPI özetleri,
+  fırsat radarı sıralaması) tüketiyor; skorlar Alt-proje 2 (Python scoring/ML) tamamlanana kadar nötr placeholder
+  kalacağından bu dilimde gerçeğe döndürülmedi — Overview mock kalmaya devam ediyor.
+- **Token Detail (`getToken`) + OHLCV serisi + Helius holders → Slice 1c.** `getToken` tekil token derinlemesine
+  görünümü (tam skor kartları, açıklanabilir skor, holder dağılımı) gerektiriyor; OHLCV zaman serisi ayrı bir veri
+  kaynağı/agregasyon ister; holder sayısı/dağılımı Helius DAS/holder sorgusu gerektiriyor (1b'de GeckoTerminal
+  bunu sağlamıyor) — hepsi Slice 1c'ye ertelendi.
+  - **Dürüst alan durumu (1b sonrası):** price/liquidity/vol5m/momentum/spark **GERÇEK** (GeckoTerminal); holders
+    **boş**; creatorScore/safetyScore/signal **nötr placeholder** (0/"medium" — Alt-proje 2 dolduracak).
+- **DexScreener ikinci provider — gerekince (OCP-hazır).** `internal/market/provider.go`'daki `MarketProvider`
+  arayüzü (DIP) `GeckoTerminalClient`'ın tek implementasyonu; ikinci bir sağlayıcı (ör. GeckoTerminal rate-limit'e
+  takılırsa ya da veri kalitesi/kapsamı için) mevcut arayüze uyan yeni bir client ile eklenebilir, `Discoverer`/
+  `Enricher` değişmeden. Bugün somut ihtiyaç yok, framework hazır.
+- **GeckoTerminal JSON alan-adı kalibrasyonu (deploy'da doğrulanacak):** Client `new_pools`/`pools/multi`
+  cevaplarını JSON:API şemasına göre parse ediyor ancak gerçek alan adları (fiyat/likidite/hacim path'leri)
+  yalnızca canlı GeckoTerminal cevabına karşı deploy'da kalibre edilecek — 1a'nın Raydium account-index
+  kalibrasyonuyla aynı desen (placeholder değil, gerekçeli ertelenen madde).
+- **Canlı GeckoTerminal + DB round-trip yalnızca deploy'da doğrulanacak** (yerel Postgres/ağ erişimi yok — 1a/1b
+  ile aynı desen). Go build/vet/`test -race` yeşil; frontend hiç dokunulmadı (seam zaten alanları taşıyordu).
+
 ## Backtesting (Increment 9)
 - **Event Replay ertelendi (spec-level, sonraki artım):** Ekran 9'un look-ahead-bias'sız timeline playback
   yarısı bilinçle kapsam dışı bırakıldı (playback state'li oynatıcı + look-ahead engelleme ayrı bir etkileşim).
