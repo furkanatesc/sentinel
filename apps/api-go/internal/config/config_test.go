@@ -30,6 +30,14 @@ func TestLoadMarketDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadDetailDefaults(t *testing.T) {
+	t.Setenv("TOKEN_DETAIL_CACHE_SEC", "")
+	c := Load()
+	if c.TokenDetailCacheSec != 20 || c.OHLCVLimit != 200 || c.HoldersCap != 5000 {
+		t.Fatalf("detail default'ları yanlış: %+v", c)
+	}
+}
+
 func TestGetenvBool(t *testing.T) {
 	t.Setenv("X_FLAG", "false")
 	if getenvBool("X_FLAG", true) {

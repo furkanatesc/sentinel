@@ -86,11 +86,29 @@ func main() {
 		logger.Warn("MARKET_ENABLED=false — market keşif/enrichment kapalı")
 	}
 
+	// token detail service (GeckoTerminal header+OHLCV + Helius holders) — Slice 1c
+	var detailSvc api.TokenDetailProvider
+	if cfg.MarketEnabled && bundle.Tokens != nil {
+		gtForDetail := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil)
+		var holders market.HoldersProvider
+		if rpcURL != "" {
+			holders = ingest.NewHeliusHolders(rpcURL)
+		} else {
+			holders = noopHolders{} // key yoksa holders 0 (dürüst)
+		}
+		detailSvc = market.NewTokenDetailService(market.TokenDetailDeps{
+			Store: bundle.Tokens, Provider: gtForDetail, Holders: holders,
+			CacheTTL: time.Duration(cfg.TokenDetailCacheSec) * time.Second,
+			OHLCVLimit: cfg.OHLCVLimit, HoldersCap: cfg.HoldersCap, Logger: logger,
+		})
+	}
+
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
 		Handler: api.NewRouter(api.RouterDeps{
 			Strategies: bundle.Strategies, Events: bundle.Events, Tokens: bundle.Tokens,
 			Hub: hub, CORSOrigin: cfg.CORSOrigin, EventsWindow: cfg.EventsWindow,
+			TokenDetail: detailSvc,
 		}),
 	}
 	go func() {
@@ -107,3 +125,8 @@ func main() {
 	_ = srv.Shutdown(shutCtx)
 	logger.Info("stopped")
 }
+
+// noopHolders, Helius key yokken holders'ı 0 döndürür (dürüst — sayı yok).
+type noopHolders struct{}
+
+func (noopHolders) HoldersCount(context.Context, string, int) (int, bool, error) { return 0, false, nil }
