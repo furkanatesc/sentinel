@@ -77,3 +77,43 @@ func TestDiscovererDedupSecondTickNoNewEvent(t *testing.T) {
 		t.Fatalf("olaylar=%d, want 1 (dedup: yalnız ilk keşifte olay)", len(evs))
 	}
 }
+
+// TestDiscovererDoesNotReenrichOnSecondTick, ilk keşif enrichment'inin yalnız ilk tick'te
+// çalıştığını kanıtlar: Enricher'ın biriktirdiği spark geçmişi, discoverer'ın tekrarlayan
+// tick'lerinde appendSpark(nil, ...) ile tek örneğe sıfırlanmamalı (regression: bug fix).
+func TestDiscovererDoesNotReenrichOnSecondTick(t *testing.T) {
+	fp := &fakeProvider{newPools: []Pool{{
+		PoolAddr: "P1", Mint: "M1", Name: "One", Symbol: "ONE", Dex: "pumpfun",
+		Price: 2, LiquidityUSD: 1000, Vol5m: 50, PriceChangeH1: 20, CreatedAtUnix: 900,
+	}}}
+	d, ts, _, _ := newDiscoverer(fp)
+	ctx := context.Background()
+	if err := d.tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Enricher, ilk keşiften sonra bağımsız olarak spark geçmişini büyütür (simülasyon).
+	simulatedSpark := []float64{2, 2.1, 2.2, 2.3, 2.4}
+	if err := ts.UpdateMarket(ctx, store.MarketUpdate{
+		Mint: "M1", Price: 2.4, Liquidity: 1200, Vol5m: 60, Momentum: 70, Spark: simulatedSpark,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// İkinci tick: havuz zaten biliniyor (inserted=false) → discoverer UpdateMarket'i
+	// TEKRAR çalıştırmamalı; aksi halde Enricher'ın spark geçmişi tek örneğe düşer (clobber).
+	if err := d.tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	toks, _ := ts.RecentTokens(ctx, 10)
+	if len(toks) != 1 {
+		t.Fatalf("token sayısı=%d want 1", len(toks))
+	}
+	got := toks[0].Spark
+	if len(got) != len(simulatedSpark) {
+		t.Fatalf("spark ikinci tick'te clobber edildi: len=%d want %d (got=%v)", len(got), len(simulatedSpark), got)
+	}
+	for i, v := range simulatedSpark {
+		if got[i] != v {
+			t.Fatalf("spark ikinci tick'te değişti: got=%v want=%v", got, simulatedSpark)
+		}
+	}
+}

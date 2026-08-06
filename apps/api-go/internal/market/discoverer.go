@@ -81,15 +81,15 @@ func (x *Discoverer) tick(ctx context.Context) error {
 			x.d.Logger.Warn("upsert discovered", "mint", p.Mint, "err", err)
 			continue
 		}
-		// Keşifte bedava ilk enrichment (new_pools zaten piyasa verisi taşır).
-		if err := x.d.Tokens.UpdateMarket(ctx, store.MarketUpdate{
-			Mint: p.Mint, Price: p.Price, Liquidity: p.LiquidityUSD, Vol5m: p.Vol5m,
-			Momentum: momentumFromChange(p.PriceChangeH1), Spark: appendSpark(nil, p.Price),
-		}); err != nil {
-			x.d.Logger.Warn("initial market", "mint", p.Mint, "err", err)
-		}
-		wrote = true
-		if inserted { // yalnız ilk keşifte olay (spam yok)
+		if inserted { // yalnız ilk keşifte enrichment+olay (Enricher sonraki güncellemelerin sahibi; spam yok)
+			// Keşifte bedava ilk enrichment — yalnız ilk keşifte (sonraki güncellemeler Enricher'ın).
+			if err := x.d.Tokens.UpdateMarket(ctx, store.MarketUpdate{
+				Mint: p.Mint, Price: p.Price, Liquidity: p.LiquidityUSD, Vol5m: p.Vol5m,
+				Momentum: momentumFromChange(p.PriceChangeH1), Spark: appendSpark(nil, p.Price),
+			}); err != nil {
+				x.d.Logger.Warn("initial market", "mint", p.Mint, "err", err)
+			}
+			wrote = true
 			ev := store.EventRow{
 				ID: p.PoolAddr + "|pool_created", Type: "pool_created", Symbol: p.Symbol, Mint: p.Mint,
 				Launchpad: launchpad, DEX: launchpad, Liquidity: p.LiquidityUSD, RiskLevel: "medium",
