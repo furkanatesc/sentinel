@@ -39,6 +39,8 @@ type gtPool struct {
 		CreatedAt   string            `json:"pool_created_at"`
 		VolumeUSD   map[string]string `json:"volume_usd"`
 		PriceChange map[string]string `json:"price_change_percentage"`
+		MarketCap   string            `json:"market_cap_usd"`
+		FDV         string            `json:"fdv_usd"`
 	} `json:"attributes"`
 	Relationships struct {
 		BaseToken struct {
@@ -125,6 +127,10 @@ func (r *gtResponse) toPools(filterDex bool) []Pool {
 			Vol5m:         parseFloat(d.Attributes.VolumeUSD["m5"]),
 			PriceChangeH1: parseFloat(d.Attributes.PriceChange["h1"]),
 			CreatedAtUnix: parseTime(d.Attributes.CreatedAt),
+
+			PriceChangeH24: parseFloat(d.Attributes.PriceChange["h24"]),
+			Vol24h:         parseFloat(d.Attributes.VolumeUSD["h24"]),
+			MarketCapUSD:   marketCap(d.Attributes.MarketCap, d.Attributes.FDV),
 		}
 		if tok, ok := names[baseID]; ok {
 			p.Name, p.Symbol = tok.Attributes.Name, tok.Attributes.Symbol
@@ -171,6 +177,41 @@ func parseTime(s string) int64 {
 		return 0
 	}
 	return t.Unix()
+}
+
+// marketCap, market_cap_usd önceliklidir; boş/0 ise fdv_usd'ye düşer.
+func marketCap(mc, fdv string) float64 {
+	if v := parseFloat(mc); v > 0 {
+		return v
+	}
+	return parseFloat(fdv)
+}
+
+type gtOHLCV struct {
+	Data struct {
+		Attributes struct {
+			OHLCVList [][]float64 `json:"ohlcv_list"`
+		} `json:"attributes"`
+	} `json:"data"`
+}
+
+func (c *GeckoTerminalClient) OHLCV(ctx context.Context, poolAddr, timeframe string, limit int) ([]Candle, error) {
+	url := fmt.Sprintf("%s/networks/solana/pools/%s/ohlcv/%s?aggregate=1&limit=%d", c.baseURL, poolAddr, timeframe, limit)
+	var resp gtOHLCV
+	if err := c.getJSON(ctx, url, &resp); err != nil {
+		return nil, err
+	}
+	list := resp.Data.Attributes.OHLCVList
+	out := make([]Candle, 0, len(list))
+	// ohlcv_list newest-first; artan t için ters çevir. Her satır [ts,o,h,l,c,v].
+	for i := len(list) - 1; i >= 0; i-- {
+		row := list[i]
+		if len(row) < 6 {
+			continue
+		}
+		out = append(out, Candle{Ts: int64(row[0]), Close: row[4], Volume: row[5]})
+	}
+	return out, nil
 }
 
 var _ MarketProvider = (*GeckoTerminalClient)(nil)

@@ -16,6 +16,7 @@ type RouterDeps struct {
 	Strategies   store.StrategyStore
 	Events       store.EventStore
 	Tokens       store.TokenStore
+	TokenDetail  TokenDetailProvider
 	Hub          *ws.Hub
 	CORSOrigin   string
 	EventsWindow int
@@ -35,6 +36,9 @@ func NewRouter(d RouterDeps) http.Handler {
 	}
 	if d.Tokens != nil {
 		r.Get("/api/tokens", tokensHandler(d.Tokens, d.EventsWindow))
+	}
+	if d.TokenDetail != nil {
+		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail))
 	}
 	r.Get("/ws", wsHandler(d.Hub))
 	return r

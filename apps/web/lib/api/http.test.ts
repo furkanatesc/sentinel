@@ -59,6 +59,24 @@ it("getTokens API JSON'unu TokenRow[]'a maple", async () => {
   expect(rows).toEqual(sampleToken);
 });
 
+const sampleDetail = {
+  id: "t1", name: "SolPulse", symbol: "PULSE", mint: "9xQeWv...4Fk2", ageSeconds: 38,
+  price: 0.0042, priceChange24h: 3.2, marketCap: 420000, liquidity: 82400, volume24h: 41200,
+  scores: {}, metrics: {}, series: { price: [], liquidity: [], volume: [], holders: [] }, risks: { contract: [], market: [], creator: [] },
+};
+
+it("getToken API JSON'unu TokenDetail'e maple ve /api/token/{mint} çağırır", async () => {
+  const fetchMock = vi.fn(async () =>
+    new Response(JSON.stringify(sampleDetail), { status: 200, headers: { "content-type": "application/json" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const got = await httpApi.getToken("9xQeWv...4Fk2");
+  expect(got).toEqual(sampleDetail);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.test/api/token/9xQeWv...4Fk2",
+    expect.objectContaining({ headers: { accept: "application/json" } }),
+  );
+});
+
 it("subscribeEvents WS üzerinden events topic'ine abone olur", () => {
   class MockWS {
     static instances: MockWS[] = [];

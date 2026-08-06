@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 )
 
@@ -56,6 +58,8 @@ type TokenStore interface {
 	UpdateMarket(ctx context.Context, m MarketUpdate) error
 	// 1b: enrichment hedefleri (havuz adresi olan token'lar, en yeni önce).
 	EnrichTargets(ctx context.Context, limit int) ([]EnrichTarget, error)
+	// 1c: getToken için tek token kimlik+havuz (bulunamazsa ok=false).
+	TokenDetailBase(ctx context.Context, mint string) (TokenDetailBase, bool, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64) error {
@@ -137,6 +141,19 @@ func (p *postgresStore) EnrichTargets(ctx context.Context, limit int) ([]EnrichT
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (TokenDetailBase, bool, error) {
+	const q = `SELECT name, symbol, pool_address, first_seen_ts FROM tokens WHERE mint=$1`
+	var b TokenDetailBase
+	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs)
+	if errors.Is(err, sql.ErrNoRows) {
+		return TokenDetailBase{}, false, nil
+	}
+	if err != nil {
+		return TokenDetailBase{}, false, err
+	}
+	return b, true, nil
 }
 
 // parseSparkJSON, boş/bozuk JSON'da boş dilim döner (asla nil değil).

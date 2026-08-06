@@ -190,10 +190,10 @@ dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dili
 - **Overview (`getKpis`/`getRadar`) → Alt-proje 2'ye bağlı.** İkisi de creator/safety skorlarını (KPI özetleri,
   fırsat radarı sıralaması) tüketiyor; skorlar Alt-proje 2 (Python scoring/ML) tamamlanana kadar nötr placeholder
   kalacağından bu dilimde gerçeğe döndürülmedi — Overview mock kalmaya devam ediyor.
-- **Token Detail (`getToken`) + OHLCV serisi + Helius holders → Slice 1c.** `getToken` tekil token derinlemesine
-  görünümü (tam skor kartları, açıklanabilir skor, holder dağılımı) gerektiriyor; OHLCV zaman serisi ayrı bir veri
-  kaynağı/agregasyon ister; holder sayısı/dağılımı Helius DAS/holder sorgusu gerektiriyor (1b'de GeckoTerminal
-  bunu sağlamıyor) — hepsi Slice 1c'ye ertelendi.
+- **Token Detail (`getToken`) + OHLCV serisi + Helius holders → Slice 1c. ✅ TESLİM EDİLDİ (2026-08-06).**
+  `getToken` tekil token derinlemesine görünümü, OHLCV zaman serisi ve holder sayısı Slice 1c'de gerçeğe döndü —
+  aşağıdaki "Backend Alt-proje 1 slice 1c — deferred" bölümüne bakın (scores/risks/davranış-metrikleri hâlâ
+  Alt-proje 2'ye bağlı).
   - **Dürüst alan durumu (1b sonrası):** price/liquidity/vol5m/momentum/spark **GERÇEK** (GeckoTerminal); holders
     **boş**; creatorScore/safetyScore/signal **nötr placeholder** (0/"medium" — Alt-proje 2 dolduracak).
 - **DexScreener ikinci provider — gerekince (OCP-hazır).** `internal/market/provider.go`'daki `MarketProvider`
@@ -212,6 +212,46 @@ dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dili
   güvenilir WS sağlayıcı gelince (aynı mint iki yoldan görülürse) biri diğerinin `launchpad`/symbol/name'ini
   boşa/eskiye ezebilir. Çözüm: WS dönünce yazarları uzlaştır (ör. non-empty alanı ezme / `COALESCE`). Sessiz
   düşürme yok — WS sağlayıcı işine bağlı, o zaman ele alınacak.
+
+## Backend Alt-proje 1 slice 1c — deferred
+
+Slice 1c (`feat/backend-ingestion-1c`, 2026-08-06) teslim edildi: Token Detail (`getToken`) gerçek — header
+(fiyat/priceChange24h/marketCap/likidite/hacim24h) + yaşa-uyarlı OHLCV grafiği (GeckoTerminal) + holder sayısı
+(Helius `getTokenAccounts`). **Alt-proje 1 (Solana ingestion) bu dilimle TAMAMLANDI (1a+1b+1c).** Aşağıdaki
+maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje 2'ye ve deploy doğrulamasına bağlı.
+
+- **Scores/risks/davranış-metrikleri → Alt-proje 2'ye bağlı.** `getToken`'in 4 `ScoreKey` skoru, `risks` listesi
+  ve diğer davranış-metrikleri (creator/wallet güven skorlaması) nötr placeholder (`neutralScores` — 0/"medium")
+  olarak kalmaya devam ediyor; Alt-proje 2 (Python scoring/ML) tamamlanana kadar 1c'de gerçeğe döndürülmedi —
+  Overview'un `getKpis`/`getRadar`'ı ile aynı bağımlılık.
+- **`series.liquidity` / `series.holders` (geçmiş seri) → ileride örnekleme.** OHLCV'den gelen `series.price`/
+  `series.volume` gerçek; likidite ve holder sayısının **zaman içindeki** değişimi için ayrı bir örnekleme/kayıt
+  mekanizması gerekiyor (şu an yalnızca anlık `metrics.holders` var, geçmişi yok) — henüz spec'lenmedi.
+- **Holders "N+" gerçek-total gösterimi ertelendi (seam `number`, capped→floor).** `HOLDERS_CAP` (varsayılan
+  5000) sınırına takıldığında `HoldersCount` sayımı durdurup cap değerini döner; bu sayı gerçek toplamın bir
+  **alt sınırıdır** ("5000+" gibi), ama frontend seam'i (`TokenDetail.metrics.holders`) `number` tipinde —
+  "N+" belirsizliğini taşıyacak bir alan (ör. `holdersCapped: boolean` ya da string varyantı) yok. Sessiz
+  düşürme değil: sayı doğru bir alt sınır, sadece "capped" durumu UI'da ayırt edilemiyor. Seam genişlemesi
+  gerektiriyor — ertelendi.
+- **Bilinmeyen-mint pool keşfi → YAGNI.** `TokenDetailBase` yalnızca zaten DB'de bilinen (1a/1b ingestion'ının
+  gördüğü) mint'leri çözer; DB'de olmayan rastgele bir mint için pool'u canlı keşfetmek (GeckoTerminal arama vb.)
+  şu an somut ihtiyaç değil — bilinmeyen mint 404 döner (dürüst, silent-fail değil).
+- **GeckoTerminal OHLCV + Helius `getTokenAccounts` alan-adı/sayfalama kalibrasyonu (deploy'da doğrulanacak):**
+  `OHLCV` metodu GeckoTerminal'in mum verisini, `HoldersCount` ise Helius'un token-account sayfalarını
+  şemaya göre parse ediyor; gerçek alan adları/sayfalama davranışı yalnızca canlı cevaba karşı deploy'da kalibre
+  edilecek — 1a'nın Raydium account-index / 1b'nin GeckoTerminal `new_pools`/`pools/multi` kalibrasyonuyla aynı
+  desen (placeholder değil, gerekçeli ertelenen madde).
+- **Canlı GeckoTerminal OHLCV + Helius holders + DB round-trip yalnızca deploy'da doğrulanacak** (yerel
+  Postgres/ağ/key yok — 1a/1b ile aynı desen). Go build/vet/`test -race` yeşil + frontend 190 test yeşil; yeni
+  ücretli/harici bağımlılık yok (GeckoTerminal keysiz, holders için mevcut Helius key).
+- **Final review minor'ları (opus, merge'e engel değil, ertelendi):** (1) `holders` = token-account sayısı,
+  benzersiz-sahip DEĞİL (bir sahip birden çok ATA tutabilir; getTokenAccounts üst-ish yaklaşımı) — deploy
+  kalibrasyonuyla birlikte değerlendir. (2) `TokenDetailService` cache: Important "sınırsız büyüme" FIX'LENDİ
+  (write'ta TTL-expiry sweep, commit `f7e46f4`); kalan minor — geçici header hatası sonucu ~20s TTL boyunca
+  cache'lenir (recovery TTL kadar gecikir); ileride header hatasında cache-write atlanabilir. (3) Detail servisi
+  kendi `GeckoTerminalClient`'ını kurar; keşif+enrichment+detail paylaşılan rate-limiter yok (free-tier baskısı,
+  deploy kalibrasyon notu). (4) Nötr skorlar UI'da ekstrem renk gösterebilir (0=düşük/kırmızı, higherIsBetter=false
+  için 100=yeşil); `confidence:0` "veri yok" sinyali — A2 gerçek skorları getirene kadar dokümante tasarım kararı.
 
 ## Backtesting (Increment 9)
 - **Event Replay ertelendi (spec-level, sonraki artım):** Ekran 9'un look-ahead-bias'sız timeline playback

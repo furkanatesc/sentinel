@@ -69,7 +69,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 | # | Alt-proje | Kontrat dilimi | Durum |
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
-| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı.** Slice 1b kod TAMAM (`feat/backend-ingestion-1b`, deploy bekliyor) — REST market enrichment (price/liquidity/vol5m/momentum/spark gerçek). `getToken`+OHLCV → Slice 1c; `getKpis`/`getRadar` → Alt-proje 2 |
+| 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **TAMAMLANDI (1a+1b+1c).** Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı. Slice 1b + 1c kod TAMAM (`feat/backend-ingestion-1b`/`-1c`, deploy bekliyor) — REST market enrichment (price/liquidity/vol5m/momentum/spark gerçek) + Token Detail (`getToken`: header/OHLCV/holders gerçek). `getKpis`/`getRadar` (Overview) ve `getToken`'in scores/risks/davranış-metrikleri → Alt-proje 2 (skorlara bağımlı) |
 | 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
@@ -144,6 +144,37 @@ yok):** Token Detail (`getToken`) + OHLCV serisi + Helius holders → **Slice 1c
 **Alt-proje 2** (skorlara bağımlı); DexScreener ikinci provider → `MarketProvider` arayüzü zaten OCP-hazır, gerekince
 eklenir. Detay: `docs/superpowers/followups-frontend.md` "Backend Alt-proje 1 slice 1b — deferred" bölümü.
 
+**Alt-proje 1 Slice 1c teslim (2026-08-06, branch `feat/backend-ingestion-1c`):** Kapsam — **Token Detail
+(`getToken`) gerçek**: header (fiyat/priceChange24h/marketCap/likidite/hacim24h) + yaşa-uyarlı OHLCV grafiği
++ holder sayısı. Stack: **GeckoTerminal keysiz** (1b ile aynı sağlayıcı, yeni ücretli bağımlılık yok) + mevcut
+**Helius** anahtarı (holders için `getTokenAccounts`). Teslim edilen paketler: `internal/store/token_detail.go`
+(frontend seam'iyle birebir `TokenDetail` struct'ları + `TokenDetailBase` mint→pool lookup); `internal/market/`
+genişledi — `Pool`'a header alanları (`PriceChangeH24`/`MarketCapUSD`/`Vol24h`), yeni `Candle` tipi + `OHLCV`
+metodu (`MarketProvider`/`GeckoTerminalClient`, yaşa-uyarlı timeframe seçimi); `internal/ingest/holders.go`
+(Helius `getTokenAccounts` holder sayacı, sınırlı sayfalama + cap); `internal/market/detail.go`
+`TokenDetailService` (header+OHLCV+holders birleştirir, nötr placeholder'ları doldurur, ~20s per-mint cache).
+Yeni endpoint: `GET /api/token/{mint}` (bilinmeyen/pool'suz mint → 404). Frontend: `getToken` gerçek fetch +
+`LIVE_ENDPOINTS`'e `getToken` eklendi (yalnızca 3 frontend dosyası değişti, UI dokunulmadı). Config (hepsi
+varsayılanlı): `TOKEN_DETAIL_CACHE_SEC` (20), `OHLCV_LIMIT` (200), `HOLDERS_CAP` (5000); main.go
+`TokenDetailService`'i bağlıyor (Helius key varsa gerçek holders, yoksa noop → holders 0). **Dürüst alan
+durumu:** name/symbol/mint/ageSeconds, price/priceChange24h/marketCap/liquidity/volume24h, series.price+
+series.volume (OHLCV), metrics.holders → **GERÇEK**; 4 `ScoreKey` skoru, risks, diğer metrikler,
+series.liquidity, series.holders → **nötr placeholder** (Alt-proje 2 dolduracak). Dürüst nüanslar (abartısız):
+holders cap'e takıldığında dönen sayı gerçek toplam değil bir **alt sınır** (seam `number`; "N+" gösterimi
+şu anki tiple ifade edilemiyor, ertelendi — bkz followups); GeckoTerminal OHLCV + Helius `getTokenAccounts`
+alan-adı/sayfalama kalibrasyonu, 1a'nın Raydium / 1b'nin GeckoTerminal kalibrasyonu gibi **yalnızca deploy'da**
+doğrulanacak (yerel Postgres/ağ/key yok). **Kabul kriterleri (deploy'da doğrulanır):** Go build/vet/`test -race`
+yeşil + frontend 190 test yeşil; yeni ücretli/harici bağımlılık yok (GeckoTerminal keysiz; holders için mevcut
+Helius key). **Kapsam dışı (bilinçli, sessiz düşürme yok):** scores/risks/davranış-metrikleri → Alt-proje 2;
+likidite/holder geçmiş serisi → ileride örnekleme; holders "N+" gerçek-total gösterimi → seam alanı
+gerektiriyor; bilinmeyen-mint pool keşfi → YAGNI. Detay: `docs/superpowers/followups-frontend.md` "Backend
+Alt-proje 1 slice 1c — deferred" bölümü.
+
+**Alt-proje 1 (Solana ingestion) TAMAMLANDI (1a + 1b + 1c).** 1a canlı+doğrulanmış durumda (Railway); 1b + 1c
+kod tamam, whole-branch review + merge + deploy sırada (bu Slice 1c task'ının Step 4'ü — controller). Sıradaki
+alt-proje: **Alt-proje 2 (Scoring & graph)** — `getKpis`/`getRadar`/`getCreators`/`getCreator`/`getWalletGraph`'ı
+ve Token Detail'in nötr kalan scores/risks/davranış-metriklerini gerçeğe çevirecek.
+
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
   entegrasyon API key'lerini girer. **Güvenlik zorunlulukları:** key'ler frontend'de saklanmaz;
@@ -200,6 +231,12 @@ eklenir. Detay: `docs/superpowers/followups-frontend.md` "Backend Alt-proje 1 sl
   7 kod task'ı (fresh subagent + task-review döngüsü) + Task 8 (bu doküman turu — living docs, Step 1-3).
   Detay: yukarıdaki "Backend programı" bölümü "Alt-proje 1 Slice 1b teslim" paragrafı. Whole-branch review +
   master'a merge + deploy henüz yapılmadı (Task 8'in Step 4'ü — ayrı, controller tarafından yürütülür).
+
+- 2026-08-06 — **Backend Alt-proje 1 Slice 1c kod tamamlandı (branch `feat/backend-ingestion-1c`) — Alt-proje 1
+  (Solana ingestion) TAMAMLANDI (1a+1b+1c).** SDD ile 7 kod task'ı (fresh subagent + task-review döngüsü) +
+  Task 8 (bu doküman turu — living docs, Step 1-3). Detay: yukarıdaki "Backend programı" bölümü "Alt-proje 1
+  Slice 1c teslim" paragrafı. Whole-branch review + master'a merge + deploy henüz yapılmadı (Task 8'in Step
+  4'ü — ayrı, controller tarafından yürütülür).
 
 ## Açık takip maddeleri
 

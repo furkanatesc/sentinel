@@ -16,6 +16,9 @@ func (f *fakeProvider) NewPools(context.Context) ([]Pool, error) { return f.newP
 func (f *fakeProvider) PoolsByAddresses(_ context.Context, _ []string) ([]Pool, error) {
 	return f.byAddr, nil
 }
+func (f *fakeProvider) OHLCV(_ context.Context, _, _ string, _ int) ([]Candle, error) {
+	return nil, nil
+}
 
 type capBC struct {
 	topics   []string

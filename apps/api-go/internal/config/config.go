@@ -18,6 +18,10 @@ type Config struct {
 	DiscoverInterval int // saniye
 	EnrichInterval   int // saniye
 	EnrichLimit      int
+
+	TokenDetailCacheSec int
+	OHLCVLimit          int
+	HoldersCap          int
 }
 
 func Load() Config {
@@ -33,6 +37,10 @@ func Load() Config {
 		DiscoverInterval: getenvInt("MARKET_DISCOVER_INTERVAL_SEC", 30),
 		EnrichInterval:   getenvInt("MARKET_ENRICH_INTERVAL_SEC", 30),
 		EnrichLimit:      getenvInt("MARKET_ENRICH_LIMIT", 60),
+
+		TokenDetailCacheSec: getenvInt("TOKEN_DETAIL_CACHE_SEC", 20),
+		OHLCVLimit:          getenvInt("OHLCV_LIMIT", 200),
+		HoldersCap:          getenvInt("HOLDERS_CAP", 5000),
 	}
 }
 
