@@ -206,6 +206,12 @@ dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dili
   kalibrasyonuyla aynı desen (placeholder değil, gerekçeli ertelenen madde).
 - **Canlı GeckoTerminal + DB round-trip yalnızca deploy'da doğrulanacak** (yerel Postgres/ağ erişimi yok — 1a/1b
   ile aynı desen). Go build/vet/`test -race` yeşil; frontend hiç dokunulmadı (seam zaten alanları taşıyordu).
+- **`launchpad` çapraz-yazar etkileşimi (WS dönünce, final review #3):** İki yazar aynı `tokens` satırını upsert
+  edebilir — 1a Helius worker `UpsertToken` `launchpad`'i sabit `""` ile `ON CONFLICT SET` yapar; 1b Discoverer
+  `UpsertDiscovered` gerçek launchpad + symbol/name yazar. Helius akışı bloke olduğu için şu an latent, ama
+  güvenilir WS sağlayıcı gelince (aynı mint iki yoldan görülürse) biri diğerinin `launchpad`/symbol/name'ini
+  boşa/eskiye ezebilir. Çözüm: WS dönünce yazarları uzlaştır (ör. non-empty alanı ezme / `COALESCE`). Sessiz
+  düşürme yok — WS sağlayıcı işine bağlı, o zaman ele alınacak.
 
 ## Backtesting (Increment 9)
 - **Event Replay ertelendi (spec-level, sonraki artım):** Ekran 9'un look-ahead-bias'sız timeline playback
