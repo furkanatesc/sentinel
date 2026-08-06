@@ -15,12 +15,24 @@ type Pool struct {
 	Vol5m         float64
 	PriceChangeH1 float64 // yüzde
 	CreatedAtUnix int64
+
+	PriceChangeH24 float64 // h24 yüzde
+	MarketCapUSD   float64 // market_cap_usd, yoksa fdv_usd
+	Vol24h         float64
+}
+
+// Candle, OHLCV mumunun grafik için gereken kısmıdır (close + volume).
+type Candle struct {
+	Ts     int64
+	Close  float64
+	Volume float64
 }
 
 // MarketProvider, piyasa verisi kaynağıdır (DIP). GeckoTerminal ilk somut impl; DexScreener sonra (OCP).
 type MarketProvider interface {
 	NewPools(ctx context.Context) ([]Pool, error)
 	PoolsByAddresses(ctx context.Context, poolAddrs []string) ([]Pool, error)
+	OHLCV(ctx context.Context, poolAddr, timeframe string, limit int) ([]Candle, error)
 }
 
 // Broadcaster, snapshot/olayları client'lara yayar (tüketici-tanımlı arayüz; ws.Hub karşılar).

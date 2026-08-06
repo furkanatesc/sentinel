@@ -75,3 +75,49 @@ func TestPoolsByAddressesEmptyNoCall(t *testing.T) {
 		t.Fatalf("boş adres listesi ağ çağrısı yapmadan boş dönmeli: pools=%v err=%v", pools, err)
 	}
 }
+
+func TestNewPoolsHeaderFields(t *testing.T) {
+	srv := fixtureServer(t)
+	defer srv.Close()
+	c := NewGeckoTerminalClient(srv.URL, srv.Client())
+	pools, err := c.NewPools(context.Background())
+	if err != nil || len(pools) == 0 {
+		t.Fatalf("pools: %v err=%v", len(pools), err)
+	}
+	p := pools[0]
+	if p.PriceChangeH24 != -5.0 || p.Vol24h != 900000.0 {
+		t.Fatalf("h24 alanları yanlış: %+v", p)
+	}
+	if p.MarketCapUSD != 98000.0 { // market_cap_usd öncelikli
+		t.Fatalf("marketCap yanlış: %v (want 98000, fdv fallback DEĞİL)", p.MarketCapUSD)
+	}
+}
+
+func TestOHLCVParsesAscending(t *testing.T) {
+	newPools, _ := os.ReadFile("testdata/new_pools.json")
+	ohlcv, _ := os.ReadFile("testdata/ohlcv.json")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/ohlcv/") {
+			w.Write(ohlcv)
+			return
+		}
+		w.Write(newPools)
+	}))
+	defer srv.Close()
+	c := NewGeckoTerminalClient(srv.URL, srv.Client())
+	candles, err := c.OHLCV(context.Background(), "ABCpool", "minute", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candles) != 3 {
+		t.Fatalf("candles=%d want 3", len(candles))
+	}
+	// t artan sıralı olmalı (fixture newest-first → reverse)
+	if !(candles[0].Ts < candles[1].Ts && candles[1].Ts < candles[2].Ts) {
+		t.Fatalf("t artan sıralı değil: %+v", candles)
+	}
+	if candles[2].Close != 0.000051 || candles[2].Volume != 12000.0 {
+		t.Fatalf("son mum yanlış (close/volume): %+v", candles[2])
+	}
+}
