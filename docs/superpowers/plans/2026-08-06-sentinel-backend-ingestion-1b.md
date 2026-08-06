@@ -1362,7 +1362,7 @@ func (x *Enricher) tick(ctx context.Context) error {
 	if len(targets) == 0 {
 		return nil
 	}
-	byPool := map[string]EnrichTarget{}
+	byPool := map[string]store.EnrichTarget{}
 	addrs := make([]string, 0, len(targets))
 	for _, t := range targets {
 		byPool[t.PoolAddr] = t
