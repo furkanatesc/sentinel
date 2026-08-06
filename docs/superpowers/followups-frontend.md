@@ -244,6 +244,14 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
 - **Canlı GeckoTerminal OHLCV + Helius holders + DB round-trip yalnızca deploy'da doğrulanacak** (yerel
   Postgres/ağ/key yok — 1a/1b ile aynı desen). Go build/vet/`test -race` yeşil + frontend 190 test yeşil; yeni
   ücretli/harici bağımlılık yok (GeckoTerminal keysiz, holders için mevcut Helius key).
+- **Final review minor'ları (opus, merge'e engel değil, ertelendi):** (1) `holders` = token-account sayısı,
+  benzersiz-sahip DEĞİL (bir sahip birden çok ATA tutabilir; getTokenAccounts üst-ish yaklaşımı) — deploy
+  kalibrasyonuyla birlikte değerlendir. (2) `TokenDetailService` cache: Important "sınırsız büyüme" FIX'LENDİ
+  (write'ta TTL-expiry sweep, commit `f7e46f4`); kalan minor — geçici header hatası sonucu ~20s TTL boyunca
+  cache'lenir (recovery TTL kadar gecikir); ileride header hatasında cache-write atlanabilir. (3) Detail servisi
+  kendi `GeckoTerminalClient`'ını kurar; keşif+enrichment+detail paylaşılan rate-limiter yok (free-tier baskısı,
+  deploy kalibrasyon notu). (4) Nötr skorlar UI'da ekstrem renk gösterebilir (0=düşük/kırmızı, higherIsBetter=false
+  için 100=yeşil); `confidence:0` "veri yok" sinyali — A2 gerçek skorları getirene kadar dokümante tasarım kararı.
 
 ## Backtesting (Increment 9)
 - **Event Replay ertelendi (spec-level, sonraki artım):** Ekran 9'un look-ahead-bias'sız timeline playback
