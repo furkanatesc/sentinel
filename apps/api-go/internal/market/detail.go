@@ -131,6 +131,12 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 	}
 
 	s.mu.Lock()
+	ttlSec := int64(s.d.CacheTTL / time.Second)
+	for k, e := range s.cache {
+		if now-e.at >= ttlSec {
+			delete(s.cache, k)
+		}
+	}
 	s.cache[mint] = cacheEntry{detail: d, at: now}
 	s.mu.Unlock()
 	return d, true, nil

@@ -2,6 +2,7 @@ package market
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
@@ -129,6 +130,61 @@ func TestBuildUnknownMint(t *testing.T) {
 	_, ok, err := svc.Build(context.Background(), "YOK")
 	if err != nil || ok {
 		t.Fatalf("bilinmeyen mint ok=false olmalı: ok=%v err=%v", ok, err)
+	}
+}
+
+// errProvider, PoolsByAddresses/OHLCV için her zaman hata döner (upstream kesinti simülasyonu).
+type errProvider struct{}
+
+func (errProvider) NewPools(context.Context) ([]Pool, error) { return nil, errUpstream }
+func (errProvider) PoolsByAddresses(context.Context, []string) ([]Pool, error) {
+	return nil, errUpstream
+}
+func (errProvider) OHLCV(context.Context, string, string, int) ([]Candle, error) {
+	return nil, errUpstream
+}
+
+// errHolders, HoldersCount için her zaman hata döner.
+type errHolders struct{}
+
+func (errHolders) HoldersCount(context.Context, string, int) (int, bool, error) {
+	return 0, false, errUpstream
+}
+
+var errUpstream = errors.New("upstream unavailable")
+
+func TestBuildPartialFailureStillReturnsDetail(t *testing.T) {
+	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0},
+	}}
+	svc := NewTokenDetailService(TokenDetailDeps{
+		Store: fs, Provider: errProvider{}, Holders: errHolders{},
+		Now: func() int64 { return 300 },
+	})
+	d, ok, err := svc.Build(context.Background(), "M1")
+	if err != nil || !ok {
+		t.Fatalf("upstream hatası hard-fail olmamalı: ok=%v err=%v", ok, err)
+	}
+	if d.Symbol != "ONE" {
+		t.Fatalf("kimlik store'dan gelmeli: symbol=%q want ONE", d.Symbol)
+	}
+	if d.Price != 0 || d.MarketCap != 0 || d.Liquidity != 0 || d.Volume24h != 0 {
+		t.Fatalf("header nötr/boş kalmalı (upstream hata verdi): %+v", d)
+	}
+	if d.Metrics.Holders != 0 {
+		t.Fatalf("holders nötr 0 kalmalı: %d", d.Metrics.Holders)
+	}
+	for _, k := range []string{"opportunity", "creatorReputation", "tokenSafety", "manipulationRisk"} {
+		sd, ok := d.Scores[k]
+		if !ok || sd.Value != 0 || sd.Key != k {
+			t.Fatalf("nötr skor eksik/yanlış %q: %+v", k, sd)
+		}
+	}
+	if d.Risks.Contract == nil || d.Risks.Market == nil || d.Risks.Creator == nil {
+		t.Fatalf("risks boş slice olmalı (nil değil): %+v", d.Risks)
+	}
+	if d.Series.Price == nil || d.Series.Liquidity == nil || d.Series.Volume == nil || d.Series.Holders == nil {
+		t.Fatalf("series boş slice olmalı (nil değil): %+v", d.Series)
 	}
 }
 
