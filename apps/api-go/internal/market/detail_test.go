@@ -196,6 +196,35 @@ func TestBuildPartialFailureStillReturnsDetail(t *testing.T) {
 	}
 }
 
+func TestBuildTokenSafetyFromStore(t *testing.T) {
+	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
+	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0,
+			SafetyScore: 72, SafetyConfidence: 1, Top10Pct: 44, SafetyScoredTs: 500,
+			SafetyBreakdown: []store.ScoreBreakdownItem{{Label: "Freeze authority iptal", Weight: 0, Detail: "ok"}},
+			SafetyRisks:     store.RiskGroups{Contract: []store.RiskItem{}, Market: []store.RiskItem{{ID: "top10-concentration", Title: "x", Severity: "medium"}}, Creator: []store.RiskItem{}}},
+	}}
+	svc := NewTokenDetailService(TokenDetailDeps{Store: fs, Provider: dp, Holders: &fakeHolders{n: 5}, Now: func() int64 { return 600 }})
+	d, ok, err := svc.Build(context.Background(), "M1")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	sd := d.Scores["tokenSafety"]
+	if sd.Value != 72 || sd.Confidence != 1 || len(sd.Breakdown) != 1 {
+		t.Fatalf("tokenSafety skoru DB'den gelmeli: %+v", sd)
+	}
+	if d.Metrics.Top10HolderPct != 44 {
+		t.Fatalf("top10HolderPct DB'den: %v", d.Metrics.Top10HolderPct)
+	}
+	if len(d.Risks.Market) != 1 || d.Risks.Market[0].ID != "top10-concentration" {
+		t.Fatalf("safety market risk detaya taşınmalı: %+v", d.Risks.Market)
+	}
+	// Diğer 3 skor nötr kalmalı.
+	if d.Scores["opportunity"].Confidence != 0 {
+		t.Fatalf("opportunity nötr kalmalı: %+v", d.Scores["opportunity"])
+	}
+}
+
 func TestBuildCache(t *testing.T) {
 	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
 	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
