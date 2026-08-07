@@ -63,6 +63,8 @@ func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs 
 	cur, ok := f.byID[t.ID]
 	if !ok {
 		f.order = append(f.order, t.ID)
+		cur.safetyBreakdown = []ScoreBreakdownItem{}
+		cur.safetyRisks = RiskGroups{Contract: []RiskItem{}, Market: []RiskItem{}, Creator: []RiskItem{}}
 	}
 	cur.row = t
 	cur.firstSeen = firstSeenTs
@@ -79,6 +81,8 @@ func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) 
 		f.order = append(f.order, d.Mint)
 		cur.row = TokenRow{ID: d.Mint, Mint: d.Mint, Spark: []float64{}}
 		cur.firstSeen = d.FirstSeenTs
+		cur.safetyBreakdown = []ScoreBreakdownItem{}
+		cur.safetyRisks = RiskGroups{Contract: []RiskItem{}, Market: []RiskItem{}, Creator: []RiskItem{}}
 	}
 	cur.row.Name, cur.row.Symbol = d.Name, d.Symbol
 	cur.poolAddr = d.PoolAddr

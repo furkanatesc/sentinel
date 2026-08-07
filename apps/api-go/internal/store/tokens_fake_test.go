@@ -68,6 +68,25 @@ func TestFakeUpdateSafetyRoundTrip(t *testing.T) {
 	}
 }
 
+func TestFakeTokenDetailBaseNeverScoredHasEmptyNotNilSafetySlices(t *testing.T) {
+	ctx := context.Background()
+	s := NewFakeTokenStore()
+	s.UpsertDiscovered(ctx, DiscoveredToken{Mint: "MNEW", Symbol: "NEW", Launchpad: "Pump.fun", PoolAddr: "P", FirstSeenTs: 1})
+	b, ok, err := s.TokenDetailBase(ctx, "MNEW")
+	if err != nil || !ok {
+		t.Fatalf("TokenDetailBase ok=%v err=%v", ok, err)
+	}
+	if b.SafetyBreakdown == nil || len(b.SafetyBreakdown) != 0 {
+		t.Fatalf("hiç skorlanmamış token için SafetyBreakdown nil olmamalı, boş dilim olmalı: %#v", b.SafetyBreakdown)
+	}
+	if b.SafetyRisks.Contract == nil || b.SafetyRisks.Market == nil || b.SafetyRisks.Creator == nil {
+		t.Fatalf("hiç skorlanmamış token için SafetyRisks grupları nil olmamalı: %#v", b.SafetyRisks)
+	}
+	if len(b.SafetyRisks.Contract) != 0 || len(b.SafetyRisks.Market) != 0 || len(b.SafetyRisks.Creator) != 0 {
+		t.Fatalf("hiç skorlanmamış token için SafetyRisks grupları boş olmalı: %#v", b.SafetyRisks)
+	}
+}
+
 func TestFakeSafetyScoreTargetsOldestFirstPoolOnly(t *testing.T) {
 	ctx := context.Background()
 	s := NewFakeTokenStore()
