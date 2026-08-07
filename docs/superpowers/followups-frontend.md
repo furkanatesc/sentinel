@@ -247,9 +247,10 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
 - **Final review minor'ları (opus, merge'e engel değil, ertelendi):** (1) `holders` = token-account sayısı,
   benzersiz-sahip DEĞİL (bir sahip birden çok ATA tutabilir; getTokenAccounts üst-ish yaklaşımı) — deploy
   kalibrasyonuyla birlikte değerlendir. (2) `TokenDetailService` cache: Important "sınırsız büyüme" FIX'LENDİ
-  (write'ta TTL-expiry sweep, commit `f7e46f4`); kalan minor (HÂLÂ AÇIK) — geçici header/OHLCV hatası sonucu
-  nötr-sıfır ~20s TTL boyunca cache'lenir (recovery TTL kadar gecikir); ileride header hatasında cache-write
-  atlanabilir. Paylaşılan rate-limiter (aşağıda item 3) 429'u nadir kıldığı için düşük öncelik. (3) ✅ **ÇÖZÜLDÜ
+  (write'ta TTL-expiry sweep, commit `f7e46f4`). **Header için ÇÖZÜLDÜ (2026-08-07, `feat/detail-header-from-db`):**
+  header artık DB'den (enrichment persist etti) sunuluyor, canlı GeckoTerminal çağrısı yok → geçici throttle header'ı
+  sıfırlayamaz, dolayısıyla cache de sıfır tutmaz. **Kalan (düşük öncelik):** yalnız OHLCV serisi canlı/best-effort —
+  throttle'da boş dönebilir ve ~20s cache'lenir (dürüst; micro-cap'lerde zaten seyrek). Skorlar A2'ye kadar nötr. (3) ✅ **ÇÖZÜLDÜ
   (2026-08-07, `fix/gecko-rate-limit`):** keşif+enrichment+detail artık **tek paylaşılan token-bucket** (`Limiter`
   arayüzü + `WithLimiter` option → main.go'da bir `rate.NewLimiter` iki client'a) + `getJSON` 429'da backoff-retry;
   config `GECKOTERMINAL_RATE_PER_MIN`(25)/`GECKOTERMINAL_BURST`(2). Canlı doğrulamada bulunan aralıklı header-sıfır

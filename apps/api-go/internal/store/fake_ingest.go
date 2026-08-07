@@ -34,6 +34,8 @@ type fakeTok struct {
 	row       TokenRow
 	poolAddr  string
 	firstSeen int64
+	// Detail header (TokenRow'da olmayan alanlar; enrichment yazar, TokenDetailBase okur).
+	priceChangeH24, marketCapUSD, vol24h float64
 }
 
 type fakeTokenStore struct {
@@ -86,6 +88,7 @@ func (f *fakeTokenStore) UpdateMarket(_ context.Context, m MarketUpdate) error {
 	}
 	cur.row.Price, cur.row.Liquidity = m.Price, m.Liquidity
 	cur.row.Vol5m, cur.row.Momentum = m.Vol5m, m.Momentum
+	cur.priceChangeH24, cur.marketCapUSD, cur.vol24h = m.PriceChangeH24, m.MarketCapUSD, m.Vol24h
 	if m.Spark == nil {
 		m.Spark = []float64{}
 	}
@@ -115,7 +118,11 @@ func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenD
 	if !ok {
 		return TokenDetailBase{}, false, nil
 	}
-	return TokenDetailBase{Name: t.row.Name, Symbol: t.row.Symbol, PoolAddr: t.poolAddr, FirstSeenTs: t.firstSeen}, true, nil
+	return TokenDetailBase{
+		Name: t.row.Name, Symbol: t.row.Symbol, PoolAddr: t.poolAddr, FirstSeenTs: t.firstSeen,
+		Price: t.row.Price, Liquidity: t.row.Liquidity,
+		PriceChangeH24: t.priceChangeH24, MarketCapUSD: t.marketCapUSD, Vol24h: t.vol24h,
+	}, true, nil
 }
 
 func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow, error) {

@@ -42,11 +42,13 @@ func (d *detailProvider) OHLCV(context.Context, string, string, int) ([]Candle, 
 
 func newDetailSvc(ageSeconds int64) (*TokenDetailService, *detailProvider) {
 	dp := &detailProvider{
-		pools:   []Pool{{PoolAddr: "P1", Mint: "M1", Price: 5, LiquidityUSD: 1000, Vol5m: 10, PriceChangeH24: 12.5, MarketCapUSD: 90000, Vol24h: 40000}},
+		// Header artık DB'den (base) okunuyor → provider pool header'ı KASITLI yanlış (yok sayılmalı).
+		pools:   []Pool{{PoolAddr: "P1", Mint: "M1", Price: 999, LiquidityUSD: 999, PriceChangeH24: 999, MarketCapUSD: 999, Vol24h: 999}},
 		candles: []Candle{{Ts: 1, Close: 4, Volume: 100}, {Ts: 2, Close: 5, Volume: 120}},
 	}
 	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
-		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0},
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0,
+			Price: 5, Liquidity: 1000, PriceChangeH24: 12.5, MarketCapUSD: 90000, Vol24h: 40000},
 	}}
 	svc := NewTokenDetailService(TokenDetailDeps{
 		Store: fs, Provider: dp, Holders: &fakeHolders{n: 312},
@@ -154,8 +156,11 @@ func (errHolders) HoldersCount(context.Context, string, int) (int, bool, error) 
 var errUpstream = errors.New("upstream unavailable")
 
 func TestBuildPartialFailureStillReturnsDetail(t *testing.T) {
+	// Header DB'den (base) sunulur → GeckoTerminal TAMAMEN ölse bile header gerçek kalır;
+	// yalnız OHLCV (canlı) ve holders (canlı) düşer. Option A'nın çekirdek garantisi.
 	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
-		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0},
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0,
+			Price: 5, Liquidity: 1000, PriceChangeH24: 12.5, MarketCapUSD: 90000, Vol24h: 40000},
 	}}
 	svc := NewTokenDetailService(TokenDetailDeps{
 		Store: fs, Provider: errProvider{}, Holders: errHolders{},
@@ -168,8 +173,11 @@ func TestBuildPartialFailureStillReturnsDetail(t *testing.T) {
 	if d.Symbol != "ONE" {
 		t.Fatalf("kimlik store'dan gelmeli: symbol=%q want ONE", d.Symbol)
 	}
-	if d.Price != 0 || d.MarketCap != 0 || d.Liquidity != 0 || d.Volume24h != 0 {
-		t.Fatalf("header nötr/boş kalmalı (upstream hata verdi): %+v", d)
+	if d.Price != 5 || d.MarketCap != 90000 || d.Liquidity != 1000 || d.Volume24h != 40000 || d.PriceChange24h != 12.5 {
+		t.Fatalf("header DB'den GERÇEK gelmeli (provider ölü olsa da): %+v", d)
+	}
+	if len(d.Series.Price) != 0 || len(d.Series.Volume) != 0 {
+		t.Fatalf("OHLCV serisi canlı provider öldüğü için boş olmalı: %+v", d.Series)
 	}
 	if d.Metrics.Holders != 0 {
 		t.Fatalf("holders nötr 0 kalmalı: %d", d.Metrics.Holders)
@@ -189,11 +197,17 @@ func TestBuildPartialFailureStillReturnsDetail(t *testing.T) {
 }
 
 func TestBuildCache(t *testing.T) {
-	svc, dp := newDetailSvc(300)
+	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
+	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0, Price: 5, Liquidity: 1000},
+	}}
+	svc := NewTokenDetailService(TokenDetailDeps{
+		Store: fs, Provider: dp, Holders: &fakeHolders{n: 1}, Now: func() int64 { return 300 },
+	})
 	svc.Build(context.Background(), "M1")
-	dp.pools = []Pool{{PoolAddr: "P1", Mint: "M1", Price: 999}} // değişti; cache eskisini vermeli
+	fs.base["M1"] = store.TokenDetailBase{Name: "One", Symbol: "ONE", PoolAddr: "P1", Price: 999} // değişti; cache eskisini vermeli
 	d, _, _ := svc.Build(context.Background(), "M1")
 	if d.Price != 5 {
-		t.Fatalf("cache çalışmadı: price=%v want 5 (ilk çağrı cache'lenmeli)", d.Price)
+		t.Fatalf("cache çalışmadı: price=%v want 5 (ilk çağrı TTL boyunca cache'lenmeli)", d.Price)
 	}
 }
