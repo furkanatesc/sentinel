@@ -100,4 +100,29 @@ func TestPostgresMarketRoundTrip(t *testing.T) {
 	if !foundTok {
 		t.Fatal("RecentTokens keşfedilen token'ı içermeli")
 	}
+	if err := b.Tokens.UpdateSafety(ctx, SafetyUpdate{
+		Mint: "MintMk", Score: 65, Confidence: 0.5, Top10Pct: 55,
+		Breakdown: []ScoreBreakdownItem{{Label: "Top-10 yoğunlaşma", Weight: -15, Detail: "orta"}},
+		Risks:     RiskGroups{Contract: []RiskItem{}, Market: []RiskItem{{ID: "top10-conc", Title: "x", Severity: "medium"}}, Creator: []RiskItem{}},
+		ScoredTs:  200,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sb, ok, err := b.Tokens.TokenDetailBase(ctx, "MintMk")
+	if err != nil || !ok || sb.SafetyScore != 65 || sb.Top10Pct != 55 || sb.SafetyScoredTs != 200 || len(sb.SafetyBreakdown) != 1 || len(sb.SafetyRisks.Market) != 1 {
+		t.Fatalf("safety DB round-trip yanlış: ok=%v err=%v base=%+v", ok, err, sb)
+	}
+	tgts, err := b.Tokens.SafetyScoreTargets(ctx, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foundTgt bool
+	for _, tg := range tgts {
+		if tg.Mint == "MintMk" {
+			foundTgt = true
+		}
+	}
+	if !foundTgt {
+		t.Fatal("SafetyScoreTargets pool'lu token'ı içermeli")
+	}
 }

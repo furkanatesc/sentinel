@@ -128,6 +128,10 @@ func (f *failingTokenStore) EnrichTargets(context.Context, int) ([]store.EnrichT
 func (f *failingTokenStore) TokenDetailBase(context.Context, string) (store.TokenDetailBase, bool, error) {
 	return store.TokenDetailBase{}, false, nil
 }
+func (f *failingTokenStore) UpdateSafety(context.Context, store.SafetyUpdate) error { return nil }
+func (f *failingTokenStore) SafetyScoreTargets(context.Context, int) ([]store.SafetyTarget, error) {
+	return nil, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -188,6 +192,12 @@ func (f *snapshotFailingTokenStore) EnrichTargets(context.Context, int) ([]store
 }
 func (f *snapshotFailingTokenStore) TokenDetailBase(context.Context, string) (store.TokenDetailBase, bool, error) {
 	return store.TokenDetailBase{}, false, nil
+}
+func (f *snapshotFailingTokenStore) UpdateSafety(context.Context, store.SafetyUpdate) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) SafetyScoreTargets(context.Context, int) ([]store.SafetyTarget, error) {
+	return nil, nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {

@@ -82,4 +82,10 @@ type TokenDetailBase struct {
 	PriceChangeH24         float64
 	MarketCapUSD           float64
 	Vol24h                 float64
+
+	// 2a Token Safety (enrichment/scorer persist eder; detail okur).
+	SafetyScore, SafetyConfidence, Top10Pct float64
+	SafetyBreakdown                         []ScoreBreakdownItem
+	SafetyRisks                             RiskGroups
+	SafetyScoredTs                          int64
 }

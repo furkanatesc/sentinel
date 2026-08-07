@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"sort"
 	"sync"
 )
 
@@ -36,6 +37,12 @@ type fakeTok struct {
 	firstSeen int64
 	// Detail header (TokenRow'da olmayan alanlar; enrichment yazar, TokenDetailBase okur).
 	priceChangeH24, marketCapUSD, vol24h float64
+	launchpad                            string
+	// 2a safety
+	safetyScore, safetyConfidence, top10Pct float64
+	safetyBreakdown                         []ScoreBreakdownItem
+	safetyRisks                             RiskGroups
+	safetyScoredTs                          int64
 }
 
 type fakeTokenStore struct {
@@ -75,6 +82,7 @@ func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) 
 	}
 	cur.row.Name, cur.row.Symbol = d.Name, d.Symbol
 	cur.poolAddr = d.PoolAddr
+	cur.launchpad = d.Launchpad
 	f.byID[d.Mint] = cur
 	return inserted, nil
 }
@@ -122,7 +130,42 @@ func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenD
 		Name: t.row.Name, Symbol: t.row.Symbol, PoolAddr: t.poolAddr, FirstSeenTs: t.firstSeen,
 		Price: t.row.Price, Liquidity: t.row.Liquidity,
 		PriceChangeH24: t.priceChangeH24, MarketCapUSD: t.marketCapUSD, Vol24h: t.vol24h,
+		SafetyScore: t.safetyScore, SafetyConfidence: t.safetyConfidence, Top10Pct: t.top10Pct,
+		SafetyBreakdown: t.safetyBreakdown, SafetyRisks: t.safetyRisks, SafetyScoredTs: t.safetyScoredTs,
 	}, true, nil
+}
+
+func (f *fakeTokenStore) UpdateSafety(_ context.Context, s SafetyUpdate) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cur, ok := f.byID[s.Mint]
+	if !ok {
+		return nil
+	}
+	cur.row.SafetyScore = s.Score
+	cur.safetyScore, cur.safetyConfidence, cur.top10Pct = s.Score, s.Confidence, s.Top10Pct
+	cur.safetyBreakdown, cur.safetyRisks, cur.safetyScoredTs = s.Breakdown, s.Risks, s.ScoredTs
+	f.byID[s.Mint] = cur
+	return nil
+}
+
+func (f *fakeTokenStore) SafetyScoreTargets(_ context.Context, limit int) ([]SafetyTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]SafetyTarget, 0, limit)
+	// en eski safety_scored_ts önce; poolAddr'siz atla.
+	ids := append([]string{}, f.order...)
+	sort.SliceStable(ids, func(i, j int) bool {
+		return f.byID[ids[i]].safetyScoredTs < f.byID[ids[j]].safetyScoredTs
+	})
+	for _, id := range ids {
+		t := f.byID[id]
+		if t.poolAddr == "" || len(out) >= limit {
+			continue
+		}
+		out = append(out, SafetyTarget{Mint: t.row.Mint, Liquidity: t.row.Liquidity, Launchpad: t.launchpad})
+	}
+	return out, nil
 }
 
 func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow, error) {
