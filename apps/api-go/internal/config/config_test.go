@@ -62,6 +62,19 @@ func TestLoadGeckoRateLimitOverride(t *testing.T) {
 	}
 }
 
+func TestLoadSafetyDefaults(t *testing.T) {
+	t.Setenv("SAFETY_ENABLED", "")
+	t.Setenv("SAFETY_INTERVAL_SEC", "")
+	t.Setenv("SAFETY_LIMIT", "")
+	c := Load()
+	if !c.SafetyEnabled {
+		t.Fatal("SAFETY_ENABLED default true olmalı")
+	}
+	if c.SafetyIntervalSec != 60 || c.SafetyLimit != 40 || c.SafetyHoldersCap != 5000 {
+		t.Fatalf("safety default'ları yanlış: %+v", c)
+	}
+}
+
 func TestGetenvBool(t *testing.T) {
 	t.Setenv("X_FLAG", "false")
 	if getenvBool("X_FLAG", true) {

@@ -25,6 +25,11 @@ type Config struct {
 	OHLCVLimit            int
 	HoldersCap            int
 	TokenDetailTimeoutSec int // /api/token isteği için üst sınır (limiter kuyruğunda süresiz bekleme olmasın)
+
+	SafetyEnabled     bool
+	SafetyIntervalSec int
+	SafetyLimit       int
+	SafetyHoldersCap  int
 }
 
 func Load() Config {
@@ -47,6 +52,11 @@ func Load() Config {
 		OHLCVLimit:            getenvInt("OHLCV_LIMIT", 200),
 		HoldersCap:            getenvInt("HOLDERS_CAP", 5000),
 		TokenDetailTimeoutSec: getenvInt("TOKEN_DETAIL_TIMEOUT_SEC", 8),
+
+		SafetyEnabled:     getenvBool("SAFETY_ENABLED", true),
+		SafetyIntervalSec: getenvInt("SAFETY_INTERVAL_SEC", 60),
+		SafetyLimit:       getenvInt("SAFETY_LIMIT", 40),
+		SafetyHoldersCap:  getenvInt("SAFETY_HOLDERS_CAP", 5000),
 	}
 }
 
