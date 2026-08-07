@@ -70,7 +70,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
 | 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **TAMAMLANDI (1a+1b+1c).** Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı. Slice 1b + 1c kod TAMAM (`feat/backend-ingestion-1b`/`-1c`, deploy bekliyor) — REST market enrichment (price/liquidity/vol5m/momentum/spark gerçek) + Token Detail (`getToken`: header/OHLCV/holders gerçek). `getKpis`/`getRadar` (Overview) ve `getToken`'in scores/risks/davranış-metrikleri → Alt-proje 2 (skorlara bağımlı) |
-| 2 | Scoring & graph (4 skor + Python/ML gerekenlerde) | `getCreators`/`getCreator`/`getWalletGraph`/`getKpis`/`getRadar` + 4 ScoreKey + risks/davranış-metrikleri | 🟡 **BRAINSTORMING.** 5 dilim: **2a Token Safety** (spec yazıldı `feat/backend-scoring-2a`) → 2b Creator Rep → 2c Manipulation → 2d Opportunity+Overview → 2e Wallet Graph. 2a kural-tabanlı Go'da; Python 2b/2c'de |
+| 2 | Scoring & graph (4 skor + Python/ML gerekenlerde) | `getCreators`/`getCreator`/`getWalletGraph`/`getKpis`/`getRadar` + 4 ScoreKey + risks/davranış-metrikleri | 🟡 **DEVAM.** 5 dilim: **2a Token Safety KOD TAMAM + review temiz** (`feat/backend-scoring-2a`, merge bekliyor — `tokenSafety` gerçek) → 2b Creator Rep → 2c Manipulation → 2d Opportunity+Overview → 2e Wallet Graph. 2a kural-tabanlı Go'da; Python 2b/2c'de |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
 | 5 | Trading engine (Jupiter, emir icra, pozisyon) | `getPortfolio`/`getPositions`/`getOrders`/`getTransactions`/`getTradeLogs`/`getMarketData`/`getCandles` | ⬜ |
@@ -180,8 +180,20 @@ Risk → 2d Opportunity+Overview (getKpis/getRadar/signal) → 2e Wallet Graph. 
 (2b/2c); **2a kural-tabanlı → Go'da**. **Slice 2a SPEC YAZILDI + commit** (branch `feat/backend-scoring-2a`,
 `3c9aef8`): `docs/superpowers/specs/2026-08-07-sentinel-backend-scoring-2a-token-safety-design.md`. tokenSafety
 (0-100, açıklanabilir): launchpad-aware authority + top-10 yoğunlaşma + holder sayısı + likidite; arka plan
-scorer + DB persist (Option A deseni); `internal/safety/` + Helius genişletme + migration 0005. **DURUM: spec
-kullanıcı review'unda; onay → writing-plans → SDD.**
+scorer + DB persist (Option A deseni); `internal/safety/` + Helius genişletme + migration 0005. **KOD TAMAM +
+REVIEW TEMİZ (2026-08-07, plan `e2a0e3a`, branch `feat/backend-scoring-2a`, 12 commit):** SDD ile 8 task (fresh
+subagent + task-review döngüsü, hepsi Approved; Task 1'de 1 fix round — fake nil-slice parity) + final whole-branch
+review (opus "With fixes") → 1 Important fix (`provider.go` holder-cap bayrağı atılıyordu → confidence düşürmüyordu,
+spec §2.1; cap'li holders kaynağı 0.25 confidence) + minor cleanup wave (switch default panic, s→sd, capN, test
+setenv) + scoped re-review temiz. Teslim: `internal/safety/` (saf `Scorer`+Check registry OCP, `SafetyDataProvider`
+DIP, periyodik `Worker`), Helius `getAccountInfo` authorities + `getTokenAccounts` holder dağılımı (top-10),
+migration 0005 (safety_breakdown/risks JSON + confidence + top10 + scored_ts), config `SAFETY_*`, main worker wiring.
+Doldurur: `TokenRow.safetyScore` + `TokenDetail.scores.tokenSafety`(breakdown/confidence) + `risks.contract/market`
++ `metrics.top10HolderPct`; diğer 3 skor nötr kalır. Whole-branch review en yüksek-riskli kontrolü doğruladı
+(launchpad `"Pump.fun"` üretici→scorer birebir eşleşiyor → pump.fun token'ları yanlışlıkla cezalanmıyor). `go build`/
+`vet`/`test -race` yeşil. Ertelenen minor'lar: `docs/superpowers/followups-frontend.md` "Alt-proje 2 slice 2a".
+**Kalibrasyon riski (deploy'da):** Helius `getAccountInfo`/`getTokenAccounts` alan şekilleri (1a/1c deseni). **DURUM:
+merge + deploy kullanıcı onayı bekliyor** (yeni env opsiyonel default'lu; mevcut `HELIUS_API_KEY` kullanılır).
 
 **Slice 1c CANLI DOĞRULAMA + rate-limit fix (2026-08-07, branch `fix/gecko-rate-limit`).** `/api/token/{mint}`
 canlıda 200 döndürüyor; **OHLCV kalibrasyonu DOĞRU** (`ohlcv_list` `[ts,o,h,l,c,v]` parser'la birebir — 1a/1b'nin
