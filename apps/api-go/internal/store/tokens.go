@@ -50,6 +50,24 @@ type EnrichTarget struct {
 	Spark          []float64
 }
 
+// SafetyUpdate, 2a scorer'ının yazdığı token güvenliği sonucudur.
+type SafetyUpdate struct {
+	Mint       string
+	Score      float64
+	Confidence float64
+	Top10Pct   float64
+	Breakdown  []ScoreBreakdownItem
+	Risks      RiskGroups
+	ScoredTs   int64
+}
+
+// SafetyTarget, skorlanacak token için gereken minimum bilgidir.
+type SafetyTarget struct {
+	Mint      string
+	Liquidity float64
+	Launchpad string
+}
+
 // TokenStore, mint-PK token kaynağıdır (upsert; DIP).
 type TokenStore interface {
 	// firstSeenTs, TokenRow'da olmayan (frontend kontratında yok) first_seen_ts
@@ -64,6 +82,9 @@ type TokenStore interface {
 	EnrichTargets(ctx context.Context, limit int) ([]EnrichTarget, error)
 	// 1c: getToken için tek token kimlik+havuz (bulunamazsa ok=false).
 	TokenDetailBase(ctx context.Context, mint string) (TokenDetailBase, bool, error)
+	// 2a: token güvenliği skorunu yazar / skorlanacak hedefleri döndürür.
+	UpdateSafety(ctx context.Context, s SafetyUpdate) error
+	SafetyScoreTargets(ctx context.Context, limit int) ([]SafetyTarget, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64) error {
@@ -151,17 +172,58 @@ func (p *postgresStore) EnrichTargets(ctx context.Context, limit int) ([]EnrichT
 
 func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (TokenDetailBase, bool, error) {
 	const q = `SELECT name, symbol, pool_address, first_seen_ts, price, liquidity,
-		price_change_h24, market_cap_usd, vol24h FROM tokens WHERE mint=$1`
+		price_change_h24, market_cap_usd, vol24h,
+		safety_score, safety_confidence, top10_holder_pct, safety_breakdown, safety_risks, safety_scored_ts
+		FROM tokens WHERE mint=$1`
 	var b TokenDetailBase
+	var bdJSON, rkJSON string
 	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs,
-		&b.Price, &b.Liquidity, &b.PriceChangeH24, &b.MarketCapUSD, &b.Vol24h)
+		&b.Price, &b.Liquidity, &b.PriceChangeH24, &b.MarketCapUSD, &b.Vol24h,
+		&b.SafetyScore, &b.SafetyConfidence, &b.Top10Pct, &bdJSON, &rkJSON, &b.SafetyScoredTs)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TokenDetailBase{}, false, nil
 	}
 	if err != nil {
 		return TokenDetailBase{}, false, err
 	}
+	b.SafetyBreakdown = parseBreakdownJSON(bdJSON)
+	b.SafetyRisks = parseRiskGroupsJSON(rkJSON)
 	return b, true, nil
+}
+
+func (p *postgresStore) UpdateSafety(ctx context.Context, s SafetyUpdate) error {
+	bdJSON, err := json.Marshal(s.Breakdown)
+	if err != nil {
+		return err
+	}
+	rkJSON, err := json.Marshal(s.Risks)
+	if err != nil {
+		return err
+	}
+	const q = `UPDATE tokens SET safety_score=$2, safety_confidence=$3, top10_holder_pct=$4,
+		safety_breakdown=$5, safety_risks=$6, safety_scored_ts=$7 WHERE mint=$1`
+	_, err = p.db.ExecContext(ctx, q, s.Mint, s.Score, s.Confidence, s.Top10Pct,
+		string(bdJSON), string(rkJSON), s.ScoredTs)
+	return err
+}
+
+func (p *postgresStore) SafetyScoreTargets(ctx context.Context, limit int) ([]SafetyTarget, error) {
+	const q = `SELECT mint, liquidity, launchpad FROM tokens
+		WHERE pool_address <> '' ORDER BY safety_scored_ts ASC, first_seen_ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]SafetyTarget, 0, limit)
+	for rows.Next() {
+		var t SafetyTarget
+		if err := rows.Scan(&t.Mint, &t.Liquidity, &t.Launchpad); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }
 
 // parseSparkJSON, boş/bozuk JSON'da boş dilim döner (asla nil değil).
@@ -172,6 +234,38 @@ func parseSparkJSON(s string) []float64 {
 	var out []float64
 	if err := json.Unmarshal([]byte(s), &out); err != nil {
 		return []float64{}
+	}
+	return out
+}
+
+func parseBreakdownJSON(s string) []ScoreBreakdownItem {
+	if s == "" {
+		return []ScoreBreakdownItem{}
+	}
+	var out []ScoreBreakdownItem
+	if err := json.Unmarshal([]byte(s), &out); err != nil {
+		return []ScoreBreakdownItem{}
+	}
+	return out
+}
+
+func parseRiskGroupsJSON(s string) RiskGroups {
+	empty := RiskGroups{Contract: []RiskItem{}, Market: []RiskItem{}, Creator: []RiskItem{}}
+	if s == "" {
+		return empty
+	}
+	var out RiskGroups
+	if err := json.Unmarshal([]byte(s), &out); err != nil {
+		return empty
+	}
+	if out.Contract == nil {
+		out.Contract = []RiskItem{}
+	}
+	if out.Market == nil {
+		out.Market = []RiskItem{}
+	}
+	if out.Creator == nil {
+		out.Creator = []RiskItem{}
 	}
 	return out
 }

@@ -213,6 +213,37 @@ dahil edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dili
   boşa/eskiye ezebilir. Çözüm: WS dönünce yazarları uzlaştır (ör. non-empty alanı ezme / `COALESCE`). Sessiz
   düşürme yok — WS sağlayıcı işine bağlı, o zaman ele alınacak.
 
+## Backend Alt-proje 2 slice 2a (Token Safety) — deferred
+
+Slice 2a (`feat/backend-scoring-2a`, 2026-08-07) `tokenSafety` skorunu gerçeğe döndürdü: kural-tabanlı
+açıklanabilir skor (launchpad-aware authority + top-10 holder yoğunlaşması + holder sayısı + likidite),
+arka plan scorer + DB persist (Option A deseni), detail/liste DB'den okur. SDD 8 task + whole-branch review
+(opus "With fixes") → 1 Important fix (holder-cap → confidence düşürür) + minor cleanup wave. Aşağıdakiler
+bilinçle ertelendi (whole-branch review triage: hiçbiri merge'i bloke etmedi):
+
+- **Skorlama coverage boşlukları (test):** Worker error-isolation (`FetchOnChain`/`UpdateSafety` `continue`
+  yolları), `Run` ticker/cancel döngüsü, `SafetyScoreTargets`-fail — happy-path + partial testlerle kapsandı,
+  kod inspection-doğru; `Score` holders-known/authorities-unknown ayna dalı ve provider partial-failure ters
+  yönü test edilmedi. İleride hardening.
+- **`isBondingCurve` case-sensitive** (`"Pump.fun"/"pump.fun"/"PumpSwap"` birebir) — üretici değeri sabit
+  (`market/provider.go` → `discoverer.go` `"Pump.fun"` yazar), whole-branch review uçtan uca doğruladı → şu an
+  güvenli; ama upstream değeri değişirse `strings.EqualFold` normalize gerekir.
+- **Helius alan-şekli kalibrasyonu (deploy'da):** `getAccountInfo` `data.parsed.info.mintAuthority/freezeAuthority`
+  + `getTokenAccounts` `token_accounts[].owner/amount` — canlı şekil farklıysa parse+fixture hotfix (1a/1c deseni).
+  `getTokenAccounts` bazı token'larda `tokenAmount.amount` iç içe dönebilir → deploy'da doğrula.
+- **account-not-found → both-revoked:** `MintAuthorities` `value:null` (kapalı/yanmış hesap) → `(false,false,nil)`
+  → provider `AuthoritiesKnown=true` + iki authority iptal = güvenli skorlanır. Keşfedilen token'lar on-chain var
+  olduğundan nadir; parse "not-found"u "revoked"dan ayırt edemiyor.
+- **`ParseFloat` hatası sessiz 0:** `holders.go` bozuk `amount` string'ini 0 sayar (data-quality); status!=200
+  yolu ve JSON marshal-err (idiom) test edilmedi.
+- **`Metrics.Top10HolderPct` koşulsuz:** skorlanmamış token `top10HolderPct:0` gösterir ("sağlıklı" gibi okunur,
+  "bilinmiyor" değil) — metrik seam'inde confidence alanı yok; seam sınırlaması.
+- **`safety.Holders` interface param adı `cap`:** somut impl `capN`'e döndü ama interface imzası `cap` kaldı
+  (yalnız dokümantasyon, builtin-shadow yok) — kozmetik.
+- **Kapsam dışı (sonraki 2a iterasyonu / diğer dilimler):** `creatorHoldingPct` (2b, creator adresi gerektirir),
+  LP-burn/LP-lock tespiti (graduated token'lar), sniper%/bot%/buy-sell ratio davranış metrikleri (2c), `signal`
+  (opportunity → 2d), diğer 3 skor (creatorReputation 2b / manipulationRisk 2c / opportunity 2d).
+
 ## Backend Alt-proje 1 slice 1c — deferred
 
 Slice 1c (`feat/backend-ingestion-1c`, 2026-08-06) teslim edildi: Token Detail (`getToken`) gerçek — header

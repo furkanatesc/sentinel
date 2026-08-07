@@ -122,6 +122,28 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 		_ = capped
 	}
 
+	// Token Safety (2a) — DB'den (arka plan scorer persist etti); diğer 3 skor nötr kalır.
+	updatedAt := "—"
+	if base.SafetyScoredTs > 0 {
+		updatedAt = time.Unix(base.SafetyScoredTs, 0).UTC().Format(time.RFC3339)
+	}
+	d.Scores["tokenSafety"] = store.ScoreDetail{
+		Key: "tokenSafety", Value: base.SafetyScore, Confidence: base.SafetyConfidence,
+		UpdatedAt: updatedAt, Breakdown: base.SafetyBreakdown,
+	}
+	if d.Scores["tokenSafety"].Breakdown == nil {
+		sd := d.Scores["tokenSafety"]
+		sd.Breakdown = []store.ScoreBreakdownItem{}
+		d.Scores["tokenSafety"] = sd
+	}
+	if base.SafetyRisks.Contract != nil {
+		d.Risks.Contract = base.SafetyRisks.Contract
+	}
+	if base.SafetyRisks.Market != nil {
+		d.Risks.Market = base.SafetyRisks.Market
+	}
+	d.Metrics.Top10HolderPct = base.Top10Pct
+
 	s.mu.Lock()
 	ttlSec := int64(s.d.CacheTTL / time.Second)
 	for k, e := range s.cache {

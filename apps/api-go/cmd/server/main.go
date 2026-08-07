@@ -16,6 +16,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
 )
@@ -111,6 +112,19 @@ func main() {
 			CacheTTL:   time.Duration(cfg.TokenDetailCacheSec) * time.Second,
 			OHLCVLimit: cfg.OHLCVLimit, HoldersCap: cfg.HoldersCap, Logger: logger,
 		})
+	}
+
+	// token safety scorer (2a) — arka plan; Helius key + market gerekli
+	if cfg.SafetyEnabled && bundle.Tokens != nil && rpcURL != "" {
+		provider := safety.NewHeliusProvider(
+			ingest.NewHeliusAuthorities(rpcURL), ingest.NewHeliusHolders(rpcURL), cfg.SafetyHoldersCap)
+		sw := safety.NewWorker(safety.WorkerDeps{
+			Store: bundle.Tokens, Provider: provider,
+			Interval: time.Duration(cfg.SafetyIntervalSec) * time.Second, Limit: cfg.SafetyLimit, Logger: logger,
+		})
+		go sw.Run(ctx)
+	} else if cfg.SafetyEnabled {
+		logger.Warn("SAFETY: Helius key veya token store yok — safety scorer başlamayacak")
 	}
 
 	srv := &http.Server{

@@ -28,6 +28,10 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sentinel PORT=8080 \
 | `EVENTS_WINDOW` | Hayır (default 200) | `/api/events` + `/api/tokens` snapshot'larının döndürdüğü satır sayısı |
 | `GECKOTERMINAL_RATE_PER_MIN` | Hayır (default 25) | Paylaşılan GeckoTerminal istek bütçesi (istek/dk). Keşif + enrichment + token detail TEK token-bucket'tan çeker; keysiz free-tier (~30/dk) 429'unu önler |
 | `GECKOTERMINAL_BURST` | Hayır (default 2) | Token-bucket burst kapasitesi (detail'in 2 çağrısı — header+OHLCV — birlikte geçebilsin) |
+| `SAFETY_ENABLED` | Hayır (default true) | Token güvenliği arka plan scorer'ı (2a). Helius key yoksa başlamaz |
+| `SAFETY_INTERVAL_SEC` | Hayır (default 60) | Skorlama döngüsü aralığı (saniye) |
+| `SAFETY_LIMIT` | Hayır (default 40) | Döngü başına skorlanan token |
+| `SAFETY_HOLDERS_CAP` | Hayır (default 5000) | Holder dağılımı için getTokenAccounts sayfalama tavanı |
 
 ## Railway deploy (KULLANICI ADIMI)
 1. Railway'de yeni servis → GitHub repo `furkanatesc/sentinel`, **Root Directory = `apps/api-go`** (nixpacks Go'yu otomatik derler; **Go 1.24** gerekli — `go.mod`'da pinli; start komutu binary'yi çalıştırır).
