@@ -89,23 +89,15 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 
 	d := store.TokenDetail{
 		ID: mint, Mint: mint, Name: base.Name, Symbol: base.Symbol, AgeSeconds: age,
+		// Header DB'den (enrichment persist etti) → canlı GeckoTerminal çağrısı YOK; paylaşımlı-IP
+		// throttle olsa bile header gerçek. Yalnız OHLCV grafiği canlı/best-effort kalır.
+		Price: base.Price, Liquidity: base.Liquidity,
+		PriceChange24h: base.PriceChangeH24, MarketCap: base.MarketCapUSD, Volume24h: base.Vol24h,
 		Scores: neutralScores(), Metrics: store.TokenMetrics{},
 		Series: store.TokenDetailSeries{
 			Price: []store.SeriesPoint{}, Liquidity: []store.SeriesPoint{},
 			Volume: []store.SeriesPoint{}, Holders: []store.SeriesPoint{}},
 		Risks: store.RiskGroups{Contract: []store.RiskItem{}, Market: []store.RiskItem{}, Creator: []store.RiskItem{}},
-	}
-
-	// Header (mevcut PoolsByAddresses yeniden kullanılır).
-	if pools, err := s.d.Provider.PoolsByAddresses(ctx, []string{base.PoolAddr}); err != nil {
-		s.d.Logger.Warn("detail header", "mint", mint, "err", err)
-	} else {
-		for _, p := range pools {
-			if p.PoolAddr == base.PoolAddr {
-				d.Price, d.Liquidity = p.Price, p.LiquidityUSD
-				d.PriceChange24h, d.MarketCap, d.Volume24h = p.PriceChangeH24, p.MarketCapUSD, p.Vol24h
-			}
-		}
 	}
 
 	// Grafik (yaşa-uyarlı OHLCV).

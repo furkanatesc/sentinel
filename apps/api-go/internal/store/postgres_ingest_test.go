@@ -59,8 +59,17 @@ func TestPostgresMarketRoundTrip(t *testing.T) {
 	if ins2 {
 		t.Fatal("ikinci UpsertDiscovered inserted=false olmalı")
 	}
-	if err := b.Tokens.UpdateMarket(ctx, MarketUpdate{Mint: "MintMk", Price: 0.5, Liquidity: 1000, Vol5m: 50, Momentum: 72, Spark: []float64{1, 2, 3}}); err != nil {
+	if err := b.Tokens.UpdateMarket(ctx, MarketUpdate{Mint: "MintMk", Price: 0.5, Liquidity: 1000, Vol5m: 50, Momentum: 72,
+		Spark: []float64{1, 2, 3}, PriceChangeH24: -8.5, MarketCapUSD: 123456, Vol24h: 7777}); err != nil {
 		t.Fatal(err)
+	}
+	// Detail header alanları DB'de round-trip etmeli (migration 0004 + TokenDetailBase okuması).
+	base, ok, err := b.Tokens.TokenDetailBase(ctx, "MintMk")
+	if err != nil || !ok {
+		t.Fatalf("TokenDetailBase ok=%v err=%v", ok, err)
+	}
+	if base.Price != 0.5 || base.Liquidity != 1000 || base.PriceChangeH24 != -8.5 || base.MarketCapUSD != 123456 || base.Vol24h != 7777 {
+		t.Fatalf("detail header DB round-trip yanlış: %+v", base)
 	}
 	targets, err := b.Tokens.EnrichTargets(ctx, 50)
 	if err != nil {

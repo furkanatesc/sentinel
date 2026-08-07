@@ -193,9 +193,23 @@ bulgu — `/api/token` yolu limiter kuyruğunda **süresiz bloke** olabiliyordu 
 gibi kapaklanmıyor). Fix: handler `Build`'i deadline'lı ctx ile çağırır (`TOKEN_DETAIL_TIMEOUT_SEC`=8); deadline
 aşılırsa `Wait` hızlı-fail → 502 degraded (partial-success ile tutarlı). + minor'lar (retry token-ödünleşim yorumu,
 `*rate.Limiter` compile-time assertion, backoff-iptal testi). Go build/vet/`test -race` yeşil (5 rate-limit + 1
-iptal + 3 config + 1 handler-timeout testi). **Kalan followup (bkz followups-frontend.md):** detail cache 429'lu
-nötr-sıfır'ı da ~20s tutabiliyor (limiter 429'u nadir kılıyor ama caching guard'ı ertelendi). **Merge/deploy
-kullanıcı onayı bekliyor** (branch `fix/gecko-rate-limit`).
+iptal + 3 config + 1 handler-timeout testi). **MERGE + DEPLOY EDİLDİ (2026-08-07, merge `942cd68`).**
+
+**Canlı doğrulama fix'in YETMEDİĞİNİ gösterdi + kök neden düzeltildi (Option A, branch `feat/detail-header-from-db`).**
+Deploy sonrası ölçüm: limiter CANLI (detay istekleri 3-7s gecikme = kuyruk kanıtı, eski kodda imkânsız) AMA header
+hâlâ ~%80 sıfır. Nazik 15s-aralıklı probe'da bile (bizim ~14 çağrı/dk, 25/30 limitinin altında) sıfır → **~30/dk
+bütçe bizim kontrolümüz dışında tükeniyor: Railway paylaşımlı egress IP'si** (birçok kiracı aynı IP'den GeckoTerminal'e
+vuruyor). İstemci-taraflı limiter bunu aşamaz — **Helius free-tier WS sorununun analogu (sağlayıcı/altyapı limiti)**.
+Liste "sağlıklı" görünüyordu çünkü enrichment değerleri DB'de **yapışkan**; header **canlı** hesaplandığından gerçek
+düşük başarı oranını gösteriyordu. **Kullanıcı kararı: Option A — header'ı DB'den sun (ücretsiz, robust).** Enricher
+zaten `MarketCapUSD`/`Vol24h`/`PriceChangeH24`'ü GeckoTerminal Pool'undan çekiyordu ama saklamıyordu. Fix (TDD):
+migration `0004` (tokens'a `price_change_h24`/`market_cap_usd`/`vol24h`), `MarketUpdate`+`TokenDetailBase` bu 3 alan +
+mevcut price/liquidity taşır, Enricher+Discoverer persist eder, **detail `Build` header'ı base'den (DB) okur — canlı
+`PoolsByAddresses` header çağrısı TAMAMEN KALDIRILDI** (header hep gerçek + GeckoTerminal yükü azalır). OHLCV grafiği
+canlı/best-effort kalır (zaten seyrek/dürüst). Çekirdek test: GeckoTerminal tamamen ölse bile header DB'den gerçek,
+yalnız OHLCV+holders düşer. Go build/vet/`test -race` + fake/postgres store yeşil (postgres round-trip DB varsa header
+alanlarını doğrular). **Kalan followup (bkz followups):** OHLCV serisi canlı/best-effort (throttle'da boş — dürüst).
+**Merge/deploy kullanıcı onayı bekliyor** (branch `feat/detail-header-from-db`).
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı

@@ -81,6 +81,7 @@ func (x *Enricher) tick(ctx context.Context) error {
 			if err := x.d.Tokens.UpdateMarket(ctx, store.MarketUpdate{
 				Mint: t.Mint, Price: p.Price, Liquidity: p.LiquidityUSD, Vol5m: p.Vol5m,
 				Momentum: momentumFromChange(p.PriceChangeH1), Spark: appendSpark(t.Spark, p.Price),
+				PriceChangeH24: p.PriceChangeH24, MarketCapUSD: p.MarketCapUSD, Vol24h: p.Vol24h,
 			}); err != nil {
 				x.d.Logger.Warn("update market", "mint", t.Mint, "err", err)
 				continue

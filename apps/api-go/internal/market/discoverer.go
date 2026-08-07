@@ -86,6 +86,7 @@ func (x *Discoverer) tick(ctx context.Context) error {
 			if err := x.d.Tokens.UpdateMarket(ctx, store.MarketUpdate{
 				Mint: p.Mint, Price: p.Price, Liquidity: p.LiquidityUSD, Vol5m: p.Vol5m,
 				Momentum: momentumFromChange(p.PriceChangeH1), Spark: appendSpark(nil, p.Price),
+				PriceChangeH24: p.PriceChangeH24, MarketCapUSD: p.MarketCapUSD, Vol24h: p.Vol24h,
 			}); err != nil {
 				x.d.Logger.Warn("initial market", "mint", p.Mint, "err", err)
 			}

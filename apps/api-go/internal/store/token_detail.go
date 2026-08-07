@@ -72,8 +72,14 @@ type TokenDetail struct {
 	Risks          RiskGroups             `json:"risks"`
 }
 
-// TokenDetailBase, getToken için gereken kimlik + havuz bilgisidir (mint kaydından).
+// TokenDetailBase, getToken için gereken kimlik + havuz + persist edilmiş piyasa
+// header'ıdır (mint kaydından). Header alanları enrichment'ta DB'ye yazılır → detail
+// canlı GeckoTerminal çağrısı YAPMADAN header'ı DB'den sunar (paylaşımlı-IP throttle'a dayanıklı).
 type TokenDetailBase struct {
 	Name, Symbol, PoolAddr string
 	FirstSeenTs            int64
+	Price, Liquidity       float64
+	PriceChangeH24         float64
+	MarketCapUSD           float64
+	Vol24h                 float64
 }

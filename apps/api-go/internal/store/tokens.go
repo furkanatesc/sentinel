@@ -33,11 +33,15 @@ type DiscoveredToken struct {
 	FirstSeenTs                             int64
 }
 
-// MarketUpdate, enrichment döngüsünün yazdığı piyasa alanlarıdır (1b).
+// MarketUpdate, enrichment döngüsünün yazdığı piyasa alanlarıdır (1b + detail header 1c-followup).
 type MarketUpdate struct {
 	Mint                              string
 	Price, Liquidity, Vol5m, Momentum float64
 	Spark                             []float64
+	// Detail header alanları (DB'de persist → getToken canlı çağrısız header sunar).
+	PriceChangeH24 float64
+	MarketCapUSD   float64
+	Vol24h         float64
 }
 
 // EnrichTarget, enrichment için gereken minimum bilgidir: hangi havuzu sorgulayacağı + mevcut spark.
@@ -117,8 +121,10 @@ func (p *postgresStore) UpdateMarket(ctx context.Context, m MarketUpdate) error 
 	if err != nil {
 		return err
 	}
-	const q = `UPDATE tokens SET price=$2, liquidity=$3, vol5m=$4, momentum=$5, spark=$6 WHERE mint=$1`
-	_, err = p.db.ExecContext(ctx, q, m.Mint, m.Price, m.Liquidity, m.Vol5m, m.Momentum, string(sparkJSON))
+	const q = `UPDATE tokens SET price=$2, liquidity=$3, vol5m=$4, momentum=$5, spark=$6,
+		price_change_h24=$7, market_cap_usd=$8, vol24h=$9 WHERE mint=$1`
+	_, err = p.db.ExecContext(ctx, q, m.Mint, m.Price, m.Liquidity, m.Vol5m, m.Momentum, string(sparkJSON),
+		m.PriceChangeH24, m.MarketCapUSD, m.Vol24h)
 	return err
 }
 
@@ -144,9 +150,11 @@ func (p *postgresStore) EnrichTargets(ctx context.Context, limit int) ([]EnrichT
 }
 
 func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (TokenDetailBase, bool, error) {
-	const q = `SELECT name, symbol, pool_address, first_seen_ts FROM tokens WHERE mint=$1`
+	const q = `SELECT name, symbol, pool_address, first_seen_ts, price, liquidity,
+		price_change_h24, market_cap_usd, vol24h FROM tokens WHERE mint=$1`
 	var b TokenDetailBase
-	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs)
+	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs,
+		&b.Price, &b.Liquidity, &b.PriceChangeH24, &b.MarketCapUSD, &b.Vol24h)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TokenDetailBase{}, false, nil
 	}
