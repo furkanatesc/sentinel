@@ -5,9 +5,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
+
+// blockingDetail, ctx iptal edilene kadar bloke olur (yavaş/throttle'lı upstream simülasyonu).
+type blockingDetail struct{}
+
+func (blockingDetail) Build(ctx context.Context, _ string) (store.TokenDetail, bool, error) {
+	<-ctx.Done()
+	return store.TokenDetail{}, false, ctx.Err()
+}
 
 type fakeDetail struct {
 	byMint map[string]store.TokenDetail
@@ -41,6 +50,23 @@ func TestTokenHandlerNotFound(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("code=%d want 404", w.Code)
+	}
+}
+
+func TestTokenHandlerTimesOut(t *testing.T) {
+	r := NewRouter(RouterDeps{TokenDetail: blockingDetail{}, TokenDetailTimeout: 30 * time.Millisecond})
+	req := httptest.NewRequest(http.MethodGet, "/api/token/MintX", nil)
+	w := httptest.NewRecorder()
+
+	done := make(chan struct{})
+	go func() { r.ServeHTTP(w, req); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler süresiz bloke oldu — deadline uygulanmadı")
+	}
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("code=%d, want 502 (deadline → degraded yanıt)", w.Code)
 	}
 }
 

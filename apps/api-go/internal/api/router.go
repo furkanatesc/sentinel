@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -13,13 +14,14 @@ import (
 
 // RouterDeps, router'ın bağımlılıklarıdır (DIP: nil olan store'lar için route atlanır).
 type RouterDeps struct {
-	Strategies   store.StrategyStore
-	Events       store.EventStore
-	Tokens       store.TokenStore
-	TokenDetail  TokenDetailProvider
-	Hub          *ws.Hub
-	CORSOrigin   string
-	EventsWindow int
+	Strategies         store.StrategyStore
+	Events             store.EventStore
+	Tokens             store.TokenStore
+	TokenDetail        TokenDetailProvider
+	TokenDetailTimeout time.Duration // 0 → sınırsız (kullanıcı yolunu limiter kuyruğunda süresiz bekletmemek için)
+	Hub                *ws.Hub
+	CORSOrigin         string
+	EventsWindow       int
 }
 
 // NewRouter, HTTP yönlendiricisini kurar.
@@ -38,7 +40,7 @@ func NewRouter(d RouterDeps) http.Handler {
 		r.Get("/api/tokens", tokensHandler(d.Tokens, d.EventsWindow))
 	}
 	if d.TokenDetail != nil {
-		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail))
+		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail, d.TokenDetailTimeout))
 	}
 	r.Get("/ws", wsHandler(d.Hub))
 	return r

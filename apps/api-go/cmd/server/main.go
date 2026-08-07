@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/api"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
@@ -21,6 +23,10 @@ import (
 // Derleme zamanı sözleşme kilidi: ws.Hub, ingest.Broadcaster'ı karşılamalı.
 // Bu satır derlenmezse Broadcast imzaları sapmış demektir — assertion'ı silme, uyumsuzluğu düzelt.
 var _ ingest.Broadcaster = (*ws.Hub)(nil)
+
+// Derleme zamanı kilidi: *rate.Limiter, market.Limiter'ı karşılamalı (DIP: market
+// paketi rate'i import etmez, uyum yalnız burada bağlanır). İmza saparsa bu satır kırılır.
+var _ market.Limiter = (*rate.Limiter)(nil)
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -70,8 +76,12 @@ func main() {
 	go worker.Run(ctx)
 
 	// market keşif + enrichment (GeckoTerminal REST — WS'ten bağımsız, Slice 1b)
+	// Paylaşılan hız sınırlayıcı: keşif + enrichment + detail TEK GeckoTerminal
+	// istek bütçesini (keysiz free-tier ~30/dk) tüketir; 429 → nötr-sıfır'ı önler.
+	var gtLimiter market.Limiter
 	if cfg.MarketEnabled {
-		gt := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil)
+		gtLimiter = rate.NewLimiter(rate.Limit(float64(cfg.GeckoRatePerMin)/60.0), cfg.GeckoBurst)
+		gt := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil, market.WithLimiter(gtLimiter))
 		disc := market.NewDiscoverer(market.DiscovererDeps{
 			Provider: gt, Tokens: bundle.Tokens, Events: bundle.Events, Broadcast: hub,
 			Interval: time.Duration(cfg.DiscoverInterval) * time.Second, SnapshotLimit: cfg.EventsWindow, Logger: logger,
@@ -89,7 +99,7 @@ func main() {
 	// token detail service (GeckoTerminal header+OHLCV + Helius holders) — Slice 1c
 	var detailSvc api.TokenDetailProvider
 	if cfg.MarketEnabled && bundle.Tokens != nil {
-		gtForDetail := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil)
+		gtForDetail := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil, market.WithLimiter(gtLimiter))
 		var holders market.HoldersProvider
 		if rpcURL != "" {
 			holders = ingest.NewHeliusHolders(rpcURL)
@@ -98,7 +108,7 @@ func main() {
 		}
 		detailSvc = market.NewTokenDetailService(market.TokenDetailDeps{
 			Store: bundle.Tokens, Provider: gtForDetail, Holders: holders,
-			CacheTTL: time.Duration(cfg.TokenDetailCacheSec) * time.Second,
+			CacheTTL:   time.Duration(cfg.TokenDetailCacheSec) * time.Second,
 			OHLCVLimit: cfg.OHLCVLimit, HoldersCap: cfg.HoldersCap, Logger: logger,
 		})
 	}
@@ -108,7 +118,8 @@ func main() {
 		Handler: api.NewRouter(api.RouterDeps{
 			Strategies: bundle.Strategies, Events: bundle.Events, Tokens: bundle.Tokens,
 			Hub: hub, CORSOrigin: cfg.CORSOrigin, EventsWindow: cfg.EventsWindow,
-			TokenDetail: detailSvc,
+			TokenDetail:        detailSvc,
+			TokenDetailTimeout: time.Duration(cfg.TokenDetailTimeoutSec) * time.Second,
 		}),
 	}
 	go func() {
@@ -129,4 +140,6 @@ func main() {
 // noopHolders, Helius key yokken holders'ı 0 döndürür (dürüst — sayı yok).
 type noopHolders struct{}
 
-func (noopHolders) HoldersCount(context.Context, string, int) (int, bool, error) { return 0, false, nil }
+func (noopHolders) HoldersCount(context.Context, string, int) (int, bool, error) {
+	return 0, false, nil
+}
