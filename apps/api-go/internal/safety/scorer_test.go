@@ -96,6 +96,42 @@ func TestScorePartialConfidence(t *testing.T) {
 	}
 }
 
+func TestScoreHoldersCappedLowersConfidence(t *testing.T) {
+	// Holders bilinir AMA cap'e takıldı → confidence katkısı 0.5 değil 0.25.
+	r := Score(Inputs{
+		AuthoritiesKnown: true, MintAuthorityActive: false, FreezeAuthorityActive: false,
+		HoldersKnown: true, HoldersCapped: true, HolderCount: 500, Top10Pct: 30, Liquidity: 5000, Launchpad: "Raydium",
+	})
+	if r.Confidence != 0.75 { // 0.5 authorities + 0.25 capped holders
+		t.Fatalf("capped holders confidence 0.75 olmalı: %v", r.Confidence)
+	}
+}
+
+func TestScoreHoldersNotCappedFullConfidence(t *testing.T) {
+	// Holders bilinir VE cap'e takılmadı → tam 0.5 katkı, toplam confidence 1.0.
+	r := Score(Inputs{
+		AuthoritiesKnown: true, MintAuthorityActive: false, FreezeAuthorityActive: false,
+		HoldersKnown: true, HoldersCapped: false, HolderCount: 500, Top10Pct: 30, Liquidity: 5000, Launchpad: "Raydium",
+	})
+	if r.Confidence != 1.0 {
+		t.Fatalf("non-capped holders confidence 1.0 olmalı: %v", r.Confidence)
+	}
+}
+
+func TestScoreHoldersCappedOnlyNonNeutral(t *testing.T) {
+	// Authority bilinmiyor, holders bilinir+capped → confidence 0.25 (neutral DEĞİL, 0'dan büyük).
+	r := Score(Inputs{
+		AuthoritiesKnown: false, HoldersKnown: true, HoldersCapped: true,
+		HolderCount: 500, Top10Pct: 30, Liquidity: 5000, Launchpad: "Raydium",
+	})
+	if r.Confidence != 0.25 {
+		t.Fatalf("capped-only confidence 0.25 olmalı: %v", r.Confidence)
+	}
+	if r.Score == 0 && r.Confidence == 0 {
+		t.Fatalf("capped-only nötr-erken-dönüş OLMAMALI: %+v", r)
+	}
+}
+
 func TestScoreClampFloor(t *testing.T) {
 	// Tüm bayraklar → düşüş 100'ü aşar, 0'a clamp.
 	r := Score(Inputs{AuthoritiesKnown: true, FreezeAuthorityActive: true, MintAuthorityActive: true,

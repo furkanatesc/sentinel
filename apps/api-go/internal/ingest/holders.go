@@ -123,9 +123,9 @@ func (h *HeliusHolders) pageAccounts(ctx context.Context, mint string, page int)
 
 // HolderDistribution, benzersiz-sahip holder sayısı ve top-10 sahip yoğunlaşması (%) döndürür.
 // cap'e ulaşınca durur (capped=true — pahalı büyük token'ları sınırlar; sonuç alt-sınırdır).
-func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint string, cap int) (int, float64, bool, error) {
-	if cap <= 0 {
-		cap = 5000
+func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint string, capN int) (int, float64, bool, error) {
+	if capN <= 0 {
+		capN = 5000
 	}
 	byOwner := map[string]float64{}
 	seen := 0
@@ -140,7 +140,7 @@ func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint string, cap
 			byOwner[a.Owner] += amt
 		}
 		seen += len(accs)
-		if seen >= cap {
+		if seen >= capN {
 			capped = true
 			break
 		}

@@ -66,6 +66,7 @@ func TestLoadSafetyDefaults(t *testing.T) {
 	t.Setenv("SAFETY_ENABLED", "")
 	t.Setenv("SAFETY_INTERVAL_SEC", "")
 	t.Setenv("SAFETY_LIMIT", "")
+	t.Setenv("SAFETY_HOLDERS_CAP", "")
 	c := Load()
 	if !c.SafetyEnabled {
 		t.Fatal("SAFETY_ENABLED default true olmalı")

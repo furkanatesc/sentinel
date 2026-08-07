@@ -132,9 +132,9 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 		UpdatedAt: updatedAt, Breakdown: base.SafetyBreakdown,
 	}
 	if d.Scores["tokenSafety"].Breakdown == nil {
-		s := d.Scores["tokenSafety"]
-		s.Breakdown = []store.ScoreBreakdownItem{}
-		d.Scores["tokenSafety"] = s
+		sd := d.Scores["tokenSafety"]
+		sd.Breakdown = []store.ScoreBreakdownItem{}
+		d.Scores["tokenSafety"] = sd
 	}
 	if base.SafetyRisks.Contract != nil {
 		d.Risks.Contract = base.SafetyRisks.Contract

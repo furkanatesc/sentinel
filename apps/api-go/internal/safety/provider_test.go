@@ -37,6 +37,21 @@ func TestFetchOnChainBothOK(t *testing.T) {
 	}
 }
 
+func TestFetchOnChainHoldersCappedPropagates(t *testing.T) {
+	// Holders cap'e takılırsa (capped=true) OnChainData.HoldersCapped=true olmalı (confidence düşsün diye).
+	p := NewHeliusProvider(fakeAuth{mint: true, freeze: false}, fakeHolders{count: 5000, top10: 60, capped: true}, 5000)
+	d, err := p.FetchOnChain(context.Background(), "M")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.HoldersKnown {
+		t.Fatal("capped olsa da HoldersKnown=true olmalı (kısmi veri var)")
+	}
+	if !d.HoldersCapped {
+		t.Fatal("holders cap'e takılınca HoldersCapped=true olmalı")
+	}
+}
+
 func TestFetchOnChainPartialFailureIsolated(t *testing.T) {
 	// Authority hata verir, holders başarılı → AuthoritiesKnown=false, HoldersKnown=true, hard-fail YOK.
 	p := NewHeliusProvider(fakeAuth{err: errors.New("boom")}, fakeHolders{count: 300, top10: 42}, 5000)

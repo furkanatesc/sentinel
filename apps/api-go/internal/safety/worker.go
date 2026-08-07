@@ -79,7 +79,7 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 		res := Score(Inputs{
 			MintAuthorityActive: data.MintAuthorityActive, FreezeAuthorityActive: data.FreezeAuthorityActive,
 			AuthoritiesKnown: data.AuthoritiesKnown, HolderCount: data.HolderCount, Top10Pct: data.Top10Pct,
-			HoldersKnown: data.HoldersKnown, Liquidity: tg.Liquidity, Launchpad: tg.Launchpad,
+			HoldersKnown: data.HoldersKnown, HoldersCapped: data.HoldersCapped, Liquidity: tg.Liquidity, Launchpad: tg.Launchpad,
 		})
 		if err := w.d.Store.UpdateSafety(ctx, store.SafetyUpdate{
 			Mint: tg.Mint, Score: res.Score, Confidence: res.Confidence, Top10Pct: res.Top10Pct,

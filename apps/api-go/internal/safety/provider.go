@@ -9,6 +9,7 @@ type OnChainData struct {
 	HolderCount                                int
 	Top10Pct                                   float64
 	HoldersKnown                               bool
+	HoldersCapped                              bool
 }
 
 // DataProvider, bir mint için on-chain güvenlik verisini sağlar (DIP).
@@ -42,8 +43,8 @@ func (p *HeliusProvider) FetchOnChain(ctx context.Context, mint string) (OnChain
 	if mintA, freezeA, err := p.auth.MintAuthorities(ctx, mint); err == nil {
 		d.MintAuthorityActive, d.FreezeAuthorityActive, d.AuthoritiesKnown = mintA, freezeA, true
 	}
-	if count, top10, _, err := p.holders.HolderDistribution(ctx, mint, p.holdersCap); err == nil {
-		d.HolderCount, d.Top10Pct, d.HoldersKnown = count, top10, true
+	if count, top10, capped, err := p.holders.HolderDistribution(ctx, mint, p.holdersCap); err == nil {
+		d.HolderCount, d.Top10Pct, d.HoldersKnown, d.HoldersCapped = count, top10, true, capped
 	}
 	return d, nil
 }

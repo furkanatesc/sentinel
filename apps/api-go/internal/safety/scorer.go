@@ -30,6 +30,7 @@ type Inputs struct {
 	HolderCount                                int
 	Top10Pct                                   float64
 	HoldersKnown                               bool // getTokenAccounts başarılı mı
+	HoldersCapped                              bool // holder pagination cap'e takıldı mı (confidence düşürür)
 	Liquidity                                  float64
 	Launchpad                                  string
 }
@@ -65,7 +66,11 @@ func Score(in Inputs) SafetyResult {
 		conf += 0.5
 	}
 	if in.HoldersKnown {
-		conf += 0.5
+		if in.HoldersCapped {
+			conf += 0.25
+		} else {
+			conf += 0.5
+		}
 	}
 	rg := store.RiskGroups{Contract: []store.RiskItem{}, Market: []store.RiskItem{}, Creator: []store.RiskItem{}}
 	bd := []store.ScoreBreakdownItem{}
@@ -87,6 +92,8 @@ func Score(in Inputs) SafetyResult {
 				rg.Contract = append(rg.Contract, *o.risk)
 			case "market":
 				rg.Market = append(rg.Market, *o.risk)
+			default:
+				panic("safety: unknown risk group: " + o.riskGroup)
 			}
 		}
 	}
