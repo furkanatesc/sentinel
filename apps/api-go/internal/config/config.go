@@ -18,6 +18,8 @@ type Config struct {
 	DiscoverInterval int // saniye
 	EnrichInterval   int // saniye
 	EnrichLimit      int
+	GeckoRatePerMin  int // GeckoTerminal paylaşılan istek bütçesi (istek/dk)
+	GeckoBurst       int // token-bucket burst kapasitesi
 
 	TokenDetailCacheSec int
 	OHLCVLimit          int
@@ -37,6 +39,8 @@ func Load() Config {
 		DiscoverInterval: getenvInt("MARKET_DISCOVER_INTERVAL_SEC", 30),
 		EnrichInterval:   getenvInt("MARKET_ENRICH_INTERVAL_SEC", 30),
 		EnrichLimit:      getenvInt("MARKET_ENRICH_LIMIT", 60),
+		GeckoRatePerMin:  getenvInt("GECKOTERMINAL_RATE_PER_MIN", 25),
+		GeckoBurst:       getenvInt("GECKOTERMINAL_BURST", 2),
 
 		TokenDetailCacheSec: getenvInt("TOKEN_DETAIL_CACHE_SEC", 20),
 		OHLCVLimit:          getenvInt("OHLCV_LIMIT", 200),

@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/api"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
@@ -70,8 +72,12 @@ func main() {
 	go worker.Run(ctx)
 
 	// market keşif + enrichment (GeckoTerminal REST — WS'ten bağımsız, Slice 1b)
+	// Paylaşılan hız sınırlayıcı: keşif + enrichment + detail TEK GeckoTerminal
+	// istek bütçesini (keysiz free-tier ~30/dk) tüketir; 429 → nötr-sıfır'ı önler.
+	var gtLimiter market.Limiter
 	if cfg.MarketEnabled {
-		gt := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil)
+		gtLimiter = rate.NewLimiter(rate.Limit(float64(cfg.GeckoRatePerMin)/60.0), cfg.GeckoBurst)
+		gt := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil, market.WithLimiter(gtLimiter))
 		disc := market.NewDiscoverer(market.DiscovererDeps{
 			Provider: gt, Tokens: bundle.Tokens, Events: bundle.Events, Broadcast: hub,
 			Interval: time.Duration(cfg.DiscoverInterval) * time.Second, SnapshotLimit: cfg.EventsWindow, Logger: logger,
@@ -89,7 +95,7 @@ func main() {
 	// token detail service (GeckoTerminal header+OHLCV + Helius holders) — Slice 1c
 	var detailSvc api.TokenDetailProvider
 	if cfg.MarketEnabled && bundle.Tokens != nil {
-		gtForDetail := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil)
+		gtForDetail := market.NewGeckoTerminalClient(cfg.GeckoBaseURL, nil, market.WithLimiter(gtLimiter))
 		var holders market.HoldersProvider
 		if rpcURL != "" {
 			holders = ingest.NewHeliusHolders(rpcURL)

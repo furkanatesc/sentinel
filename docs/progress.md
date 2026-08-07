@@ -171,9 +171,26 @@ gerektiriyor; bilinmeyen-mint pool keşfi → YAGNI. Detay: `docs/superpowers/fo
 Alt-proje 1 slice 1c — deferred" bölümü.
 
 **Alt-proje 1 (Solana ingestion) TAMAMLANDI (1a + 1b + 1c).** 1a canlı+doğrulanmış durumda (Railway); 1b + 1c
-kod tamam, whole-branch review + merge + deploy sırada (bu Slice 1c task'ının Step 4'ü — controller). Sıradaki
-alt-proje: **Alt-proje 2 (Scoring & graph)** — `getKpis`/`getRadar`/`getCreators`/`getCreator`/`getWalletGraph`'ı
-ve Token Detail'in nötr kalan scores/risks/davranış-metriklerini gerçeğe çevirecek.
+merge + deploy edildi. Sıradaki alt-proje: **Alt-proje 2 (Scoring & graph)** —
+`getKpis`/`getRadar`/`getCreators`/`getCreator`/`getWalletGraph`'ı ve Token Detail'in nötr kalan
+scores/risks/davranış-metriklerini gerçeğe çevirecek.
+
+**Slice 1c CANLI DOĞRULAMA + rate-limit fix (2026-08-07, branch `fix/gecko-rate-limit`).** `/api/token/{mint}`
+canlıda 200 döndürüyor; **OHLCV kalibrasyonu DOĞRU** (`ohlcv_list` `[ts,o,h,l,c,v]` parser'la birebir — 1a/1b'nin
+aksine hotfix gerekmedi), Helius holders gerçek sayı veriyor, scores/risks dürüst nötr. OHLCV serisinin çoğu
+micro-cap token'da kısa/boş olması **dürüst** (bu token'lar nadiren işlem görüyor → GeckoTerminal az mum yazıyor).
+**Bulunan gerçek sorun:** header aralıklı **sıfırlanıyor** — aynı anlık batch'te bir token gerçek, diğeri 0;
+GeckoTerminal doğrudan sorgulandığında veri tam mevcut → keysiz free-tier (~30/dk) **429 throttle**. Kök neden:
+keşif (Discoverer) + enrichment (Enricher) + token detail **iki ayrı `GeckoTerminalClient`** kullanıyordu, hiç
+istek bütçesi paylaşmıyorlardı + `getJSON` 429'da retry yapmıyordu → sessizce nötr-sıfır'a düşüyordu. **Fix (TDD):**
+`Limiter` arayüzü (ISP, tek `Wait(ctx) error`) + `WithLimiter` functional option (OCP, mevcut 2-arg constructor'ı
+bozmaz) → `GeckoTerminalClient`'a paylaşılan token-bucket enjekte edilir; main.go **tek** `rate.NewLimiter`
+örneğini hem `gt` (disc+enr) hem `gtForDetail`'e verir (tek bütçe). `getJSON` her istekten önce `limiter.Wait`,
+429'da sınırlı backoff-retry (`gtMaxAttempts`=3, 429 dışı statü retry etmez). Config:
+`GECKOTERMINAL_RATE_PER_MIN` (25) + `GECKOTERMINAL_BURST` (2). Yeni dep `golang.org/x/time/rate` (zaten transitif
+vardı → direct'e terfi). Go build/vet/`test -race` yeşil (5 yeni rate-limit testi + 2 config testi). **Kalan
+followup (bkz followups-frontend.md):** detail cache 429'lu nötr-sıfır'ı da 20s tutabiliyor (limiter 429'u nadir
+kılıyor ama caching guard'ı ertelendi). **Merge/deploy kullanıcı onayı bekliyor.**
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı

@@ -26,6 +26,8 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sentinel PORT=8080 \
 | `CORS_ORIGIN` | Hayır | İzin verilen frontend origin |
 | `HELIUS_API_KEY` | **Ingestion worker için evet** | Yoksa worker başlamaz — REST endpoint'ler (`/api/*`) yine çalışır, sadece boş/durağan DB ile |
 | `EVENTS_WINDOW` | Hayır (default 200) | `/api/events` + `/api/tokens` snapshot'larının döndürdüğü satır sayısı |
+| `GECKOTERMINAL_RATE_PER_MIN` | Hayır (default 25) | Paylaşılan GeckoTerminal istek bütçesi (istek/dk). Keşif + enrichment + token detail TEK token-bucket'tan çeker; keysiz free-tier (~30/dk) 429'unu önler |
+| `GECKOTERMINAL_BURST` | Hayır (default 2) | Token-bucket burst kapasitesi (detail'in 2 çağrısı — header+OHLCV — birlikte geçebilsin) |
 
 ## Railway deploy (KULLANICI ADIMI)
 1. Railway'de yeni servis → GitHub repo `furkanatesc/sentinel`, **Root Directory = `apps/api-go`** (nixpacks Go'yu otomatik derler; **Go 1.24** gerekli — `go.mod`'da pinli; start komutu binary'yi çalıştırır).

@@ -9,6 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/mr-tron/base58 v1.3.0
 	github.com/pressly/goose/v3 v3.21.1
+	golang.org/x/time v0.11.0
 )
 
 require (
@@ -46,5 +47,4 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
-	golang.org/x/time v0.11.0 // indirect
 )

@@ -10,18 +10,39 @@ import (
 	"time"
 )
 
+// Limiter, dışa giden çağrıları geciktiren paylaşılan hız sınırlayıcıdır (ISP: tek
+// metot). *golang.org/x/time/rate.Limiter bu arayüzü doğrudan karşılar.
+type Limiter interface {
+	Wait(ctx context.Context) error
+}
+
 // GeckoTerminalClient, GeckoTerminal v2 REST'i MarketProvider'a uyarlar (keysiz).
 type GeckoTerminalClient struct {
 	baseURL string
 	http    *http.Client
+	limiter Limiter                                          // nil → sınırlama yok
+	sleep   func(ctx context.Context, d time.Duration) error // 429 backoff (test için enjekte edilebilir)
+}
+
+// Option, GeckoTerminalClient'ı yapılandırır (OCP: constructor'ı değiştirmeden genişlet).
+type Option func(*GeckoTerminalClient)
+
+// WithLimiter, paylaşılan hız sınırlayıcı enjekte eder. Aynı örnek birden çok
+// client'a verilerek tek istek bütçesi (token-bucket) paylaşılır.
+func WithLimiter(l Limiter) Option {
+	return func(c *GeckoTerminalClient) { c.limiter = l }
 }
 
 // NewGeckoTerminalClient, base URL (ör. https://api.geckoterminal.com/api/v2) ve http.Client alır.
-func NewGeckoTerminalClient(baseURL string, hc *http.Client) *GeckoTerminalClient {
+func NewGeckoTerminalClient(baseURL string, hc *http.Client, opts ...Option) *GeckoTerminalClient {
 	if hc == nil {
 		hc = &http.Client{Timeout: 15 * time.Second}
 	}
-	return &GeckoTerminalClient{baseURL: strings.TrimRight(baseURL, "/"), http: hc}
+	c := &GeckoTerminalClient{baseURL: strings.TrimRight(baseURL, "/"), http: hc, sleep: sleepCtx}
+	for _, o := range opts {
+		o(c)
+	}
+	return c
 }
 
 // gtResponse, GeckoTerminal JSON:API yanıt zarfıdır.
@@ -86,21 +107,67 @@ func (c *GeckoTerminalClient) PoolsByAddresses(ctx context.Context, poolAddrs []
 	return resp.toPools(false), nil
 }
 
+// gtMaxAttempts, 429 (rate-limit) için toplam deneme sayısıdır (1 asıl + retry'lar).
+const gtMaxAttempts = 3
+
+// getJSON, her istekten önce paylaşılan limiter'dan token alır ve 429'da sınırlı
+// sayıda backoff'lu retry yapar. 429 dışı statüler anında hata döner (retry yok).
 func (c *GeckoTerminalClient) getJSON(ctx context.Context, url string, out any) error {
+	var lastErr error
+	for attempt := 0; attempt < gtMaxAttempts; attempt++ {
+		if c.limiter != nil {
+			if err := c.limiter.Wait(ctx); err != nil {
+				return err
+			}
+		}
+		status, err := c.doOnce(ctx, url, out)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if status != http.StatusTooManyRequests || attempt == gtMaxAttempts-1 {
+			return err
+		}
+		if serr := c.sleep(ctx, backoff(attempt)); serr != nil {
+			return serr
+		}
+	}
+	return lastErr
+}
+
+// doOnce, tek HTTP GET yapıp gövdeyi çözer. Retry kararı için statü kodunu döner.
+func (c *GeckoTerminalClient) doOnce(ctx context.Context, url string, out any) (int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	req.Header.Set("Accept", "application/json")
 	res, err := c.http.Do(req)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("geckoterminal %s: status %d", url, res.StatusCode)
+		return res.StatusCode, fmt.Errorf("geckoterminal %s: status %d", url, res.StatusCode)
 	}
-	return json.NewDecoder(res.Body).Decode(out)
+	return res.StatusCode, json.NewDecoder(res.Body).Decode(out)
+}
+
+// backoff, deneme sırasına göre artan gecikme verir (0→500ms, 1→1s).
+func backoff(attempt int) time.Duration {
+	return time.Duration(500*(1<<attempt)) * time.Millisecond
+}
+
+// sleepCtx, ctx iptaline duyarlı uyku (varsayılan backoff uygulayıcı).
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // toPools, JSON:API zarfını []Pool'a çevirir; filterDex=true ise desteklenmeyen dex elenir.

@@ -38,6 +38,27 @@ func TestLoadDetailDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadGeckoRateLimitDefaults(t *testing.T) {
+	t.Setenv("GECKOTERMINAL_RATE_PER_MIN", "")
+	t.Setenv("GECKOTERMINAL_BURST", "")
+	c := Load()
+	if c.GeckoRatePerMin != 25 {
+		t.Fatalf("GeckoRatePerMin = %d, want 25", c.GeckoRatePerMin)
+	}
+	if c.GeckoBurst != 2 {
+		t.Fatalf("GeckoBurst = %d, want 2", c.GeckoBurst)
+	}
+}
+
+func TestLoadGeckoRateLimitOverride(t *testing.T) {
+	t.Setenv("GECKOTERMINAL_RATE_PER_MIN", "40")
+	t.Setenv("GECKOTERMINAL_BURST", "5")
+	c := Load()
+	if c.GeckoRatePerMin != 40 || c.GeckoBurst != 5 {
+		t.Fatalf("env override okunmadı: perMin=%d burst=%d", c.GeckoRatePerMin, c.GeckoBurst)
+	}
+}
+
 func TestGetenvBool(t *testing.T) {
 	t.Setenv("X_FLAG", "false")
 	if getenvBool("X_FLAG", true) {
