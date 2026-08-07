@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -81,8 +82,28 @@ func (h *HeliusHolders) pageCount(ctx context.Context, mint string, page int) (i
 
 // tokenAccount, getTokenAccounts sayfa öğesinin sadece gereken alanlarıdır.
 type tokenAccount struct {
-	Owner  string `json:"owner"`
-	Amount string `json:"amount"`
+	Owner  string     `json:"owner"`
+	Amount flexAmount `json:"amount"`
+}
+
+// flexAmount, `amount` alanını JSON sayı VEYA string olarak tolere eder. Helius DAS
+// getTokenAccounts sayı döndürür (canlı doğrulandı); bazı RPC yolları string dönebilir.
+// Bozuk/null → 0 (tüm sayfayı düşürmemek için — dürüst kısmi veri).
+type flexAmount float64
+
+func (a *flexAmount) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(string(b), `"`)
+	if s == "" || s == "null" {
+		*a = 0
+		return nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		*a = 0
+		return nil
+	}
+	*a = flexAmount(f)
+	return nil
 }
 
 // pageAccounts, tek sayfayı çeker (owner+amount). Kısa sayfa (< limit) → son sayfa.
@@ -136,8 +157,7 @@ func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint string, cap
 			return 0, 0, false, err
 		}
 		for _, a := range accs {
-			amt, _ := strconv.ParseFloat(a.Amount, 64)
-			byOwner[a.Owner] += amt
+			byOwner[a.Owner] += float64(a.Amount)
 		}
 		seen += len(accs)
 		if seen >= capN {
