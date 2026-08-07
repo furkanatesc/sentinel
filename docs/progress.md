@@ -70,7 +70,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
 | 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **TAMAMLANDI (1a+1b+1c).** Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı. Slice 1b + 1c kod TAMAM (`feat/backend-ingestion-1b`/`-1c`, deploy bekliyor) — REST market enrichment (price/liquidity/vol5m/momentum/spark gerçek) + Token Detail (`getToken`: header/OHLCV/holders gerçek). `getKpis`/`getRadar` (Overview) ve `getToken`'in scores/risks/davranış-metrikleri → Alt-proje 2 (skorlara bağımlı) |
-| 2 | Scoring & graph (Python/ML) | `getCreators`/`getCreator`/`getWalletGraph` | ⬜ |
+| 2 | Scoring & graph (4 skor + Python/ML gerekenlerde) | `getCreators`/`getCreator`/`getWalletGraph`/`getKpis`/`getRadar` + 4 ScoreKey + risks/davranış-metrikleri | 🟡 **BRAINSTORMING.** 5 dilim: **2a Token Safety** (spec yazıldı `feat/backend-scoring-2a`) → 2b Creator Rep → 2c Manipulation → 2d Opportunity+Overview → 2e Wallet Graph. 2a kural-tabanlı Go'da; Python 2b/2c'de |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
 | 5 | Trading engine (Jupiter, emir icra, pozisyon) | `getPortfolio`/`getPositions`/`getOrders`/`getTransactions`/`getTradeLogs`/`getMarketData`/`getCandles` | ⬜ |
@@ -171,9 +171,17 @@ gerektiriyor; bilinmeyen-mint pool keşfi → YAGNI. Detay: `docs/superpowers/fo
 Alt-proje 1 slice 1c — deferred" bölümü.
 
 **Alt-proje 1 (Solana ingestion) TAMAMLANDI (1a + 1b + 1c).** 1a canlı+doğrulanmış durumda (Railway); 1b + 1c
-merge + deploy edildi. Sıradaki alt-proje: **Alt-proje 2 (Scoring & graph)** —
-`getKpis`/`getRadar`/`getCreators`/`getCreator`/`getWalletGraph`'ı ve Token Detail'in nötr kalan
-scores/risks/davranış-metriklerini gerçeğe çevirecek.
+merge + deploy edildi (+ 1c-followup rate-limiter & Option A header-DB'den, canlı doğrulandı).
+
+**Alt-proje 2 (Scoring & graph) BRAINSTORMING BAŞLADI (2026-08-07).** A2 tek spec'e sığmaz (skorların çoğu
+1a-1c'nin toplamadığı yeni veri ister: creator adresi persist edilmiyor, trade-akışı yok, holder dağılımı/authority
+çekilmiyor) → **5 dilime ayrıldı (kullanıcı onaylı):** **2a Token Safety** → 2b Creator Reputation → 2c Manipulation
+Risk → 2d Opportunity+Overview (getKpis/getRadar/signal) → 2e Wallet Graph. Python yalnız ML gereken dilimlere
+(2b/2c); **2a kural-tabanlı → Go'da**. **Slice 2a SPEC YAZILDI + commit** (branch `feat/backend-scoring-2a`,
+`3c9aef8`): `docs/superpowers/specs/2026-08-07-sentinel-backend-scoring-2a-token-safety-design.md`. tokenSafety
+(0-100, açıklanabilir): launchpad-aware authority + top-10 yoğunlaşma + holder sayısı + likidite; arka plan
+scorer + DB persist (Option A deseni); `internal/safety/` + Helius genişletme + migration 0005. **DURUM: spec
+kullanıcı review'unda; onay → writing-plans → SDD.**
 
 **Slice 1c CANLI DOĞRULAMA + rate-limit fix (2026-08-07, branch `fix/gecko-rate-limit`).** `/api/token/{mint}`
 canlıda 200 döndürüyor; **OHLCV kalibrasyonu DOĞRU** (`ohlcv_list` `[ts,o,h,l,c,v]` parser'la birebir — 1a/1b'nin
