@@ -228,9 +228,12 @@ bilinçle ertelendi (whole-branch review triage: hiçbiri merge'i bloke etmedi):
 - **`isBondingCurve` case-sensitive** (`"Pump.fun"/"pump.fun"/"PumpSwap"` birebir) — üretici değeri sabit
   (`market/provider.go` → `discoverer.go` `"Pump.fun"` yazar), whole-branch review uçtan uca doğruladı → şu an
   güvenli; ama upstream değeri değişirse `strings.EqualFold` normalize gerekir.
-- **Helius alan-şekli kalibrasyonu (deploy'da):** `getAccountInfo` `data.parsed.info.mintAuthority/freezeAuthority`
-  + `getTokenAccounts` `token_accounts[].owner/amount` — canlı şekil farklıysa parse+fixture hotfix (1a/1c deseni).
-  `getTokenAccounts` bazı token'larda `tokenAmount.amount` iç içe dönebilir → deploy'da doğrula.
+- **Helius alan-şekli kalibrasyonu — ÇÖZÜLDÜ (2026-08-07, `fix/safety-holders-amount-shape` `933dda6`):**
+  canlı doğrulama safety skorlarını `conf=0.5`/`top10=0` gösterdi → `getTokenAccounts` `amount` JSON SAYI
+  döndürüyordu ama `tokenAccount.Amount` `string` idi → decode fail → HoldersKnown=false. Fix: `flexAmount`
+  (sayı VEYA string tolere eder; null/bozuk→0), fixture gerçek şekle güncellendi (1a/1c deseni). `getAccountInfo`
+  authorities şekli DOĞRUYDU (breakdown "Freeze authority iptal" gerçek). `tokenAmount.amount` iç içe DEĞİLDİ
+  (top-level number). Merge+deploy sonrası conf→1.0/0.75, top10 dolu beklenir.
 - **account-not-found → both-revoked:** `MintAuthorities` `value:null` (kapalı/yanmış hesap) → `(false,false,nil)`
   → provider `AuthoritiesKnown=true` + iki authority iptal = güvenli skorlanır. Keşfedilen token'lar on-chain var
   olduğundan nadir; parse "not-found"u "revoked"dan ayırt edemiyor.
