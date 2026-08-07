@@ -188,9 +188,14 @@ bozmaz) → `GeckoTerminalClient`'a paylaşılan token-bucket enjekte edilir; ma
 örneğini hem `gt` (disc+enr) hem `gtForDetail`'e verir (tek bütçe). `getJSON` her istekten önce `limiter.Wait`,
 429'da sınırlı backoff-retry (`gtMaxAttempts`=3, 429 dışı statü retry etmez). Config:
 `GECKOTERMINAL_RATE_PER_MIN` (25) + `GECKOTERMINAL_BURST` (2). Yeni dep `golang.org/x/time/rate` (zaten transitif
-vardı → direct'e terfi). Go build/vet/`test -race` yeşil (5 yeni rate-limit testi + 2 config testi). **Kalan
-followup (bkz followups-frontend.md):** detail cache 429'lu nötr-sıfır'ı da 20s tutabiliyor (limiter 429'u nadir
-kılıyor ama caching guard'ı ertelendi). **Merge/deploy kullanıcı onayı bekliyor.**
+vardı → direct'e terfi). **Kod review (opus, "With fixes"):** çekirdek doğru/race-temiz/SOLID onaylandı; 1 Important
+bulgu — `/api/token` yolu limiter kuyruğunda **süresiz bloke** olabiliyordu (`rate.Limiter.Wait` rezervasyonu semafor
+gibi kapaklanmıyor). Fix: handler `Build`'i deadline'lı ctx ile çağırır (`TOKEN_DETAIL_TIMEOUT_SEC`=8); deadline
+aşılırsa `Wait` hızlı-fail → 502 degraded (partial-success ile tutarlı). + minor'lar (retry token-ödünleşim yorumu,
+`*rate.Limiter` compile-time assertion, backoff-iptal testi). Go build/vet/`test -race` yeşil (5 rate-limit + 1
+iptal + 3 config + 1 handler-timeout testi). **Kalan followup (bkz followups-frontend.md):** detail cache 429'lu
+nötr-sıfır'ı da ~20s tutabiliyor (limiter 429'u nadir kılıyor ama caching guard'ı ertelendi). **Merge/deploy
+kullanıcı onayı bekliyor** (branch `fix/gecko-rate-limit`).
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı

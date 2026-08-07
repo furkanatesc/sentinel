@@ -24,6 +24,10 @@ import (
 // Bu satır derlenmezse Broadcast imzaları sapmış demektir — assertion'ı silme, uyumsuzluğu düzelt.
 var _ ingest.Broadcaster = (*ws.Hub)(nil)
 
+// Derleme zamanı kilidi: *rate.Limiter, market.Limiter'ı karşılamalı (DIP: market
+// paketi rate'i import etmez, uyum yalnız burada bağlanır). İmza saparsa bu satır kırılır.
+var _ market.Limiter = (*rate.Limiter)(nil)
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg := config.Load()
@@ -104,7 +108,7 @@ func main() {
 		}
 		detailSvc = market.NewTokenDetailService(market.TokenDetailDeps{
 			Store: bundle.Tokens, Provider: gtForDetail, Holders: holders,
-			CacheTTL: time.Duration(cfg.TokenDetailCacheSec) * time.Second,
+			CacheTTL:   time.Duration(cfg.TokenDetailCacheSec) * time.Second,
 			OHLCVLimit: cfg.OHLCVLimit, HoldersCap: cfg.HoldersCap, Logger: logger,
 		})
 	}
@@ -114,7 +118,8 @@ func main() {
 		Handler: api.NewRouter(api.RouterDeps{
 			Strategies: bundle.Strategies, Events: bundle.Events, Tokens: bundle.Tokens,
 			Hub: hub, CORSOrigin: cfg.CORSOrigin, EventsWindow: cfg.EventsWindow,
-			TokenDetail: detailSvc,
+			TokenDetail:        detailSvc,
+			TokenDetailTimeout: time.Duration(cfg.TokenDetailTimeoutSec) * time.Second,
 		}),
 	}
 	go func() {
@@ -135,4 +140,6 @@ func main() {
 // noopHolders, Helius key yokken holders'ı 0 döndürür (dürüst — sayı yok).
 type noopHolders struct{}
 
-func (noopHolders) HoldersCount(context.Context, string, int) (int, bool, error) { return 0, false, nil }
+func (noopHolders) HoldersCount(context.Context, string, int) (int, bool, error) {
+	return 0, false, nil
+}

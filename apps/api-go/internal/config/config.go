@@ -21,9 +21,10 @@ type Config struct {
 	GeckoRatePerMin  int // GeckoTerminal paylaşılan istek bütçesi (istek/dk)
 	GeckoBurst       int // token-bucket burst kapasitesi
 
-	TokenDetailCacheSec int
-	OHLCVLimit          int
-	HoldersCap          int
+	TokenDetailCacheSec   int
+	OHLCVLimit            int
+	HoldersCap            int
+	TokenDetailTimeoutSec int // /api/token isteği için üst sınır (limiter kuyruğunda süresiz bekleme olmasın)
 }
 
 func Load() Config {
@@ -42,9 +43,10 @@ func Load() Config {
 		GeckoRatePerMin:  getenvInt("GECKOTERMINAL_RATE_PER_MIN", 25),
 		GeckoBurst:       getenvInt("GECKOTERMINAL_BURST", 2),
 
-		TokenDetailCacheSec: getenvInt("TOKEN_DETAIL_CACHE_SEC", 20),
-		OHLCVLimit:          getenvInt("OHLCV_LIMIT", 200),
-		HoldersCap:          getenvInt("HOLDERS_CAP", 5000),
+		TokenDetailCacheSec:   getenvInt("TOKEN_DETAIL_CACHE_SEC", 20),
+		OHLCVLimit:            getenvInt("OHLCV_LIMIT", 200),
+		HoldersCap:            getenvInt("HOLDERS_CAP", 5000),
+		TokenDetailTimeoutSec: getenvInt("TOKEN_DETAIL_TIMEOUT_SEC", 8),
 	}
 }
 

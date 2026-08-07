@@ -115,6 +115,9 @@ const gtMaxAttempts = 3
 func (c *GeckoTerminalClient) getJSON(ctx context.Context, url string, out any) error {
 	var lastErr error
 	for attempt := 0; attempt < gtMaxAttempts; attempt++ {
+		// Her deneme paylaşılan bütçeden bir token çeker (429 retry'ı da). Kabul
+		// edilen ödünleşim: limiter toplam hızı zaten tavan altında tuttuğu için
+		// 429 nadirdir; backoff denemeleri seyrekleştirir.
 		if c.limiter != nil {
 			if err := c.limiter.Wait(ctx); err != nil {
 				return err

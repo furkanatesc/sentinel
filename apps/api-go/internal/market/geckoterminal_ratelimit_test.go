@@ -121,6 +121,22 @@ func TestGetJSONExhausts429ReturnsError(t *testing.T) {
 	}
 }
 
+func TestGetJSONBackoffCancelAborts(t *testing.T) {
+	srv, reqs := statusServer(t, http.StatusTooManyRequests, -1) // hep 429
+	defer srv.Close()
+	wantErr := errors.New("ctx iptal")
+	c := NewGeckoTerminalClient(srv.URL, srv.Client())
+	c.sleep = func(context.Context, time.Duration) error { return wantErr } // backoff sırasında iptal
+
+	_, err := c.NewPools(context.Background())
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("backoff iptali yayılmalı: %v", err)
+	}
+	if got := reqs.Load(); got != 1 {
+		t.Fatalf("iptalden sonra yeni deneme YAPILMAMALI; istek=%d want 1", got)
+	}
+}
+
 func TestGetJSONNoRetryOnNon429(t *testing.T) {
 	srv, reqs := statusServer(t, http.StatusInternalServerError, -1) // hep 500
 	defer srv.Close()

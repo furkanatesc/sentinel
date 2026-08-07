@@ -36,6 +36,9 @@ func TestLoadDetailDefaults(t *testing.T) {
 	if c.TokenDetailCacheSec != 20 || c.OHLCVLimit != 200 || c.HoldersCap != 5000 {
 		t.Fatalf("detail default'ları yanlış: %+v", c)
 	}
+	if c.TokenDetailTimeoutSec != 8 {
+		t.Fatalf("TokenDetailTimeoutSec = %d, want 8", c.TokenDetailTimeoutSec)
+	}
 }
 
 func TestLoadGeckoRateLimitDefaults(t *testing.T) {
