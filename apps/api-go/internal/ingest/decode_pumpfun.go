@@ -57,12 +57,12 @@ func (d pumpFunDecoder) Decode(_ context.Context, n LogNotification, _ TxFetcher
 		}
 	}
 	return []Decoded{
-		{Event: mkEvent("new_mint", "new_mint", "info", "Yeni token oluşturuldu (pump.fun)"), Token: token},
-		{Event: mkEvent("metadata_created", "metadata_created", "info", ev.name+" ("+ev.symbol+")"), Token: token},
+		{Event: mkEvent("new_mint", "new_mint", "info", "Yeni token oluşturuldu (pump.fun)"), Token: token, Creator: ev.creator},
+		{Event: mkEvent("metadata_created", "metadata_created", "info", ev.name+" ("+ev.symbol+")"), Token: token, Creator: ev.creator},
 	}, nil
 }
 
-type createEvent struct{ name, symbol, uri, mint string }
+type createEvent struct{ name, symbol, uri, mint, creator string }
 
 // parseCreateEvent, bir "Program data:" borsh yükünden pump.fun CreateEvent'i (name/symbol/uri/mint)
 // çıkarır. Anchor event discriminator öneki emit! (8B) vs emit_cpi! (16B) arasında değişebildiğinden
@@ -124,7 +124,13 @@ func tryParseCreateAt(raw []byte, off int) (createEvent, bool) {
 	if p+32 > len(raw) { // en az mint pubkey'i sığmalı
 		return createEvent{}, false
 	}
-	return createEvent{name: name, symbol: symbol, uri: uri, mint: base58.Encode(raw[p : p+32])}, true
+	mint := base58.Encode(raw[p : p+32])
+	// mint(32) + bondingCurve(32) sonrası user/creator(32) — yer varsa oku, yoksa dürüst boş.
+	creator := ""
+	if cp := p + 64; cp+32 <= len(raw) {
+		creator = base58.Encode(raw[cp : cp+32])
+	}
+	return createEvent{name: name, symbol: symbol, uri: uri, mint: mint, creator: creator}, true
 }
 
 func hasCreateInstruction(logs []string) bool {
