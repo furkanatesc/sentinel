@@ -110,6 +110,36 @@ func (f *fakeTokenStore) Creators(_ context.Context, limit int) ([]CreatorRow, e
 	return bounded, nil
 }
 
+func (f *fakeTokenStore) CreatorDetail(_ context.Context, address string) (CreatorProfile, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	matches := make([]fakeTok, 0, len(f.order))
+	var firstSeen int64
+	found := false
+	for _, id := range f.order {
+		tk := f.byID[id]
+		if tk.creator != address {
+			continue
+		}
+		if !found || tk.firstSeen < firstSeen {
+			firstSeen = tk.firstSeen
+		}
+		found = true
+		matches = append(matches, tk)
+	}
+	if !found {
+		return CreatorProfile{}, false, nil
+	}
+	// history en yeni önce (postgres ORDER BY first_seen_ts DESC ile eşleşir; insertion sırası
+	// firstSeenTs sırasıyla aynı olmayabilir — bkz. TestCreatorDetail).
+	sort.SliceStable(matches, func(i, j int) bool { return matches[i].firstSeen > matches[j].firstSeen })
+	history := make([]CreatorTokenHistoryItem, 0, len(matches))
+	for _, tk := range matches {
+		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen, tk.marketCapUSD))
+	}
+	return buildCreatorProfile(address, firstSeen, len(history), history), true, nil
+}
+
 func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

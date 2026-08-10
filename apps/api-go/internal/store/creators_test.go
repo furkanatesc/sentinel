@@ -71,3 +71,42 @@ func TestUpsertTokenCreatorMergeDoesNotClobber(t *testing.T) {
 		t.Fatalf("boş creator gerçek olanı ezmemeli: %+v", rows)
 	}
 }
+
+func TestCreatorDetail(t *testing.T) {
+	ctx := context.Background()
+	ts := NewFakeTokenStore()
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "m1", Mint: "m1", Symbol: "S1", Name: "Tok1"}, 1000, "AAA")
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "m2", Mint: "m2", Symbol: "S2", Name: "Tok2"}, 900, "AAA")
+	_ = ts.UpdateMarket(ctx, MarketUpdate{Mint: "m1", MarketCapUSD: 42000})
+
+	cs := ts.(CreatorStore)
+	p, ok, err := cs.CreatorDetail(ctx, "AAA")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if p.Address != "AAA" || p.Metrics.TotalTokens != 2 || len(p.History) != 2 {
+		t.Fatalf("profil = %+v", p)
+	}
+	// History en yeni önce (first_seen 1000 > 900).
+	if p.History[0].Mint != "m1" || p.History[0].CurrentMarketCap != 42000 {
+		t.Fatalf("history[0] = %+v (m1/42000 bekleniyor)", p.History[0])
+	}
+	// Nötr placeholder'lar (2b-2) — geçerli enum değerleri.
+	if p.RiskLevel != "medium" || p.Reputation.Key != "creatorReputation" || p.Reputation.Value != 0 {
+		t.Fatalf("nötr reputation bozuk: %+v", p.Reputation)
+	}
+	if p.History[0].Outcome != "active" || p.History[0].LiquidityStatus != "unlocked" {
+		t.Fatalf("nötr enum bozuk: %+v", p.History[0])
+	}
+	if p.History[0].RiskFlags == nil || p.Reputation.Breakdown == nil {
+		t.Fatalf("diziler nil olmamalı (JSON [] için)")
+	}
+}
+
+func TestCreatorDetailNotFound(t *testing.T) {
+	ts := NewFakeTokenStore()
+	_, ok, err := ts.(CreatorStore).CreatorDetail(context.Background(), "NOPE")
+	if err != nil || ok {
+		t.Fatalf("bulunmayan creator: ok=%v err=%v", ok, err)
+	}
+}
