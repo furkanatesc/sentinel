@@ -79,9 +79,9 @@ Store, frontend `CreatorRow` / `CreatorProfile` şekline birebir eşlenen Go str
 
 pump.fun `CreateEvent` borsh layout'u: `name(str) · symbol(str) · uri(str) · mint(32) · bondingCurve(32) · user/creator(32) · …`. Mevcut `tryParseCreateAt` 3 string sonrası `mint = raw[p:p+32]` okuyup duruyor. Genişletme:
 
-- `p += 32` (mint'ten sonra bondingCurve'ü atla → `p += 32`), ardından `creator = raw[p:p+32]` (yani mint başlangıcından **+64** offset).
-- **Uzunluk-guard:** `p+64 > len(raw)` ise `creator = ""` (dürüst boş; mint yine döner — mevcut mint-guard'ı bozmadan).
-- `createEvent` struct'ına `creator string` eklenir; `Decoded.Token.Creator` set edilir; worker `UpsertToken`'a taşır.
+- Mint'ten sonra bondingCurve(32) atlanır, ardından `creator = raw[p:p+32]` okunur — yani pump.fun CreateEvent'inin `user` (dev cüzdanı) alanı, mint başlangıcından **+64** offset. (Test fixture builder'ı `buildCreateEventB64` bu `user` alanını zaten yazıyor → layout doğrulanmış.)
+- **Uzunluk-guard:** creator için yer yoksa (`p+32 > len(raw)`) `creator = ""` (dürüst boş; mint yine döner — mevcut mint-guard'ı bozmadan).
+- `createEvent` struct'ına `creator string` eklenir; `Decoded` struct'ına **yeni `Creator string` alanı** eklenir (TokenRow'a DEĞİL — frontend kontratı temiz kalır); worker `UpsertToken`'a ayrı parametre olarak taşır (`firstSeenTs` deseni). Raydium decoder creator vermez → boş (dürüst; yalnız pump.fun creator yakalanır).
 - **Kalibrasyon riski (deploy'da):** byte offset (bondingCurve gerçekten 32B mi, `creator` mı yoksa `user` mı canlıda dev cüzdanıdır) — 1a Raydium / 2a amount hotfix deseni: canlı şekil farklıysa fixture + parse birlikte düzeltilir. Guard sayesinde yanlış offset en kötü boş creator verir, pipeline'ı bozmaz.
 
 ### 4.2 Store — şema + persist (`internal/store/`)
