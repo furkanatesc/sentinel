@@ -16,7 +16,7 @@ const (
 // Input, tekil tokenin anlık + tepe piyasa durumudur.
 type Input struct {
 	CurMarketCap, CurLiquidity, PeakMarketCap, PeakLiquidity, Vol24h float64
-	AgeSeconds int64
+	AgeSeconds                                                       int64
 }
 
 // Result, sınıflandırma çıktısıdır.

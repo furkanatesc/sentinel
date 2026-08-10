@@ -18,7 +18,7 @@ func TestClassify(t *testing.T) {
 		{"dumped: drawdown yüksek, likidite duruyor", Input{CurMarketCap: 5000, CurLiquidity: 8000, PeakMarketCap: 50000, PeakLiquidity: 9000, Vol24h: 3000, AgeSeconds: 7200}, OutcomeDumped},
 		{"dead: yaşlı + vol~0", Input{CurMarketCap: 200, CurLiquidity: 600, PeakMarketCap: 800, PeakLiquidity: 700, Vol24h: 10, AgeSeconds: 200000}, OutcomeDead},
 		{"active: taze + likit", Input{CurMarketCap: 3000, CurLiquidity: 4000, PeakMarketCap: 3200, PeakLiquidity: 4000, Vol24h: 6000, AgeSeconds: 600}, OutcomeActive},
-		{"rug graduated'ı ezer (mezun sonrası rug)", Input{CurMarketCap: 2000, CurLiquidity: 50, PeakMarketCap: 90000, PeakLiquidity: 30000, Vol24h: 1000, AgeSeconds: 9000}, OutcomeRug},
+		{"rug graduated'ı ezer (mezun sonrası rug)", Input{CurMarketCap: 2000, CurLiquidity: 500, PeakMarketCap: 90000, PeakLiquidity: 30000, Vol24h: 1000, AgeSeconds: 9000}, OutcomeRug},
 	}
 	for _, c := range cases {
 		if got := Classify(c.in, th).Outcome; got != c.want {
@@ -41,5 +41,10 @@ func TestClassifyDrawdownAndLiquidityStatus(t *testing.T) {
 	}
 	if r.MaxDrawdownPct != 75 { // (20000-5000)/20000*100
 		t.Fatalf("drawdown = %v, want 75", r.MaxDrawdownPct)
+	}
+	// drawdown clamp: cur > peak → negative clamped to 0.
+	r = Classify(Input{CurMarketCap: 5000, CurLiquidity: 1000, PeakMarketCap: 3000, PeakLiquidity: 1500, Vol24h: 500, AgeSeconds: 3600}, th)
+	if r.MaxDrawdownPct != 0 {
+		t.Fatalf("drawdown (cur > peak) = %v, want 0 (clamped)", r.MaxDrawdownPct)
 	}
 }
