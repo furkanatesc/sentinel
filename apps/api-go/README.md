@@ -1,7 +1,8 @@
 # SENTINEL API (Go)
 
 Backend Alt-proje 0 (platform iskeleti) + Alt-proje 1 slice 1a (Solana ingestion + WS transport).
-Endpoint'ler: `GET /api/strategies`, `GET /api/events`, `GET /api/tokens`, `GET /ws` (WebSocket).
+Endpoint'ler: `GET /api/strategies`, `GET /api/events`, `GET /api/tokens`, `GET /api/creators`,
+`GET /api/creator/{address}`, `GET /ws` (WebSocket).
 
 ## Yerel çalıştırma
 ```bash
@@ -15,6 +16,9 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sentinel PORT=8080 \
 `GET http://localhost:8080/api/strategies` → 6 strateji.
 `GET http://localhost:8080/api/events` → son N event (bkz `EVENTS_WINDOW`).
 `GET http://localhost:8080/api/tokens` → görülen token'lar.
+`GET http://localhost:8080/api/creators` → creator listesi (adres + `totalTokens`, bkz `CREATORS_LIST_LIMIT`).
+`GET http://localhost:8080/api/creator/{address}` → creator profili (kimlik + `firstSeen` + token geçmişi;
+bilinmeyen adres → 404).
 `GET ws://localhost:8080/ws` → WebSocket; `events` topic'i tekil `FeedEvent` yayınlar, `tokens` topic'i tam
 `TokenRow[]` snapshot yayınlar.
 
@@ -32,6 +36,7 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sentinel PORT=8080 \
 | `SAFETY_INTERVAL_SEC` | Hayır (default 60) | Skorlama döngüsü aralığı (saniye) |
 | `SAFETY_LIMIT` | Hayır (default 40) | Döngü başına skorlanan token |
 | `SAFETY_HOLDERS_CAP` | Hayır (default 5000) | Holder dağılımı için getTokenAccounts sayfalama tavanı |
+| `CREATORS_LIST_LIMIT` | Hayır (default 100) | `/api/creators` listesinin döndürdüğü maksimum creator sayısı |
 
 ## Railway deploy (KULLANICI ADIMI)
 1. Railway'de yeni servis → GitHub repo `furkanatesc/sentinel`, **Root Directory = `apps/api-go`** (nixpacks Go'yu otomatik derler; **Go 1.24** gerekli — `go.mod`'da pinli; start komutu binary'yi çalıştırır).
