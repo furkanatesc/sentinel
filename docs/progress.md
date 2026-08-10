@@ -280,6 +280,28 @@ zaten taşıyordu, UI dokunulmadı). Eşik-kalibrasyonu deploy'da gerçek dağı
 "Backend Alt-proje 2 slice 2b-2a (Token Outcome Detection) — deferred". **DURUM: whole-branch
 review + merge + deploy kullanıcı onayı bekliyor.**
 
+**REST Creator Backfill KOD TAMAM (2026-08-10, branch `feat/backend-creator-backfill`, HEAD
+`371b7ce`):** 1b'den beri bilinen WS blokörü (Helius free-tier `logsSubscribe` kesintiye
+uğruyor) artık creator yakalamayı durdurmuyor — GeckoTerminal-keşifli (1b) creator'sız
+pump.fun token'ları REST ile backfill ediliyor: `ingest.CreatorFromCreateLogs` (WS decoder'ıyla
+aynı `parseCreateEvent` reuse) + `ingest.HeliusCreatorResolver` (mint → `getSignaturesForAddress`
+ile sayfalı+capli en-eski imza → `getTransaction` logMessages → creator decode). Migration `0008`
+`creator_backfill_ts` kolonu + store `CreatorFillTargets` (yalnız `launchpad='Pump.fun' AND
+creator=''`, en-eski-denenen-önce) / `SetCreatorBackfill` (COALESCE merge — boş creator gerçek'i
+ezmez, damga her zaman yazılır). Arka plan `internal/creatorfill` Worker (safety/outcome worker
+deseniyle aynı): geçici RPC hatası → damgalanmaz (retry), gerçek bulunamadı → boş creator +
+damgalı (sonsuz rescan yok). Config: 4 `CREATORFILL_*` env (`ENABLED`(true)/`INTERVAL_SEC`(30)/
+`LIMIT`(20)/`MAX_SIG_PAGES`(3)), config-gated main goroutine (Helius RPC gerektirir). WS worker
+**silinmedi** — tamamlayıcı kaldı (patlama olursa real-time; backfill zaten creator'lı token'ları
+atlar, merge idempotent). Etki: **2b-1/2b-2a creator alanları + 2b-2b (itibar skoru) artık
+GeckoTerminal-keşifli pump.fun token'larında canlı veri alabilir** (önceden WS'in nadiren
+tetiklenmesine bağlıydı). Yeni ücretli key/servis yok — mevcut Helius free-tier RPC, sınırlı
+(`_LIMIT`/`_MAX_SIG_PAGES` ile bütçelenmiş) çağrı. **Deploy'da doğrulanacak:** RPC bütçesi
+(rate-limit gözlenirse `CREATORFILL_*` ile kod değişmeden kısılır) + create-tx-bulma kalibrasyonu
+(en-eski-sig sayfalama gerçek Helius cevabına karşı). Ertelenen minor'lar:
+`docs/superpowers/followups-frontend.md` "Backend Alt-proje 2 — REST Creator Backfill —
+deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekliyor.**
+
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
   entegrasyon API key'lerini girer. **Güvenlik zorunlulukları:** key'ler frontend'de saklanmaz;
