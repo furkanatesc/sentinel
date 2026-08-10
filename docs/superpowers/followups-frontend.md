@@ -399,3 +399,55 @@ doğrulamasına bağlı.
   postgres path'inden okunduğu yalnızca fake store'a karşı test edildi; gerçek Postgres'e karşı round-trip
   testi CI'da yok (yerel Postgres yok — 1a/1b/1c/2a/2b-1 ile aynı desen, deploy'da doğrulanacak). (Minor,
   deferred.)
+
+## Backend Alt-proje 2 — REST Creator Backfill — deferred
+
+`feat/backend-creator-backfill` (2026-08-10, HEAD `371b7ce`) 1b'den beri bilinen WS blokörünü
+(Helius free-tier `logsSubscribe` kesintiye uğruyor) baypas etti: GeckoTerminal-keşifli
+creator'sız pump.fun token'larına creator artık REST ile (`getSignaturesForAddress` en-eski +
+`getTransaction` + decode reuse) backfill ediliyor. Aşağıdakiler bilinçle bu dilime dahil
+edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dilimlere bağlı.
+
+- **Etki (canlı veri kazanımı):** Creator artık WS'e bağımlı değil — GeckoTerminal-keşifli
+  pump.fun token'ları için **2b-1 creator alanları** (adres/totalTokens/token geçmişi) ve
+  **2b-2a outcome alanları** (`CreatorDetail.history`) canlı veri alır; **2b-2b (itibar skoru,
+  henüz teslim edilmedi)** de bu creator'lar üzerinden gerçek veri görecek.
+- **Non-pump.fun token'lar hâlâ creator'sız.** Yalnızca pump.fun `CreateEvent`'in `user` alanı
+  decode ediliyor; Raydium CPMM (ve framework-ready PumpSwap/Moonshot/Meteora) launchpad'lerinde
+  keşfedilen token'lar bu dilimle de creator kazanmadı — 2b-1'deki aynı sınırlama.
+- **Cap'e takılan / decode-fail token'lar `creator=''` + damgalı kalır ama HÂLÂ target'tır
+  (de-prioritized round-robin re-attempt, kalıcı hariç tutma DEĞİL).** `CREATORFILL_MAX_SIG_PAGES`
+  sınırına takılıp en-eski imzaya ulaşılamayan ya da create tx'i bulunup da decode edilemeyen
+  (bozuk/beklenmedik log/tx-retention) token'lar boş creator ile damgalanır ama `CreatorFillTargets`'ta
+  kalmaya devam eder — `ORDER BY creator_backfill_ts ASC` onu yalnızca sıranın sonuna iter,
+  hariç tutmaz. Creator'sız backlog `CREATORFILL_LIMIT`'ten (20) küçükse bu token her ~30s
+  cycle'da tekrar çözülmeye çalışılır (cycle başına sınırlı: ≤maxSigPages `getSignatures` +
+  1 `getTransaction`) — `SafetyScoreTargets`/`OutcomeTargets` ile aynı round-robin konvansiyonu.
+  Bu, geçici RPC hatalarını kurtarır ama immutable-creator not-found'ların düşük frekansta
+  tekrar tekrar denenmesi anlamına gelir (dürüst, silent-fail değil; deploy'da gerçek dağılımla
+  ne sıklıkta olduğu görülecek).
+  **Deploy kaldıracı:** ücretsiz-katman Helius RPC bütçesi dar çıkarsa, sorgu `CreatorFillTargets`'a
+  `AND creator_backfill_ts=0` ekleyerek attempt-once'a sıkılaştırılabilir (bu durumda geçici
+  hatalar kalıcı hale gelir — kabul edilebilir bir trade-off). Deploy-kalibrasyon opsiyonu olarak
+  kayıtlı, şu an uygulanmadı.
+- **RPC free-tier limiti gözlenirse `CREATORFILL_*` ile kod değişmeden kısılır.** `_INTERVAL_SEC`/
+  `_LIMIT`/`_MAX_SIG_PAGES` — 1a/1b/1c/2a/2b-2a'daki aynı "kalibrasyon env, placeholder değil"
+  deseni.
+- **DAS `getAsset` creator yolu elendi (spec kararı, kod yok).** Ucuz/tek-çağrılık alternatif
+  değerlendirildi ama pump.fun mint'leri için on-chain creator alanını doldurmuyor (yalnız
+  CreateEvent log'unda var) — bu yüzden `getSignaturesForAddress`+`getTransaction` yoluna
+  gidildi.
+- **Task 1-5 ertelenen minor'lar (taşındı):**
+  - Boş-creator + başarılı-parse dalı (create tx bulundu, decode başarılı ama creator alanı boş
+    çıktı) test edilmedi — teorik, decoder'ın kendisi boş `user` üretmiyor.
+  - Çoklu `Program data:` satırlı tx'ler (birden fazla event log'u) test kapsamı dışında —
+    tekli-event fixture'larla doğrulandı.
+  - `TransactionSignature.Err` alanı okunmuyor/atlanıyor (dokümante edilmiş kasıtlı sınırlama) —
+    başarısız (revert) create tx'i de "bulundu" sayılabilir; nadir, kritik değil.
+  - Fake `CreatorFillTargets` insertion-order tie-break (brief-mandated) — `SafetyScoreTargets`/
+    `OutcomeTargets` ile aynı desen; postgres `creator_backfill_ts ASC NULLS FIRST` (veya benzeri)
+    ile sıralar, fake store yalnız ekleme sırasına göre — bugün test kapsamında ulaşılmaz.
+  - Yeni store metodları (`CreatorFillTargets`/`SetCreatorBackfill`) için canlı-DB parity testi
+    yok (yerel Postgres yok — 1a/1b/1c/2a/2b-1/2b-2a ile aynı desen, deploy'da doğrulanacak).
+  - `creatorfill.Worker.Run()` için ayrı bir unit test yok (ticker/cancel döngüsü) — safety/outcome
+    worker'larıyla aynı ertelenen kapsam boşluğu.

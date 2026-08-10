@@ -48,6 +48,8 @@ type fakeTok struct {
 	peakMarketCap, peakLiquidity, maxDrawdownPct float64
 	outcome, liquidityStatus                     string
 	outcomeScoredTs                              int64
+	// REST creator-backfill
+	creatorBackfillTs int64
 }
 
 type fakeTokenStore struct {
@@ -293,4 +295,37 @@ func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow,
 		out = append(out, f.byID[f.order[i]].row)
 	}
 	return out, nil
+}
+
+func (f *fakeTokenStore) CreatorFillTargets(_ context.Context, limit int) ([]CreatorFillTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ids := append([]string{}, f.order...)
+	sort.SliceStable(ids, func(i, j int) bool {
+		return f.byID[ids[i]].creatorBackfillTs < f.byID[ids[j]].creatorBackfillTs // en eski-denenen önce
+	})
+	out := make([]CreatorFillTarget, 0, limit)
+	for _, id := range ids {
+		t := f.byID[id]
+		if t.launchpad != "Pump.fun" || t.creator != "" || len(out) >= limit {
+			continue
+		}
+		out = append(out, CreatorFillTarget{Mint: t.row.Mint})
+	}
+	return out, nil
+}
+
+func (f *fakeTokenStore) SetCreatorBackfill(_ context.Context, mint, creator string, backfillTs int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cur, ok := f.byID[mint]
+	if !ok {
+		return nil
+	}
+	if creator != "" { // boş gerçek'i ezmez (postgres COALESCE parity)
+		cur.creator = creator
+	}
+	cur.creatorBackfillTs = backfillTs
+	f.byID[mint] = cur
+	return nil
 }

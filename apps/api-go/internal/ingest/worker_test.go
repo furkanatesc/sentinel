@@ -136,6 +136,12 @@ func (f *failingTokenStore) UpdateOutcome(context.Context, store.OutcomeUpdate) 
 func (f *failingTokenStore) OutcomeTargets(context.Context, int) ([]store.OutcomeTarget, error) {
 	return nil, nil
 }
+func (f *failingTokenStore) CreatorFillTargets(context.Context, int) ([]store.CreatorFillTarget, error) {
+	return nil, nil
+}
+func (f *failingTokenStore) SetCreatorBackfill(context.Context, string, string, int64) error {
+	return nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -208,6 +214,12 @@ func (f *snapshotFailingTokenStore) UpdateOutcome(context.Context, store.Outcome
 }
 func (f *snapshotFailingTokenStore) OutcomeTargets(context.Context, int) ([]store.OutcomeTarget, error) {
 	return nil, nil
+}
+func (f *snapshotFailingTokenStore) CreatorFillTargets(context.Context, int) ([]store.CreatorFillTarget, error) {
+	return nil, nil
+}
+func (f *snapshotFailingTokenStore) SetCreatorBackfill(context.Context, string, string, int64) error {
+	return nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {

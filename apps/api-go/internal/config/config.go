@@ -42,6 +42,11 @@ type Config struct {
 	OutcomeDeadVol        float64
 	OutcomeMinLiqFloor    float64
 	OutcomeDeadAgeSec     int
+
+	CreatorFillEnabled     bool
+	CreatorFillIntervalSec int
+	CreatorFillLimit       int
+	CreatorFillMaxSigPages int
 }
 
 func Load() Config {
@@ -81,6 +86,11 @@ func Load() Config {
 		OutcomeDeadVol:        getenvFloat("OUTCOME_DEAD_VOL", 100),
 		OutcomeMinLiqFloor:    getenvFloat("OUTCOME_MIN_LIQ_FLOOR", 500),
 		OutcomeDeadAgeSec:     getenvInt("OUTCOME_DEAD_AGE_SEC", 86400),
+
+		CreatorFillEnabled:     getenvBool("CREATORFILL_ENABLED", true),
+		CreatorFillIntervalSec: getenvInt("CREATORFILL_INTERVAL_SEC", 30),
+		CreatorFillLimit:       getenvInt("CREATORFILL_LIMIT", 20),
+		CreatorFillMaxSigPages: getenvInt("CREATORFILL_MAX_SIG_PAGES", 3),
 	}
 }
 
