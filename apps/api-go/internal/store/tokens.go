@@ -68,6 +68,20 @@ type SafetyTarget struct {
 	Launchpad string
 }
 
+// OutcomeTarget, sınıflandırılacak token için gereken anlık + tepe piyasa durumudur.
+type OutcomeTarget struct {
+	Mint                                                             string
+	CurMarketCap, CurLiquidity, PeakMarketCap, PeakLiquidity, Vol24h float64
+	FirstSeenTs                                                      int64
+}
+
+// OutcomeUpdate, outcome sınıflandırıcısının yazdığı sonuçtur.
+type OutcomeUpdate struct {
+	Mint, Outcome, LiquidityStatus string
+	MaxDrawdownPct                 float64
+	ScoredTs                       int64
+}
+
 // TokenStore, mint-PK token kaynağıdır (upsert; DIP).
 type TokenStore interface {
 	// firstSeenTs, TokenRow'da olmayan (frontend kontratında yok) first_seen_ts
@@ -85,6 +99,9 @@ type TokenStore interface {
 	// 2a: token güvenliği skorunu yazar / skorlanacak hedefleri döndürür.
 	UpdateSafety(ctx context.Context, s SafetyUpdate) error
 	SafetyScoreTargets(ctx context.Context, limit int) ([]SafetyTarget, error)
+	// 2b-2a: token outcome (rug/graduated/dumped/dead/active) sınıflandırma sonucunu yazar / hedefleri döndürür.
+	OutcomeTargets(ctx context.Context, limit int) ([]OutcomeTarget, error)
+	UpdateOutcome(ctx context.Context, u OutcomeUpdate) error
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -145,7 +162,10 @@ func (p *postgresStore) UpdateMarket(ctx context.Context, m MarketUpdate) error 
 		return err
 	}
 	const q = `UPDATE tokens SET price=$2, liquidity=$3, vol5m=$4, momentum=$5, spark=$6,
-		price_change_h24=$7, market_cap_usd=$8, vol24h=$9 WHERE mint=$1`
+		price_change_h24=$7, market_cap_usd=$8, vol24h=$9,
+		peak_market_cap = GREATEST(peak_market_cap, $8),
+		peak_liquidity  = GREATEST(peak_liquidity, $3)
+		WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, m.Mint, m.Price, m.Liquidity, m.Vol5m, m.Momentum, string(sparkJSON),
 		m.PriceChangeH24, m.MarketCapUSD, m.Vol24h)
 	return err
@@ -226,6 +246,33 @@ func (p *postgresStore) SafetyScoreTargets(ctx context.Context, limit int) ([]Sa
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+func (p *postgresStore) OutcomeTargets(ctx context.Context, limit int) ([]OutcomeTarget, error) {
+	const q = `SELECT mint, market_cap_usd, liquidity, peak_market_cap, peak_liquidity, vol24h, first_seen_ts
+		FROM tokens WHERE pool_address <> ''
+		ORDER BY outcome_scored_ts ASC, first_seen_ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]OutcomeTarget, 0, limit)
+	for rows.Next() {
+		var t OutcomeTarget
+		if err := rows.Scan(&t.Mint, &t.CurMarketCap, &t.CurLiquidity, &t.PeakMarketCap,
+			&t.PeakLiquidity, &t.Vol24h, &t.FirstSeenTs); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) UpdateOutcome(ctx context.Context, u OutcomeUpdate) error {
+	const q = `UPDATE tokens SET outcome=$2, liquidity_status=$3, max_drawdown_pct=$4, outcome_scored_ts=$5 WHERE mint=$1`
+	_, err := p.db.ExecContext(ctx, q, u.Mint, u.Outcome, u.LiquidityStatus, u.MaxDrawdownPct, u.ScoredTs)
+	return err
 }
 
 // parseSparkJSON, boş/bozuk JSON'da boş dilim döner (asla nil değil).

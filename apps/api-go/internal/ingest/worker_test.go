@@ -132,6 +132,10 @@ func (f *failingTokenStore) UpdateSafety(context.Context, store.SafetyUpdate) er
 func (f *failingTokenStore) SafetyScoreTargets(context.Context, int) ([]store.SafetyTarget, error) {
 	return nil, nil
 }
+func (f *failingTokenStore) UpdateOutcome(context.Context, store.OutcomeUpdate) error { return nil }
+func (f *failingTokenStore) OutcomeTargets(context.Context, int) ([]store.OutcomeTarget, error) {
+	return nil, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -197,6 +201,12 @@ func (f *snapshotFailingTokenStore) UpdateSafety(context.Context, store.SafetyUp
 	return nil
 }
 func (f *snapshotFailingTokenStore) SafetyScoreTargets(context.Context, int) ([]store.SafetyTarget, error) {
+	return nil, nil
+}
+func (f *snapshotFailingTokenStore) UpdateOutcome(context.Context, store.OutcomeUpdate) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) OutcomeTargets(context.Context, int) ([]store.OutcomeTarget, error) {
 	return nil, nil
 }
 
