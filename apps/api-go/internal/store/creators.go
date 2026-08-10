@@ -76,15 +76,17 @@ func neutralBehavior() CreatorBehavior {
 	return CreatorBehavior{RepeatedFunders: []string{}}
 }
 
-// newHistoryItem, gerçek alanları doldurur; kalanı nötr placeholder (→ 2b-2).
-func newHistoryItem(mint, symbol string, firstSeenTs int64, currentMcap float64) CreatorTokenHistoryItem {
+// newHistoryItem, gerçek piyasa + outcome alanlarını doldurur; creatorSellPct nötr (→ 2c trade-flow).
+func newHistoryItem(mint, symbol string, firstSeenTs int64, currentMcap, peakMcap, maxDrawdown float64, outcome, liquidityStatus string) CreatorTokenHistoryItem {
 	return CreatorTokenHistoryItem{
 		ID: mint, Symbol: symbol, Mint: mint,
 		CreatedAt:        time.Unix(firstSeenTs, 0).UTC().Format(time.RFC3339),
 		CurrentMarketCap: currentMcap,
-		LiquidityStatus:  "unlocked", // nötr (geçerli enum) → 2b-2
-		Outcome:          "active",   // nötr (geçerli enum) → 2b-2
-		RiskFlags:        []string{},
+		PeakMarketCap:    peakMcap,
+		MaxDrawdownPct:   maxDrawdown,
+		LiquidityStatus:  liquidityStatus,
+		Outcome:          outcome,
+		RiskFlags:        []string{}, // nötr → 2b-2b (risk bayrakları itibar skoruyla)
 	}
 }
 
@@ -146,21 +148,21 @@ func (p *postgresStore) CreatorDetail(ctx context.Context, address string) (Crea
 	}
 	// Token geçmişi (en yeni önce).
 	rows, err := p.db.QueryContext(ctx,
-		`SELECT mint, symbol, first_seen_ts, market_cap_usd FROM tokens
-		 WHERE creator=$1 ORDER BY first_seen_ts DESC`, address)
+		`SELECT mint, symbol, first_seen_ts, market_cap_usd, peak_market_cap, max_drawdown_pct, outcome, liquidity_status
+		 FROM tokens WHERE creator=$1 ORDER BY first_seen_ts DESC`, address)
 	if err != nil {
 		return CreatorProfile{}, false, err
 	}
 	defer rows.Close()
 	history := make([]CreatorTokenHistoryItem, 0, total)
 	for rows.Next() {
-		var mint, symbol string
+		var mint, symbol, outcome, liqStatus string
 		var ts int64
-		var mcap float64
-		if err := rows.Scan(&mint, &symbol, &ts, &mcap); err != nil {
+		var mcap, peakMcap, drawdown float64
+		if err := rows.Scan(&mint, &symbol, &ts, &mcap, &peakMcap, &drawdown, &outcome, &liqStatus); err != nil {
 			return CreatorProfile{}, false, err
 		}
-		history = append(history, newHistoryItem(mint, symbol, ts, mcap))
+		history = append(history, newHistoryItem(mint, symbol, ts, mcap, peakMcap, drawdown, outcome, liqStatus))
 	}
 	if err := rows.Err(); err != nil {
 		return CreatorProfile{}, false, err

@@ -141,7 +141,8 @@ func (f *fakeTokenStore) CreatorDetail(_ context.Context, address string) (Creat
 	sort.SliceStable(matches, func(i, j int) bool { return matches[i].firstSeen > matches[j].firstSeen })
 	history := make([]CreatorTokenHistoryItem, 0, len(matches))
 	for _, tk := range matches {
-		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen, tk.marketCapUSD))
+		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen,
+			tk.marketCapUSD, tk.peakMarketCap, tk.maxDrawdownPct, tk.outcome, tk.liquidityStatus))
 	}
 	return buildCreatorProfile(address, firstSeen, len(history), history), true, nil
 }

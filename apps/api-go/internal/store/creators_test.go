@@ -103,6 +103,29 @@ func TestCreatorDetail(t *testing.T) {
 	}
 }
 
+func TestCreatorDetailCarriesOutcome(t *testing.T) {
+	ctx := context.Background()
+	ts := NewFakeTokenStore()
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "m1", Mint: "m1", Symbol: "S1"}, 1000, "AAA")
+	_ = ts.UpdateMarket(ctx, MarketUpdate{Mint: "m1", MarketCapUSD: 10000, Liquidity: 500})
+	_ = ts.UpdateOutcome(ctx, OutcomeUpdate{Mint: "m1", Outcome: "rug", LiquidityStatus: "removed", MaxDrawdownPct: 88, ScoredTs: 2000})
+
+	p, ok, err := ts.(CreatorStore).CreatorDetail(ctx, "AAA")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	h := p.History[0]
+	if h.Outcome != "rug" || h.LiquidityStatus != "removed" || h.MaxDrawdownPct != 88 {
+		t.Fatalf("history outcome alanları = %+v (rug/removed/88 bekleniyor)", h)
+	}
+	if h.PeakMarketCap != 10000 { // UpdateMarket peak'i seed etti (GREATEST 0→10000)
+		t.Fatalf("peakMarketCap = %v, want 10000", h.PeakMarketCap)
+	}
+	if h.CreatorSellPct != 0 { // nötr → 2c (trade-flow)
+		t.Fatalf("creatorSellPct = %v, want 0 (nötr)", h.CreatorSellPct)
+	}
+}
+
 func TestCreatorDetailNotFound(t *testing.T) {
 	ts := NewFakeTokenStore()
 	_, ok, err := ts.(CreatorStore).CreatorDetail(context.Background(), "NOPE")
