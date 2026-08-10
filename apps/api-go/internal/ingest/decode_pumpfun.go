@@ -67,7 +67,7 @@ type createEvent struct{ name, symbol, uri, mint, creator string }
 // parseCreateEvent, bir "Program data:" borsh yükünden pump.fun CreateEvent'i (name/symbol/uri/mint)
 // çıkarır. Anchor event discriminator öneki emit! (8B) vs emit_cpi! (16B) arasında değişebildiğinden
 // offset'i OTOMATİK tespit eder: 3 length-prefixli geçerli UTF-8 string + uri içinde "://" +
-// ardından ≥96 bayt (mint/bondingCurve/user pubkey'leri). Bu doğrulama, yanlış satırı/offset'i eler.
+// ardından ≥32 bayt (mint zorunlu; bondingCurve + user/creator varsa okunur). Bu doğrulama, yanlış satırı/offset'i eler.
 func parseCreateEvent(raw []byte) (createEvent, bool) {
 	for _, off := range candidateOffsets(len(raw)) {
 		if ev, ok := tryParseCreateAt(raw, off); ok {
