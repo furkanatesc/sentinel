@@ -48,10 +48,12 @@ func main() {
 		bundle, cleanup = b, cl
 	} else {
 		logger.Warn("DATABASE_URL yok — in-memory fake store")
+		fakeTokens := store.NewFakeTokenStore()
 		bundle = store.Bundle{
 			Strategies: store.NewFakeStore(store.SeedRows(), nil),
 			Events:     store.NewFakeEventStore(),
-			Tokens:     store.NewFakeTokenStore(),
+			Tokens:     fakeTokens,
+			Creators:   fakeTokens.(store.CreatorStore),
 		}
 	}
 	defer cleanup()
@@ -134,6 +136,8 @@ func main() {
 			Hub: hub, CORSOrigin: cfg.CORSOrigin, EventsWindow: cfg.EventsWindow,
 			TokenDetail:        detailSvc,
 			TokenDetailTimeout: time.Duration(cfg.TokenDetailTimeoutSec) * time.Second,
+			Creators:           bundle.Creators,
+			CreatorsLimit:      cfg.CreatorsListLimit,
 		}),
 	}
 	go func() {

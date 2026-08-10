@@ -17,6 +17,7 @@ type Bundle struct {
 	Strategies StrategyStore
 	Events     EventStore
 	Tokens     TokenStore
+	Creators   CreatorStore
 }
 
 // OpenPostgres, bağlantı açar, migration'ları çalıştırır, strateji seed'ini uygular
@@ -39,7 +40,7 @@ func OpenPostgres(ctx context.Context, dsn string) (Bundle, func() error, error)
 		return Bundle{}, nil, fmt.Errorf("seed: %w", err)
 	}
 	ps := &postgresStore{db: db}
-	return Bundle{Strategies: ps, Events: ps, Tokens: ps}, db.Close, nil
+	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps}, db.Close, nil
 }
 
 func seedStrategies(ctx context.Context, db *sql.DB) error {

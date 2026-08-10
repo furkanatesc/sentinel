@@ -76,6 +76,14 @@ func TestLoadSafetyDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadCreatorsDefaults(t *testing.T) {
+	t.Setenv("CREATORS_LIST_LIMIT", "")
+	c := Load()
+	if c.CreatorsListLimit != 100 {
+		t.Fatalf("CreatorsListLimit = %d, want 100", c.CreatorsListLimit)
+	}
+}
+
 func TestGetenvBool(t *testing.T) {
 	t.Setenv("X_FLAG", "false")
 	if getenvBool("X_FLAG", true) {
