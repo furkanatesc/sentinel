@@ -6,6 +6,8 @@ export const LIVE_ENDPOINTS = new Set<keyof SentinelApi>([
   "getEvents",
   "getTokens",
   "getToken",
+  "getCreators",
+  "getCreator",
   "subscribeEvents",
   "subscribeTokens",
 ]);

@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { httpApi } from "./http";
+import { LIVE_ENDPOINTS } from "./live-endpoints";
 
 const OLD = process.env.NEXT_PUBLIC_API_BASE_URL;
 beforeEach(() => { process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.test"; });
@@ -111,4 +112,44 @@ it("subscribeTokens WS üzerinden tokens topic'ine abone olur (tam liste snapsho
   expect(cb).toHaveBeenCalledWith(sampleToken);
   unsub();
   expect(ws.closed).toBe(true);
+});
+
+const sampleCreators = [{
+  address: "AAA", reputationScore: 0, riskLevel: "medium", totalTokens: 2,
+  activeTokens: 0, ruggedTokens: 0, successRatePct: 0, realizedPnlSol: 0,
+}];
+
+it("getCreators API JSON'unu CreatorRow[]'a maple ve /api/creators çağırır", async () => {
+  const fetchMock = vi.fn(async () =>
+    new Response(JSON.stringify(sampleCreators), { status: 200, headers: { "content-type": "application/json" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const rows = await httpApi.getCreators();
+  expect(rows).toEqual(sampleCreators);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.test/api/creators",
+    expect.objectContaining({ headers: { accept: "application/json" } }),
+  );
+});
+
+const sampleProfile = {
+  address: "AAA", walletAgeDays: 0, firstSeen: "2026-08-10T00:00:00Z",
+  reputation: { key: "creatorReputation", value: 0, confidence: 0, updatedAt: "", breakdown: [] },
+  riskLevel: "medium", metrics: { totalTokens: 2 }, history: [], behavior: { repeatedFunders: [] },
+};
+
+it("getCreator API JSON'unu CreatorProfile'e maple ve /api/creator/{address} çağırır", async () => {
+  const fetchMock = vi.fn(async () =>
+    new Response(JSON.stringify(sampleProfile), { status: 200, headers: { "content-type": "application/json" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const got = await httpApi.getCreator("AAA");
+  expect(got).toEqual(sampleProfile);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.test/api/creator/AAA",
+    expect.objectContaining({ headers: { accept: "application/json" } }),
+  );
+});
+
+it("LIVE_ENDPOINTS getCreators ve getCreator içerir", () => {
+  expect(LIVE_ENDPOINTS.has("getCreators")).toBe(true);
+  expect(LIVE_ENDPOINTS.has("getCreator")).toBe(true);
 });
