@@ -30,6 +30,35 @@ func TestCreatorsAggregate(t *testing.T) {
 	}
 }
 
+// TestCreatorsLimit, fake Creators'ın limit sınırlamasının postgres LIMIT $1
+// semantiğiyle eşleştiğini kilitler: limit=0 → boş dilim (ALL değil), limit=1 →
+// tam olarak en üstteki (en çok token'lı) creator.
+func TestCreatorsLimit(t *testing.T) {
+	ctx := context.Background()
+	ts := NewFakeTokenStore()
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "m1", Mint: "m1", Symbol: "S1"}, 100, "AAA")
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "m2", Mint: "m2", Symbol: "S2"}, 90, "AAA")
+	_ = ts.UpsertToken(ctx, TokenRow{ID: "m3", Mint: "m3", Symbol: "S3"}, 80, "BBB")
+
+	cs := ts.(CreatorStore)
+
+	rows, err := cs.Creators(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("Creators(ctx, 0) = %+v, want boş dilim (postgres LIMIT $1=0 ile eşleşmeli)", rows)
+	}
+
+	rows, err = cs.Creators(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Address != "AAA" || rows[0].TotalTokens != 2 {
+		t.Fatalf("Creators(ctx, 1) = %+v, want tek satır AAA/2", rows)
+	}
+}
+
 func TestUpsertTokenCreatorMergeDoesNotClobber(t *testing.T) {
 	ctx := context.Background()
 	ts := NewFakeTokenStore()

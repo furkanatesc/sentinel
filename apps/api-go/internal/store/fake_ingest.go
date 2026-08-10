@@ -101,10 +101,13 @@ func (f *fakeTokenStore) Creators(_ context.Context, limit int) ([]CreatorRow, e
 		}
 		return firstOrder[out[i].Address] < firstOrder[out[j].Address] // erken görülen önce
 	})
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
+	// Diğer fake metotlarla aynı sınırlama deseni (len(out) < limit): limit<=0 → boş
+	// (postgres LIMIT $1=0 ile eşleşir; post-hoc "limit > 0 &&" bekçisi yerine).
+	bounded := make([]CreatorRow, 0, len(out))
+	for i := 0; i < len(out) && len(bounded) < limit; i++ {
+		bounded = append(bounded, out[i])
 	}
-	return out, nil
+	return bounded, nil
 }
 
 func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) (bool, error) {
