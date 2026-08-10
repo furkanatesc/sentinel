@@ -11,10 +11,11 @@ type LogNotification struct {
 	ProgramID string // hangi aboneliğin (program) tetiklediği
 }
 
-// Decoded, bir log bildiriminden çıkarılan olay + (yeni/upsert) token.
+// Decoded, bir log bildiriminden çıkarılan olay + (yeni/upsert) token + (varsa) creator cüzdanı.
 type Decoded struct {
-	Event store.EventRow
-	Token store.TokenRow
+	Event   store.EventRow
+	Token   store.TokenRow
+	Creator string // pump.fun CreateEvent `user` (dev) pubkey; yoksa "" (yalnız pump.fun doldurur)
 }
 
 // TxInfo, getTransaction'dan alınan pozisyonel hesap listesidir.

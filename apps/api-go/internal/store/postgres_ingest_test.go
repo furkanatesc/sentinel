@@ -20,7 +20,7 @@ func TestPostgresEventsTokensRoundTrip(t *testing.T) {
 	defer cleanup()
 
 	tk := TokenRow{ID: "MintX", Mint: "MintX", Symbol: "TST", Name: "Test", AgeSeconds: 0, Spark: []float64{}}
-	if err := b.Tokens.UpsertToken(ctx, tk, time.Now().Unix()); err != nil {
+	if err := b.Tokens.UpsertToken(ctx, tk, time.Now().Unix(), ""); err != nil {
 		t.Fatal(err)
 	}
 	e := EventRow{ID: "sig1-new_mint", Signature: "sig1", Slot: 5, Type: "new_mint", Mint: "MintX",

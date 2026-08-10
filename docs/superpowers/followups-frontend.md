@@ -314,3 +314,43 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
 - **`BacktestMetrics` tip / `BacktestSummary` DRY örtüşmesi (Minor, plan-mandated, parked):** İki özet tipi
   benzer alanlar taşıyor; httpApi'ye geçişte tek kaynaktan türetilebilir. Plan-mandated, düşük etki.
   (Task 1 — Minor, plan-mandated.)
+
+## Backend Alt-proje 2 slice 2b-1 (Creator Capture) — deferred
+
+Slice 2b-1 (`feat/backend-scoring-2b-1`, 2026-08-10) `getCreators`/`getCreator`'ı gerçeğe döndürdü:
+pump.fun creator (dev) pubkey yakalama (migration 0006 + COALESCE merge), creator listesi/profili
+(kimlik+totalTokens+firstSeen+token geçmişi). Aşağıdakiler bilinçle bu dilime dahil edilmedi. Sessiz
+düşürme yok — 2b-2'ye ve deploy doğrulamasına bağlı.
+
+- **İtibar/davranış/outcome → Alt-proje 2 Slice 2b-2'ye bağlı.** Reputation score, riskLevel, outcome
+  tespiti (rugged/success/active), davranış paterni, `walletAgeDays`, peak/drawdown, `realizedPnlSol`
+  — hepsi nötr placeholder kalıyor; gerçek outcome tespiti (fiyat/likidite geçmişine dayalı) ve itibar
+  modeli 2b-2'de teslim edilecek.
+- **`activeTokens`/`ruggedTokens`/`successRatePct` nötr 0.** 2b-2'nin outcome tespitine bağlı (bugün
+  hiçbir token için outcome sınıflandırması yok).
+- **`createdAt`/`firstSeen` ham ISO 8601 — sunum katmanına taşınacak (WalletAddress-truncation ile aynı
+  sınıf).** Mock veri göreli format gösteriyordu ("1g önce"); gerçek seam ISO 8601 döndürüyor, frontend
+  şu an ham ISO gösteriyor. Yapılacak: `lib/format.ts`'e bir `relativeTime()`/benzeri ekle, ilgili
+  bileşenlerde kullan — `httpApi` adaptörüyle birlikte ele alınacak sunum-katmanı maddeleri grubunda
+  (bkz yukarıda "HTTP adapter artımıyla birlikte").
+- **`label` her zaman boş.** Creator etiketleme (ör. "bilinen rugger", "doğrulanmış") henüz tanımlanmadı;
+  seam alanı var ama dolduran bir mekanizma yok.
+- **Raydium/diğer launchpad token'ları creator'sız.** Yalnızca pump.fun `CreateEvent`'in `user` alanı
+  yakalanıyor; Raydium CPMM (ve framework-ready PumpSwap/Moonshot/Meteora) decoder'ları creator
+  taşımıyor — bu token'lar hiçbir creator'ın `history`'sinde görünmez.
+- **Fake `Creators` tie-break insertion-order (brief-mandated, low impact):** Fake store eşit
+  `totalTokens`'ta ekleme sırasına göre sıralar; postgres `MIN(first_seen_ts)` ile sıralar. İki store
+  arasında görünüş farkı yaratabilir (bugün test kapsamında ulaşılmaz, brief'in kendi tasarımı).
+  (Task 2 — Minor, deferred.)
+- **postgres merge-kuralı + `CreatorDetail` canlı-DB testi yok (DB-gated env):** `UpsertToken`'in
+  COALESCE creator-merge kuralı ve `CreatorDetail`'in postgres path'i yalnızca fake store'a karşı test
+  edildi; gerçek Postgres'e karşı round-trip testi CI'da yok (yerel Postgres yok — 1a/1b/1c/2a ile aynı
+  desen, deploy'da doğrulanacak). (Task 2 + Task 3 — Minor, deferred.)
+- **postgres `CreatorDetail` iki ayrı query (non-transactional, düşük etki):** Kimlik/toplam sorgusu ve
+  token geçmişi sorgusu ayrı çalışıyor; aralarında bir insert olursa (nadir, iki sorgu arası ms) hafif
+  tutarsız bir görünüm mümkün. Kritik değil (read-only endpoint, sonraki poll düzeltir). (Task 3 —
+  Minor, deferred.)
+- **Router + config'te `CREATORS_LIST_LIMIT` default'u çift tanımlı (drift riski):** Default 100 hem
+  config paketinde hem router wiring'inde ayrı yazılı; ileride biri değişip diğeri unutulursa sessiz
+  drift olabilir. Tek kaynağa indirgenebilir (config her zaman router'a geçirilecek şekilde). (Task 4 —
+  Minor, deferred.)

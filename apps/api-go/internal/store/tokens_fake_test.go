@@ -39,7 +39,7 @@ func TestFakeUpdateMarketAndEnrichTargets(t *testing.T) {
 func TestFakeEnrichTargetsSkipsNoPool(t *testing.T) {
 	f := NewFakeTokenStore()
 	ctx := context.Background()
-	f.UpsertToken(ctx, TokenRow{ID: "M2", Mint: "M2"}, 1) // pool_address yok
+	f.UpsertToken(ctx, TokenRow{ID: "M2", Mint: "M2"}, 1, "") // pool_address yok
 	targets, _ := f.EnrichTargets(ctx, 10)
 	if len(targets) != 0 {
 		t.Fatalf("havuzsuz token enrichment hedefi olmamalı: %+v", targets)

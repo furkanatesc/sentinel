@@ -22,6 +22,8 @@ type RouterDeps struct {
 	Hub                *ws.Hub
 	CORSOrigin         string
 	EventsWindow       int
+	Creators           store.CreatorStore
+	CreatorsLimit      int
 }
 
 // NewRouter, HTTP yönlendiricisini kurar.
@@ -41,6 +43,14 @@ func NewRouter(d RouterDeps) http.Handler {
 	}
 	if d.TokenDetail != nil {
 		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail, d.TokenDetailTimeout))
+	}
+	if d.Creators != nil {
+		limit := d.CreatorsLimit
+		if limit <= 0 {
+			limit = 100
+		}
+		r.Get("/api/creators", creatorsHandler(d.Creators, limit))
+		r.Get("/api/creator/{address}", creatorDetailHandler(d.Creators))
 	}
 	r.Get("/ws", wsHandler(d.Hub))
 	return r

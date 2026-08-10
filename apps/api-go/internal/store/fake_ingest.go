@@ -35,6 +35,7 @@ type fakeTok struct {
 	row       TokenRow
 	poolAddr  string
 	firstSeen int64
+	creator   string
 	// Detail header (TokenRow'da olmayan alanlar; enrichment yazar, TokenDetailBase okur).
 	priceChangeH24, marketCapUSD, vol24h float64
 	launchpad                            string
@@ -54,7 +55,7 @@ type fakeTokenStore struct {
 // NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür.
 func NewFakeTokenStore() TokenStore { return &fakeTokenStore{byID: map[string]fakeTok{}} }
 
-func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs int64) error {
+func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs int64, creator string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if t.Spark == nil {
@@ -68,8 +69,75 @@ func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs 
 	}
 	cur.row = t
 	cur.firstSeen = firstSeenTs
+	if creator != "" { // boş creator mevcut gerçek olanı ezmez (postgres COALESCE parity)
+		cur.creator = creator
+	}
 	f.byID[t.ID] = cur
 	return nil
+}
+
+func (f *fakeTokenStore) Creators(_ context.Context, limit int) ([]CreatorRow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	counts := map[string]int{}
+	firstOrder := map[string]int{} // ilk görülme sırası (tiebreak: erken = önce)
+	for i, id := range f.order {
+		c := f.byID[id].creator
+		if c == "" {
+			continue
+		}
+		if _, seen := counts[c]; !seen {
+			firstOrder[c] = i
+		}
+		counts[c]++
+	}
+	out := make([]CreatorRow, 0, len(counts))
+	for addr, n := range counts {
+		out = append(out, CreatorRow{Address: addr, TotalTokens: n, RiskLevel: "medium"})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].TotalTokens != out[j].TotalTokens {
+			return out[i].TotalTokens > out[j].TotalTokens // en çok önce
+		}
+		return firstOrder[out[i].Address] < firstOrder[out[j].Address] // erken görülen önce
+	})
+	// Diğer fake metotlarla aynı sınırlama deseni (len(out) < limit): limit<=0 → boş
+	// (postgres LIMIT $1=0 ile eşleşir; post-hoc "limit > 0 &&" bekçisi yerine).
+	bounded := make([]CreatorRow, 0, len(out))
+	for i := 0; i < len(out) && len(bounded) < limit; i++ {
+		bounded = append(bounded, out[i])
+	}
+	return bounded, nil
+}
+
+func (f *fakeTokenStore) CreatorDetail(_ context.Context, address string) (CreatorProfile, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	matches := make([]fakeTok, 0, len(f.order))
+	var firstSeen int64
+	found := false
+	for _, id := range f.order {
+		tk := f.byID[id]
+		if tk.creator != address {
+			continue
+		}
+		if !found || tk.firstSeen < firstSeen {
+			firstSeen = tk.firstSeen
+		}
+		found = true
+		matches = append(matches, tk)
+	}
+	if !found {
+		return CreatorProfile{}, false, nil
+	}
+	// history en yeni önce (postgres ORDER BY first_seen_ts DESC ile eşleşir; insertion sırası
+	// firstSeenTs sırasıyla aynı olmayabilir — bkz. TestCreatorDetail).
+	sort.SliceStable(matches, func(i, j int) bool { return matches[i].firstSeen > matches[j].firstSeen })
+	history := make([]CreatorTokenHistoryItem, 0, len(matches))
+	for _, tk := range matches {
+		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen, tk.marketCapUSD))
+	}
+	return buildCreatorProfile(address, firstSeen, len(history), history), true, nil
 }
 
 func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) (bool, error) {

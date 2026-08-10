@@ -30,6 +30,8 @@ type Config struct {
 	SafetyIntervalSec int
 	SafetyLimit       int
 	SafetyHoldersCap  int
+
+	CreatorsListLimit int
 }
 
 func Load() Config {
@@ -57,6 +59,8 @@ func Load() Config {
 		SafetyIntervalSec: getenvInt("SAFETY_INTERVAL_SEC", 60),
 		SafetyLimit:       getenvInt("SAFETY_LIMIT", 40),
 		SafetyHoldersCap:  getenvInt("SAFETY_HOLDERS_CAP", 5000),
+
+		CreatorsListLimit: getenvInt("CREATORS_LIST_LIMIT", 100),
 	}
 }
 

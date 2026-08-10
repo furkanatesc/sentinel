@@ -70,7 +70,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
 | 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **TAMAMLANDI (1a+1b+1c).** Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı. Slice 1b + 1c kod TAMAM (`feat/backend-ingestion-1b`/`-1c`, deploy bekliyor) — REST market enrichment (price/liquidity/vol5m/momentum/spark gerçek) + Token Detail (`getToken`: header/OHLCV/holders gerçek). `getKpis`/`getRadar` (Overview) ve `getToken`'in scores/risks/davranış-metrikleri → Alt-proje 2 (skorlara bağımlı) |
-| 2 | Scoring & graph (4 skor + Python/ML gerekenlerde) | `getCreators`/`getCreator`/`getWalletGraph`/`getKpis`/`getRadar` + 4 ScoreKey + risks/davranış-metrikleri | 🟡 **DEVAM.** 5 dilim: **2a Token Safety KOD TAMAM + review temiz** (`feat/backend-scoring-2a`, merge bekliyor — `tokenSafety` gerçek) → 2b Creator Rep → 2c Manipulation → 2d Opportunity+Overview → 2e Wallet Graph. 2a kural-tabanlı Go'da; Python 2b/2c'de |
+| 2 | Scoring & graph (4 skor + Python/ML gerekenlerde) | `getCreators`/`getCreator`/`getWalletGraph`/`getKpis`/`getRadar` + 4 ScoreKey + risks/davranış-metrikleri | 🟡 **DEVAM.** 5 dilim: **2a Token Safety KOD TAMAM + review temiz** (`feat/backend-scoring-2a`, merge bekliyor — `tokenSafety` gerçek) → **2b Creator Rep** (ikiye ayrıldı: **2b-1 Creator Capture KOD TAMAM + review temiz** — `feat/backend-scoring-2b-1`, merge bekliyor — creator adresi/totalTokens/token geçmişi gerçek, itibar/outcome nötr → **2b-2**) → 2c Manipulation → 2d Opportunity+Overview → 2e Wallet Graph. 2a kural-tabanlı Go'da; 2b-1 Go'da (yakalama); Python 2b-2/2c'de |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
 | 5 | Trading engine (Jupiter, emir icra, pozisyon) | `getPortfolio`/`getPositions`/`getOrders`/`getTransactions`/`getTradeLogs`/`getMarketData`/`getCandles` | ⬜ |
@@ -230,6 +230,29 @@ canlı/best-effort kalır (zaten seyrek/dürüst). Çekirdek test: GeckoTerminal
 yalnız OHLCV+holders düşer. Go build/vet/`test -race` + fake/postgres store yeşil (postgres round-trip DB varsa header
 alanlarını doğrular). **Kalan followup (bkz followups):** OHLCV serisi canlı/best-effort (throttle'da boş — dürüst).
 **Merge/deploy kullanıcı onayı bekliyor** (branch `feat/detail-header-from-db`).
+
+**Alt-proje 2 Slice 2b-1 (Creator Capture) KOD TAMAM + review temiz (2026-08-10, branch
+`feat/backend-scoring-2b-1`, HEAD `f095c8f`):** 2b (Creator Reputation) tek dilime sığmadığından
+**2b-1 (creator yakalama — Go)** ve **2b-2 (itibar/outcome tespiti — sonraki, muhtemelen Python)**
+olarak ikiye ayrıldı. SDD ile 5 kod task'ı (fresh subagent + task-review döngüsü, hepsi review temiz;
+Task 2'de 1 fix round — fake `Creators(ctx,0)` postgres parity) + Task 6 (bu doküman turu). Teslim:
+pump.fun decoder artık creator (dev) pubkey'i (`user` alanı, mint+64) `Decoded.Creator`'a yakalıyor;
+migration `0006` `tokens.creator` (+partial index) ekledi; `UpsertToken` yeni `creator` param'ını
+COALESCE merge ile alır (boş creator gerçek olanı asla ezmiyor), `UpsertDiscovered` dokunulmadı
+(creator'ı otomatik korur). Yeni store okumaları `Creators(ctx, limit)` (agrega: adres+totalTokens)
+ve `CreatorDetail(ctx, address)` (kimlik+firstSeen+token geçmişi). Yeni endpoint'ler
+`GET /api/creators` + `GET /api/creator/{address}` (nil-guard, 404/502), config
+`CREATORS_LIST_LIMIT` (default 100). Frontend `getCreators`/`getCreator` gerçek fetch,
+`LIVE_ENDPOINTS`'e +2 (UI dokunulmadı). **Dürüst alan durumu:** gerçek = creator adresi,
+totalTokens, firstSeen, token geçmişi (symbol/mint/createdAt/currentMarketCap); **nötr placeholder**
+(→ 2b-2, sessiz düşürme yok): reputation score, riskLevel, activeTokens, ruggedTokens,
+successRatePct, realizedPnlSol, walletAgeDays, davranış, token-başına
+outcome/peak/drawdown/sellPct/liquidityStatus/riskFlags. **Kalibrasyon riski (deploy'da):** creator
+byte-offset (mint+64, `user` alanı) fixture `buildCreateEventB64` ile eşleşiyor ama canlı Helius
+akışına karşı yalnızca deploy'da doğrulanacak — 1a'nın Raydium/2a'nın Helius alan-şekli kalibrasyonu
+gibi aynı desen (placeholder değil, gerekçeli ertelenen madde). Ertelenen minor'lar:
+`docs/superpowers/followups-frontend.md` "Backend Alt-proje 2 slice 2b-1 (Creator Capture) —
+deferred". **DURUM: merge + deploy kullanıcı onayı bekliyor.**
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı

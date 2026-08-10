@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"testing"
+
+	"github.com/mr-tron/base58"
 )
 
 // buildCreateEventB64, pump.fun CreateEvent base64 satırını decoder layout'uyla üretir (test vektörü).
@@ -29,6 +31,7 @@ func buildCreateEventB64(name, symbol, uri string, mint, bonding, user [32]byte)
 func TestPumpFunDecode(t *testing.T) {
 	var mint, bonding, user [32]byte
 	mint[0], mint[31] = 1, 9 // ayırt edici baytlar
+	user[0], user[31] = 7, 3 // creator (user) ayırt edici baytlar
 	data := buildCreateEventB64("Doge Killer", "DOGEK", "https://x/uri.json", mint, bonding, user)
 
 	n := LogNotification{
@@ -62,6 +65,9 @@ func TestPumpFunDecode(t *testing.T) {
 	if out[1].Event.Type != "metadata_created" {
 		t.Fatalf("event1 type = %s", out[1].Event.Type)
 	}
+	if out[0].Creator != base58.Encode(user[:]) {
+		t.Fatalf("Creator = %q, want %q", out[0].Creator, base58.Encode(user[:]))
+	}
 }
 
 func TestPumpFunIgnoresNonCreate(t *testing.T) {
@@ -69,6 +75,39 @@ func TestPumpFunIgnoresNonCreate(t *testing.T) {
 	out, err := NewPumpFunDecoder().Decode(context.Background(), n, nil, nil)
 	if err != nil || len(out) != 0 {
 		t.Fatalf("create olmayan log 0 olay vermeli; got %d, err=%v", len(out), err)
+	}
+}
+
+func TestPumpFunDecodeCreatorMissingIsEmpty(t *testing.T) {
+	// name/symbol/uri + yalnız mint (bonding+user YOK) → creator "" ama mint yine dolu.
+	var b []byte
+	b = append(b, make([]byte, 8)...) // discriminator
+	putStr := func(s string) {
+		var n [4]byte
+		binary.LittleEndian.PutUint32(n[:], uint32(len(s)))
+		b = append(b, n[:]...)
+		b = append(b, []byte(s)...)
+	}
+	putStr("Solo")
+	putStr("SOLO")
+	putStr("https://x/u.json")
+	var mint [32]byte
+	mint[0] = 5
+	b = append(b, mint[:]...) // bonding/user yok
+	data := base64.StdEncoding.EncodeToString(b)
+	n := LogNotification{
+		Signature: "sig", Slot: 1, ProgramID: PumpFunProgramID,
+		Logs: []string{"Program log: Instruction: Create", "Program data: " + data},
+	}
+	out, err := NewPumpFunDecoder().Decode(context.Background(), n, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 2 || out[0].Token.Mint == "" {
+		t.Fatalf("mint dolmalı: %+v", out)
+	}
+	if out[0].Creator != "" {
+		t.Fatalf("Creator = %q, want \"\" (creator baytları yok)", out[0].Creator)
 	}
 }
 

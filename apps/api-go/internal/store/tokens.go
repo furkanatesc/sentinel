@@ -72,7 +72,7 @@ type SafetyTarget struct {
 type TokenStore interface {
 	// firstSeenTs, TokenRow'da olmayan (frontend kontratında yok) first_seen_ts
 	// değerini ayrıca taşır; ageSeconds okumada bundan türetilir.
-	UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64) error
+	UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error
 	RecentTokens(ctx context.Context, limit int) ([]TokenRow, error)
 	// 1b: keşif (kimlik+havuz) — inserted, token'ın YENİ eklendiğini bildirir (event spam'i önler).
 	UpsertDiscovered(ctx context.Context, d DiscoveredToken) (inserted bool, err error)
@@ -87,12 +87,14 @@ type TokenStore interface {
 	SafetyScoreTargets(ctx context.Context, limit int) ([]SafetyTarget, error)
 }
 
-func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64) error {
-	const q = `INSERT INTO tokens (mint, symbol, name, launchpad, first_seen_ts)
-		VALUES ($1,$2,$3,$4,$5)
+func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
+	const q = `INSERT INTO tokens (mint, symbol, name, launchpad, first_seen_ts, creator)
+		VALUES ($1,$2,$3,$4,$5,$6)
 		ON CONFLICT (mint) DO UPDATE SET
-			symbol = EXCLUDED.symbol, name = EXCLUDED.name, launchpad = EXCLUDED.launchpad`
-	_, err := p.db.ExecContext(ctx, q, t.Mint, t.Symbol, t.Name, "" /* launchpad: TokenRow'da yok (frontend kontratı) */, firstSeenTs)
+			symbol = EXCLUDED.symbol, name = EXCLUDED.name, launchpad = EXCLUDED.launchpad,
+			creator = COALESCE(NULLIF(EXCLUDED.creator, ''), tokens.creator)`
+	_, err := p.db.ExecContext(ctx, q, t.Mint, t.Symbol, t.Name,
+		"" /* launchpad: TokenRow'da yok (frontend kontratı) */, firstSeenTs, creator)
 	return err
 }
 
