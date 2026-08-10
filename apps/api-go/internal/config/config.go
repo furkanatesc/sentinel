@@ -32,6 +32,16 @@ type Config struct {
 	SafetyHoldersCap  int
 
 	CreatorsListLimit int
+
+	OutcomeEnabled        bool
+	OutcomeIntervalSec    int
+	OutcomeLimit          int
+	OutcomeRugLiqRatio    float64
+	OutcomeGraduationMcap float64
+	OutcomeDumpedDrawdown float64
+	OutcomeDeadVol        float64
+	OutcomeMinLiqFloor    float64
+	OutcomeDeadAgeSec     int
 }
 
 func Load() Config {
@@ -61,6 +71,16 @@ func Load() Config {
 		SafetyHoldersCap:  getenvInt("SAFETY_HOLDERS_CAP", 5000),
 
 		CreatorsListLimit: getenvInt("CREATORS_LIST_LIMIT", 100),
+
+		OutcomeEnabled:        getenvBool("OUTCOME_ENABLED", true),
+		OutcomeIntervalSec:    getenvInt("OUTCOME_INTERVAL_SEC", 60),
+		OutcomeLimit:          getenvInt("OUTCOME_LIMIT", 60),
+		OutcomeRugLiqRatio:    getenvFloat("OUTCOME_RUG_LIQ_RATIO", 0.10),
+		OutcomeGraduationMcap: getenvFloat("OUTCOME_GRADUATION_MCAP", 69000),
+		OutcomeDumpedDrawdown: getenvFloat("OUTCOME_DUMPED_DRAWDOWN", 80),
+		OutcomeDeadVol:        getenvFloat("OUTCOME_DEAD_VOL", 100),
+		OutcomeMinLiqFloor:    getenvFloat("OUTCOME_MIN_LIQ_FLOOR", 500),
+		OutcomeDeadAgeSec:     getenvInt("OUTCOME_DEAD_AGE_SEC", 86400),
 	}
 }
 
@@ -84,6 +104,15 @@ func getenvBool(key string, def bool) bool {
 	if v := os.Getenv(key); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			return b
+		}
+	}
+	return def
+}
+
+func getenvFloat(key string, def float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
+			return f
 		}
 	}
 	return def

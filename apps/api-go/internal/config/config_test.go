@@ -84,6 +84,19 @@ func TestLoadCreatorsDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadOutcomeDefaults(t *testing.T) {
+	c := Load()
+	if !c.OutcomeEnabled || c.OutcomeIntervalSec != 60 || c.OutcomeLimit != 60 {
+		t.Fatalf("outcome worker defaults: %+v", c)
+	}
+	if c.OutcomeRugLiqRatio != 0.10 || c.OutcomeGraduationMcap != 69000 || c.OutcomeDumpedDrawdown != 80 {
+		t.Fatalf("outcome eşik defaults: %+v", c)
+	}
+	if c.OutcomeDeadVol != 100 || c.OutcomeMinLiqFloor != 500 || c.OutcomeDeadAgeSec != 86400 {
+		t.Fatalf("outcome dead/floor defaults: %+v", c)
+	}
+}
+
 func TestGetenvBool(t *testing.T) {
 	t.Setenv("X_FLAG", "false")
 	if getenvBool("X_FLAG", true) {
