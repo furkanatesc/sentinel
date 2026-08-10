@@ -415,11 +415,21 @@ edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dilimlere 
 - **Non-pump.fun token'lar hâlâ creator'sız.** Yalnızca pump.fun `CreateEvent`'in `user` alanı
   decode ediliyor; Raydium CPMM (ve framework-ready PumpSwap/Moonshot/Meteora) launchpad'lerinde
   keşfedilen token'lar bu dilimle de creator kazanmadı — 2b-1'deki aynı sınırlama.
-- **Cap'e takılan / decode-fail token'lar `creator=''` + damgalı kalır (nadir retry yolu).**
-  `CREATORFILL_MAX_SIG_PAGES` sınırına takılıp en-eski imzaya ulaşılamayan ya da create tx'i
-  bulunup da decode edilemeyen (bozuk/beklenmedik log) token'lar boş creator ile damgalanır —
-  worker'ın "bulunamadı → sonsuz rescan yok" kuralı gereği tekrar denenmez (dürüst, silent-fail
-  değil; deploy'da gerçek dağılımla ne sıklıkta olduğu görülecek).
+- **Cap'e takılan / decode-fail token'lar `creator=''` + damgalı kalır ama HÂLÂ target'tır
+  (de-prioritized round-robin re-attempt, kalıcı hariç tutma DEĞİL).** `CREATORFILL_MAX_SIG_PAGES`
+  sınırına takılıp en-eski imzaya ulaşılamayan ya da create tx'i bulunup da decode edilemeyen
+  (bozuk/beklenmedik log/tx-retention) token'lar boş creator ile damgalanır ama `CreatorFillTargets`'ta
+  kalmaya devam eder — `ORDER BY creator_backfill_ts ASC` onu yalnızca sıranın sonuna iter,
+  hariç tutmaz. Creator'sız backlog `CREATORFILL_LIMIT`'ten (20) küçükse bu token her ~30s
+  cycle'da tekrar çözülmeye çalışılır (cycle başına sınırlı: ≤maxSigPages `getSignatures` +
+  1 `getTransaction`) — `SafetyScoreTargets`/`OutcomeTargets` ile aynı round-robin konvansiyonu.
+  Bu, geçici RPC hatalarını kurtarır ama immutable-creator not-found'ların düşük frekansta
+  tekrar tekrar denenmesi anlamına gelir (dürüst, silent-fail değil; deploy'da gerçek dağılımla
+  ne sıklıkta olduğu görülecek).
+  **Deploy kaldıracı:** ücretsiz-katman Helius RPC bütçesi dar çıkarsa, sorgu `CreatorFillTargets`'a
+  `AND creator_backfill_ts=0` ekleyerek attempt-once'a sıkılaştırılabilir (bu durumda geçici
+  hatalar kalıcı hale gelir — kabul edilebilir bir trade-off). Deploy-kalibrasyon opsiyonu olarak
+  kayıtlı, şu an uygulanmadı.
 - **RPC free-tier limiti gözlenirse `CREATORFILL_*` ile kod değişmeden kısılır.** `_INTERVAL_SEC`/
   `_LIMIT`/`_MAX_SIG_PAGES` — 1a/1b/1c/2a/2b-2a'daki aynı "kalibrasyon env, placeholder değil"
   deseni.

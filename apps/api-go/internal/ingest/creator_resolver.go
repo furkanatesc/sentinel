@@ -95,6 +95,9 @@ func (h *heliusSigTx) txLogs(ctx context.Context, sig solana.Signature) ([]strin
 		return nil, err
 	}
 	if res == nil || res.Meta == nil {
+		// Meta yok (ör. RPC node'un tx-retention penceresini aşmış) → bilerek hata DEĞİL,
+		// found=false'a düşecek şekilde nil log listesi döndürülür — s.Err'in yukarıda
+		// bilerek yok sayılmasıyla aynı "dürüst not-found" deseni.
 		return nil, nil
 	}
 	return res.Meta.LogMessages, nil
