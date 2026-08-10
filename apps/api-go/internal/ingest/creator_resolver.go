@@ -77,6 +77,9 @@ func (h *heliusSigTx) listSignatures(ctx context.Context, acct solana.PublicKey,
 	}
 	out := make([]solana.Signature, 0, len(res))
 	for _, s := range res {
+		// s.Err bilerek yok sayılır: başarısız bir create tx zaten log'larından
+		// decode edilemez (CreatorFromCreateLogs → ok=false), yani found=false'a
+		// güvenle düşer; burada ayrıca filtrelemeye gerek yok.
 		out = append(out, s.Signature)
 	}
 	return out, nil
