@@ -112,7 +112,7 @@ func TestProcessUnknownProgramNoop(t *testing.T) {
 // başarısızsa tokens broadcast'i atla" davranışını test etmek için).
 type failingTokenStore struct{ err error }
 
-func (f *failingTokenStore) UpsertToken(_ context.Context, _ store.TokenRow, _ int64) error {
+func (f *failingTokenStore) UpsertToken(_ context.Context, _ store.TokenRow, _ int64, _ string) error {
 	return f.err
 }
 func (f *failingTokenStore) RecentTokens(_ context.Context, _ int) ([]store.TokenRow, error) {
@@ -174,7 +174,7 @@ func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 // broadcast'i atla, events broadcast'i etkilenmesin" davranışını test etmek için.
 type snapshotFailingTokenStore struct{ upserted int }
 
-func (f *snapshotFailingTokenStore) UpsertToken(_ context.Context, _ store.TokenRow, _ int64) error {
+func (f *snapshotFailingTokenStore) UpsertToken(_ context.Context, _ store.TokenRow, _ int64, _ string) error {
 	f.upserted++
 	return nil
 }

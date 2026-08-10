@@ -35,6 +35,7 @@ type fakeTok struct {
 	row       TokenRow
 	poolAddr  string
 	firstSeen int64
+	creator   string
 	// Detail header (TokenRow'da olmayan alanlar; enrichment yazar, TokenDetailBase okur).
 	priceChangeH24, marketCapUSD, vol24h float64
 	launchpad                            string
@@ -54,7 +55,7 @@ type fakeTokenStore struct {
 // NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür.
 func NewFakeTokenStore() TokenStore { return &fakeTokenStore{byID: map[string]fakeTok{}} }
 
-func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs int64) error {
+func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs int64, creator string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if t.Spark == nil {
@@ -68,8 +69,42 @@ func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs 
 	}
 	cur.row = t
 	cur.firstSeen = firstSeenTs
+	if creator != "" { // boş creator mevcut gerçek olanı ezmez (postgres COALESCE parity)
+		cur.creator = creator
+	}
 	f.byID[t.ID] = cur
 	return nil
+}
+
+func (f *fakeTokenStore) Creators(_ context.Context, limit int) ([]CreatorRow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	counts := map[string]int{}
+	firstOrder := map[string]int{} // ilk görülme sırası (tiebreak: erken = önce)
+	for i, id := range f.order {
+		c := f.byID[id].creator
+		if c == "" {
+			continue
+		}
+		if _, seen := counts[c]; !seen {
+			firstOrder[c] = i
+		}
+		counts[c]++
+	}
+	out := make([]CreatorRow, 0, len(counts))
+	for addr, n := range counts {
+		out = append(out, CreatorRow{Address: addr, TotalTokens: n, RiskLevel: "medium"})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].TotalTokens != out[j].TotalTokens {
+			return out[i].TotalTokens > out[j].TotalTokens // en çok önce
+		}
+		return firstOrder[out[i].Address] < firstOrder[out[j].Address] // erken görülen önce
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) (bool, error) {

@@ -75,7 +75,7 @@ func (w *Worker) Process(ctx context.Context, n LogNotification) {
 			continue
 		}
 		w.d.Broadcast.Broadcast("events", e)
-		if err := w.d.Tokens.UpsertToken(ctx, item.Token, now); err != nil {
+		if err := w.d.Tokens.UpsertToken(ctx, item.Token, now, item.Creator); err != nil {
 			w.d.Logger.Warn("upsert token", "err", err)
 			continue // persist edilmemiş token'ı yayınlama; olay yine de yayınlandı (gerçek)
 		}

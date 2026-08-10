@@ -13,7 +13,7 @@ func TestEventsHandler(t *testing.T) {
 	es := store.NewFakeEventStore()
 	_ = es.InsertEvent(nil, store.EventRow{ID: "e1", Type: "new_mint", Mint: "M", Ts: 1})
 	ts := store.NewFakeTokenStore()
-	_ = ts.UpsertToken(nil, store.TokenRow{ID: "M", Mint: "M", Symbol: "S"}, 1)
+	_ = ts.UpsertToken(nil, store.TokenRow{ID: "M", Mint: "M", Symbol: "S"}, 1, "")
 
 	r := NewRouter(RouterDeps{Events: es, Tokens: ts, EventsWindow: 200})
 
