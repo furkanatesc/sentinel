@@ -33,6 +33,14 @@ func TestSetCreatorBackfillMergeAndStamp(t *testing.T) {
 	_ = ts.SetCreatorBackfill(ctx, "pf", "AAA", 7)
 	// boş creator (bulunamadı) → gerçek'i EZMEZ, damga güncellenir.
 	_ = ts.SetCreatorBackfill(ctx, "pf", "", 9)
+	// doğrulama: damga boş-creator çağrısında da ilerlemeli (CRITICAL merge sözleşmesinin yarısı).
+	fs := ts.(*fakeTokenStore)
+	if fs.byID["pf"].creatorBackfillTs != 9 {
+		t.Fatalf("creatorBackfillTs = %d, want 9 (boş creator çağrısı da damgalamalı)", fs.byID["pf"].creatorBackfillTs)
+	}
+	if fs.byID["pf"].creator != "AAA" {
+		t.Fatalf("creator = %q, want AAA (boş ikinci çağrı gerçek creator'ı ezmemeli)", fs.byID["pf"].creator)
+	}
 	tgs, _ := ts.CreatorFillTargets(ctx, 10)
 	if len(tgs) != 0 {
 		t.Fatalf("pf artık creator'lı → hedef olmamalı: %+v", tgs)
