@@ -44,6 +44,10 @@ type fakeTok struct {
 	safetyBreakdown                         []ScoreBreakdownItem
 	safetyRisks                             RiskGroups
 	safetyScoredTs                          int64
+	// 2b-2a outcome + peak
+	peakMarketCap, peakLiquidity, maxDrawdownPct float64
+	outcome, liquidityStatus                     string
+	outcomeScoredTs                              int64
 }
 
 type fakeTokenStore struct {
@@ -66,6 +70,8 @@ func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs 
 		f.order = append(f.order, t.ID)
 		cur.safetyBreakdown = []ScoreBreakdownItem{}
 		cur.safetyRisks = RiskGroups{Contract: []RiskItem{}, Market: []RiskItem{}, Creator: []RiskItem{}}
+		cur.outcome = "active"
+		cur.liquidityStatus = "unlocked"
 	}
 	cur.row = t
 	cur.firstSeen = firstSeenTs
@@ -135,7 +141,8 @@ func (f *fakeTokenStore) CreatorDetail(_ context.Context, address string) (Creat
 	sort.SliceStable(matches, func(i, j int) bool { return matches[i].firstSeen > matches[j].firstSeen })
 	history := make([]CreatorTokenHistoryItem, 0, len(matches))
 	for _, tk := range matches {
-		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen, tk.marketCapUSD))
+		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen,
+			tk.marketCapUSD, tk.peakMarketCap, tk.maxDrawdownPct, tk.outcome, tk.liquidityStatus))
 	}
 	return buildCreatorProfile(address, firstSeen, len(history), history), true, nil
 }
@@ -151,6 +158,8 @@ func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) 
 		cur.firstSeen = d.FirstSeenTs
 		cur.safetyBreakdown = []ScoreBreakdownItem{}
 		cur.safetyRisks = RiskGroups{Contract: []RiskItem{}, Market: []RiskItem{}, Creator: []RiskItem{}}
+		cur.outcome = "active"
+		cur.liquidityStatus = "unlocked"
 	}
 	cur.row.Name, cur.row.Symbol = d.Name, d.Symbol
 	cur.poolAddr = d.PoolAddr
@@ -173,6 +182,8 @@ func (f *fakeTokenStore) UpdateMarket(_ context.Context, m MarketUpdate) error {
 		m.Spark = []float64{}
 	}
 	cur.row.Spark = m.Spark
+	cur.peakMarketCap = max(cur.peakMarketCap, m.MarketCapUSD)
+	cur.peakLiquidity = max(cur.peakLiquidity, m.Liquidity)
 	f.byID[m.Mint] = cur
 	return nil
 }
@@ -238,6 +249,40 @@ func (f *fakeTokenStore) SafetyScoreTargets(_ context.Context, limit int) ([]Saf
 		out = append(out, SafetyTarget{Mint: t.row.Mint, Liquidity: t.row.Liquidity, Launchpad: t.launchpad})
 	}
 	return out, nil
+}
+
+func (f *fakeTokenStore) OutcomeTargets(_ context.Context, limit int) ([]OutcomeTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ids := append([]string{}, f.order...)
+	sort.SliceStable(ids, func(i, j int) bool {
+		return f.byID[ids[i]].outcomeScoredTs < f.byID[ids[j]].outcomeScoredTs // en eski önce
+	})
+	out := make([]OutcomeTarget, 0, limit)
+	for _, id := range ids {
+		t := f.byID[id]
+		if t.poolAddr == "" || len(out) >= limit {
+			continue
+		}
+		out = append(out, OutcomeTarget{
+			Mint: t.row.Mint, CurMarketCap: t.marketCapUSD, CurLiquidity: t.row.Liquidity,
+			PeakMarketCap: t.peakMarketCap, PeakLiquidity: t.peakLiquidity, Vol24h: t.vol24h, FirstSeenTs: t.firstSeen,
+		})
+	}
+	return out, nil
+}
+
+func (f *fakeTokenStore) UpdateOutcome(_ context.Context, u OutcomeUpdate) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cur, ok := f.byID[u.Mint]
+	if !ok {
+		return nil
+	}
+	cur.outcome, cur.liquidityStatus = u.Outcome, u.LiquidityStatus
+	cur.maxDrawdownPct, cur.outcomeScoredTs = u.MaxDrawdownPct, u.ScoredTs
+	f.byID[u.Mint] = cur
+	return nil
 }
 
 func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow, error) {

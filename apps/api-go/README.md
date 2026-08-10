@@ -37,6 +37,15 @@ bilinmeyen adres → 404).
 | `SAFETY_LIMIT` | Hayır (default 40) | Döngü başına skorlanan token |
 | `SAFETY_HOLDERS_CAP` | Hayır (default 5000) | Holder dağılımı için getTokenAccounts sayfalama tavanı |
 | `CREATORS_LIST_LIMIT` | Hayır (default 100) | `/api/creators` listesinin döndürdüğü maksimum creator sayısı |
+| `OUTCOME_ENABLED` | Hayır (default true) | Token outcome (sonuç) sınıflandırma arka plan worker'ı (2b-2a). Helius gerektirmez |
+| `OUTCOME_INTERVAL_SEC` | Hayır (default 60) | Outcome sınıflandırma döngüsü aralığı (saniye) |
+| `OUTCOME_LIMIT` | Hayır (default 60) | Döngü başına sınıflandırılan token |
+| `OUTCOME_RUG_LIQ_RATIO` | Hayır (default 0.10) | Outcome sınıflandırma eşikleri, deploy'da kalibre edilebilir — rug likidite/tepe oranı |
+| `OUTCOME_GRADUATION_MCAP` | Hayır (default 69000) | Outcome sınıflandırma eşikleri, deploy'da kalibre edilebilir — graduated marketCap eşiği (USD) |
+| `OUTCOME_DUMPED_DRAWDOWN` | Hayır (default 80) | Outcome sınıflandırma eşikleri, deploy'da kalibre edilebilir — dumped max-drawdown yüzdesi |
+| `OUTCOME_DEAD_VOL` | Hayır (default 100) | Outcome sınıflandırma eşikleri, deploy'da kalibre edilebilir — dead hacim tavanı (USD) |
+| `OUTCOME_MIN_LIQ_FLOOR` | Hayır (default 500) | Outcome sınıflandırma eşikleri, deploy'da kalibre edilebilir — minimum likidite tabanı (USD) |
+| `OUTCOME_DEAD_AGE_SEC` | Hayır (default 86400) | Outcome sınıflandırma eşikleri, deploy'da kalibre edilebilir — dead yaş eşiği (saniye) |
 
 ## Railway deploy (KULLANICI ADIMI)
 1. Railway'de yeni servis → GitHub repo `furkanatesc/sentinel`, **Root Directory = `apps/api-go`** (nixpacks Go'yu otomatik derler; **Go 1.24** gerekli — `go.mod`'da pinli; start komutu binary'yi çalıştırır).

@@ -16,6 +16,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/outcome"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
@@ -127,6 +128,20 @@ func main() {
 		go sw.Run(ctx)
 	} else if cfg.SafetyEnabled {
 		logger.Warn("SAFETY: Helius key veya token store yok — safety scorer başlamayacak")
+	}
+
+	// token outcome sınıflandırıcı (2b-2a) — arka plan; Helius gerekmez (saf market verisi)
+	if cfg.OutcomeEnabled && bundle.Tokens != nil {
+		ow := outcome.NewWorker(outcome.WorkerDeps{
+			Store: bundle.Tokens,
+			Thresholds: outcome.Thresholds{
+				RugLiqRatio: cfg.OutcomeRugLiqRatio, GraduationMcap: cfg.OutcomeGraduationMcap,
+				DumpedDrawdown: cfg.OutcomeDumpedDrawdown, DeadVol: cfg.OutcomeDeadVol,
+				MinLiqFloor: cfg.OutcomeMinLiqFloor, DeadAgeSec: int64(cfg.OutcomeDeadAgeSec),
+			},
+			Interval: time.Duration(cfg.OutcomeIntervalSec) * time.Second, Limit: cfg.OutcomeLimit, Logger: logger,
+		})
+		go ow.Run(ctx)
 	}
 
 	srv := &http.Server{

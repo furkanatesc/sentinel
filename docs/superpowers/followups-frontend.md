@@ -354,3 +354,48 @@ düşürme yok — 2b-2'ye ve deploy doğrulamasına bağlı.
   config paketinde hem router wiring'inde ayrı yazılı; ileride biri değişip diğeri unutulursa sessiz
   drift olabilir. Tek kaynağa indirgenebilir (config her zaman router'a geçirilecek şekilde). (Task 4 —
   Minor, deferred.)
+
+## Backend Alt-proje 2 slice 2b-2a (Token Outcome Detection) — deferred
+
+Slice 2b-2a (`feat/backend-scoring-2b-2a`, 2026-08-10) 5'li outcome sınıflandırıcı (saf `internal/outcome/`) +
+peak takibi (migration 0007) + arka plan `outcome.Worker` (Helius/ağ yok) teslim etti; `/api/creator/{address}`
+token geçmişi artık gerçek `outcome`/`peakMarketCap`/`maxDrawdownPct`/`liquidityStatus` gösteriyor. Aşağıdakiler
+bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — 2b-2b'ye, trade-flow dilimlerine (2c/2e) ve deploy
+doğrulamasına bağlı.
+
+- **İtibar skoru + metrikler + `walletAgeDays` + `creatorHoldingPct` → Alt-proje 2 Slice 2b-2b'ye bağlı.**
+  Reputation score, riskLevel, ilgili metrikler ve creator'ın kendi holding yüzdesi nötr placeholder kalıyor;
+  itibar modeli 2b-2b'de (muhtemelen Python) teslim edilecek.
+- **`creatorSellPct` (per-token creator satış %) → trade-flow'a bağlı (2c/2e).** Bir creator'ın belirli bir
+  token'daki satış yüzdesini hesaplamak trade-akışı (buy/sell event) verisi gerektiriyor; bu dilim yalnızca
+  piyasa durumu (market cap/likidite) okuyor, trade-flow yok.
+- **`behavior.*` → trade-flow + funding-graph'a bağlı (2c/2e).** Davranış paterni (sniper%/bot%/buy-sell
+  ratio vb.) aynı şekilde trade-flow ve wallet-funding-graph verisine dayanıyor, bu dilimde toplanmıyor.
+- **`liquidityStatus="locked"` kullanılmıyor.** Sınıflandırıcı şu an yalnız `"unlocked"`/muhtemelen
+  `"unknown"` üretiyor (fake insert default'u da `"unlocked"`); on-chain LP-lock doğrulaması (LP token'ın
+  kilitli/yakılmış olup olmadığı) henüz kapsam dışı — gelecekte eklenecek.
+- **Gerçek pump.fun mezuniyet (Raydium migration) tespiti yerine marketCap-eşiği proxy kullanıldı.**
+  `graduated` outcome'u gerçek bir Raydium migration event'i yerine `OUTCOME_GRADUATION_MCAP` marketCap
+  eşiğine göre çıkarılıyor — 1a'nın decode edilmemiş PumpSwap graduation event'iyle aynı sınırlama sınıfı.
+- **Peak seed conservative — migration'dan itibaren; gerçek tarihsel tepe kayıp.** Migration 0007 mevcut
+  token'ların `peak_market_cap`/`peak_liquidity`'sini o anki **güncel** değerden seed'liyor (geçmişte
+  gerçekleşmiş daha yüksek bir tepe varsa migration öncesi kayıp); migration sonrası peak'ler doğru şekilde
+  yalnızca yükselir (`GREATEST`).
+- **Outcome eşikleri deploy'da gerçek dağılıma göre kalibre edilecek (`OUTCOME_*`).** 6 eşik (rug likidite
+  oranı, graduation marketCap, dumped drawdown, dead hacim/likidite tabanı, dead yaş) makul varsayılanlarla
+  geldi ama canlı token dağılımına karşı yalnızca deploy sonrası kalibre edilebilir — kod değişmeden env ile
+  ayarlanır (1a/1b/1c/2a'nın alan-şekli kalibrasyonlarıyla aynı desen, placeholder değil).
+- **Fake `OutcomeTargets` insertion-order tie-break (brief-mandated, low impact):** `SafetyScoreTargets`'ı
+  yansıtıyor — fake store eşit `outcome_scored_ts`'te ekleme sırasına göre sıralar, postgres gerçek
+  `outcome_scored_ts ASC NULLS FIRST` (veya benzeri) ile sıralar. İki store arasında görünüş farkı
+  yaratabilir (bugün test kapsamında ulaşılmaz). (Minor, deferred.)
+- **Mixed-peak testi yok:** Bir token'ın market cap'i düşüp likiditesinin yükseldiği (ya da tersi) karışık
+  senaryoda `UpdateMarket`'in her iki peak kolonunu bağımsız `GREATEST` ile doğru yükselttiğini doğrulayan
+  bir test eklenmedi; mevcut testler tek-yönlü artış/azalışı kapsıyor. (Minor, deferred.)
+- **`TestLoadOutcomeDefaults` env-hermetic değil:** Diğer config testleri gibi, çalıştırma sırasına/ortam
+  değişkeni sızıntısına karşı tam izole değil (paralel test çalıştırmada teorik flake riski, bugün
+  gözlemlenmedi). (Minor, deferred.)
+- **DB-backed `CreatorDetail` entegrasyon testi yok:** Outcome/peak/drawdown/liquidityStatus alanlarının
+  postgres path'inden okunduğu yalnızca fake store'a karşı test edildi; gerçek Postgres'e karşı round-trip
+  testi CI'da yok (yerel Postgres yok — 1a/1b/1c/2a/2b-1 ile aynı desen, deploy'da doğrulanacak). (Minor,
+  deferred.)
