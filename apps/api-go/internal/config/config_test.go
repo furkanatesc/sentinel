@@ -103,3 +103,10 @@ func TestGetenvBool(t *testing.T) {
 		t.Fatal("getenvBool 'false' okumalı")
 	}
 }
+
+func TestLoadCreatorFillDefaults(t *testing.T) {
+	c := Load()
+	if !c.CreatorFillEnabled || c.CreatorFillIntervalSec != 30 || c.CreatorFillLimit != 20 || c.CreatorFillMaxSigPages != 3 {
+		t.Fatalf("creatorfill defaults: %+v", c)
+	}
+}

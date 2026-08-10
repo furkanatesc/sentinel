@@ -14,6 +14,7 @@ import (
 
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/api"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/creatorfill"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/outcome"
@@ -142,6 +143,18 @@ func main() {
 			Interval: time.Duration(cfg.OutcomeIntervalSec) * time.Second, Limit: cfg.OutcomeLimit, Logger: logger,
 		})
 		go ow.Run(ctx)
+	}
+
+	// REST creator backfill (WS blokörü baypas) — arka plan; Helius RPC gerekli
+	if cfg.CreatorFillEnabled && bundle.Tokens != nil && rpcURL != "" {
+		resolver := ingest.NewCreatorResolver(rpcURL, cfg.CreatorFillMaxSigPages)
+		cw := creatorfill.NewWorker(creatorfill.WorkerDeps{
+			Store: bundle.Tokens, Resolver: resolver,
+			Interval: time.Duration(cfg.CreatorFillIntervalSec) * time.Second, Limit: cfg.CreatorFillLimit, Logger: logger,
+		})
+		go cw.Run(ctx)
+	} else if cfg.CreatorFillEnabled {
+		logger.Warn("CREATORFILL: Helius key veya token store yok — backfill başlamayacak")
 	}
 
 	srv := &http.Server{
