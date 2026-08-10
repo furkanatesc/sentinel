@@ -68,6 +68,9 @@ type SafetyTarget struct {
 	Launchpad string
 }
 
+// CreatorFillTarget, REST creator-backfill için hedef mint'tir.
+type CreatorFillTarget struct{ Mint string }
+
 // OutcomeTarget, sınıflandırılacak token için gereken anlık + tepe piyasa durumudur.
 type OutcomeTarget struct {
 	Mint                                                             string
@@ -102,6 +105,9 @@ type TokenStore interface {
 	// 2b-2a: token outcome (rug/graduated/dumped/dead/active) sınıflandırma sonucunu yazar / hedefleri döndürür.
 	OutcomeTargets(ctx context.Context, limit int) ([]OutcomeTarget, error)
 	UpdateOutcome(ctx context.Context, u OutcomeUpdate) error
+	// REST creator-backfill: creator'sız pump.fun hedeflerini döndürür / bulunan creator'ı yazar (merge).
+	CreatorFillTargets(ctx context.Context, limit int) ([]CreatorFillTarget, error)
+	SetCreatorBackfill(ctx context.Context, mint, creator string, backfillTs int64) error
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -272,6 +278,31 @@ func (p *postgresStore) OutcomeTargets(ctx context.Context, limit int) ([]Outcom
 func (p *postgresStore) UpdateOutcome(ctx context.Context, u OutcomeUpdate) error {
 	const q = `UPDATE tokens SET outcome=$2, liquidity_status=$3, max_drawdown_pct=$4, outcome_scored_ts=$5 WHERE mint=$1`
 	_, err := p.db.ExecContext(ctx, q, u.Mint, u.Outcome, u.LiquidityStatus, u.MaxDrawdownPct, u.ScoredTs)
+	return err
+}
+
+func (p *postgresStore) CreatorFillTargets(ctx context.Context, limit int) ([]CreatorFillTarget, error) {
+	const q = `SELECT mint FROM tokens WHERE launchpad='Pump.fun' AND creator=''
+		ORDER BY creator_backfill_ts ASC, first_seen_ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]CreatorFillTarget, 0, limit)
+	for rows.Next() {
+		var t CreatorFillTarget
+		if err := rows.Scan(&t.Mint); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) SetCreatorBackfill(ctx context.Context, mint, creator string, backfillTs int64) error {
+	const q = `UPDATE tokens SET creator=COALESCE(NULLIF($2,''), creator), creator_backfill_ts=$3 WHERE mint=$1`
+	_, err := p.db.ExecContext(ctx, q, mint, creator, backfillTs)
 	return err
 }
 
