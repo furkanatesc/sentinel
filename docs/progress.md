@@ -70,7 +70,7 @@ Hosting **Railway** (Go servisi + yönetilen Postgres), AWS uzun-vade; DB Postgr
 |---|---|---|---|
 | **0** | **Platform iskeleti** (Go API + Railway Postgres, `getStrategies` dikey dilimi + hibrit adapter) | `getStrategies` | ✅ **TAMAM — master'a merge (ae9b8ee), Railway+Vercel'de CANLI ve doğrulandı (2026-08-04)** |
 | 1 | Solana ingestion (+ WebSocket transport) | `getTokens`/`getEvents`/`getKpis`/`getRadar`/`getToken` + `subscribe*` | ✅ **TAMAMLANDI (1a+1b+1c).** Slice 1a CANLI (master, Railway'de deploy) — gerçek pump.fun token'ları ingest ediliyor & doğrulandı. Slice 1b + 1c kod TAMAM (`feat/backend-ingestion-1b`/`-1c`, deploy bekliyor) — REST market enrichment (price/liquidity/vol5m/momentum/spark gerçek) + Token Detail (`getToken`: header/OHLCV/holders gerçek). `getKpis`/`getRadar` (Overview) ve `getToken`'in scores/risks/davranış-metrikleri → Alt-proje 2 (skorlara bağımlı) |
-| 2 | Scoring & graph (4 skor + Python/ML gerekenlerde) | `getCreators`/`getCreator`/`getWalletGraph`/`getKpis`/`getRadar` + 4 ScoreKey + risks/davranış-metrikleri | 🟡 **DEVAM.** 5 dilim: **2a Token Safety KOD TAMAM + review temiz** (`feat/backend-scoring-2a`, merge bekliyor — `tokenSafety` gerçek) → **2b Creator Rep** (ikiye ayrıldı: **2b-1 Creator Capture KOD TAMAM + review temiz** — `feat/backend-scoring-2b-1`, merge bekliyor — creator adresi/totalTokens/token geçmişi gerçek, itibar/outcome nötr → **2b-2**) → 2c Manipulation → 2d Opportunity+Overview → 2e Wallet Graph. 2a kural-tabanlı Go'da; 2b-1 Go'da (yakalama); Python 2b-2/2c'de |
+| 2 | Scoring & graph (4 skor + Python/ML gerekenlerde) | `getCreators`/`getCreator`/`getWalletGraph`/`getKpis`/`getRadar` + 4 ScoreKey + risks/davranış-metrikleri | 🟡 **DEVAM.** 5 dilim: **2a Token Safety KOD TAMAM + review temiz** (`feat/backend-scoring-2a`, merge bekliyor — `tokenSafety` gerçek) → **2b Creator Rep** (ikiye ayrıldı: **2b-1 Creator Capture KOD TAMAM + review temiz** — `feat/backend-scoring-2b-1`, merge bekliyor — creator adresi/totalTokens/token geçmişi gerçek; **2b-2** de ikiye ayrıldı — **2b-2a Outcome Detection KOD TAMAM** — `feat/backend-scoring-2b-2a`, merge bekliyor — token-başına outcome/peak/drawdown/liquidityStatus gerçek → **2b-2b** itibar skoru) → 2c Manipulation → 2d Opportunity+Overview → 2e Wallet Graph. 2a kural-tabanlı Go'da; 2b-1/2b-2a Go'da (yakalama/outcome); Python 2b-2b/2c'de |
 | 3 | **Alerts & Telegram** (kural CRUD + gerçek Telegram delivery) | `getAlerts`/`subscribeAlerts` | ⬜ (Increment 10 buraya taşındı) |
 | 4 | Strategies & backtest (gerçek motor) | `getStrategy`/`runBacktest` | ⬜ |
 | 5 | Trading engine (Jupiter, emir icra, pozisyon) | `getPortfolio`/`getPositions`/`getOrders`/`getTransactions`/`getTradeLogs`/`getMarketData`/`getCandles` | ⬜ |
@@ -253,6 +253,32 @@ akışına karşı yalnızca deploy'da doğrulanacak — 1a'nın Raydium/2a'nın
 gibi aynı desen (placeholder değil, gerekçeli ertelenen madde). Ertelenen minor'lar:
 `docs/superpowers/followups-frontend.md` "Backend Alt-proje 2 slice 2b-1 (Creator Capture) —
 deferred". **DURUM: merge + deploy kullanıcı onayı bekliyor.**
+
+**Alt-proje 2 Slice 2b-2a (Token Outcome Detection) KOD TAMAM (2026-08-10, branch
+`feat/backend-scoring-2b-2a`, HEAD `352c672`):** 2b-2 (itibar/outcome tespiti) ikiye ayrıldı —
+**2b-2a (outcome tespiti — Go, bu dilim)** ve **2b-2b (itibar skoru — sonraki)**. SDD ile 5 kod
+task'ı (fresh subagent + task-review döngüsü, hepsi review temiz) + Task 6 (bu doküman turu).
+Teslim: saf `internal/outcome/` sınıflandırıcı — bir token'ın güncel+tepe piyasa durumunu 5
+outcome'dan birine eşler (active/graduated/dumped/rug/dead) + `maxDrawdownPct` +
+`liquidityStatus` (kural sırası rug→graduated→dumped→dead→active); tepe (peak) takibi —
+migration `0007` `peak_market_cap`/`peak_liquidity`/`outcome`/`max_drawdown_pct`/
+`liquidity_status`/`outcome_scored_ts` kolonları ekledi (+ mevcut token'lara güncelden peak
+seed), enricher'ın `UpdateMarket`'i artık peak'i SQL `GREATEST` ile yükseltiyor; arka plan
+`outcome.Worker` (safety worker deseniyle aynı — Helius/ağ YOK), periyodik olarak pool'lu
+token'ları sınıflandırıp `UpdateOutcome` ile persist ediyor. Config: 9 `OUTCOME_*` env
+değişkeni (`OUTCOME_ENABLED`/`INTERVAL_SEC`/`LIMIT` + 6 eşik —
+`RUG_LIQ_RATIO`/`GRADUATION_MCAP`/`DUMPED_DRAWDOWN`/`DEAD_VOL`/`MIN_LIQ_FLOOR`/`DEAD_AGE_SEC`),
+hepsi varsayılanlı, deploy'da kalibre edilebilir (yeni `getenvFloat` helper). `/api/creator/{address}`
+token geçmişi artık DB'den **gerçek** `outcome`/`peakMarketCap`/`maxDrawdownPct`/`liquidityStatus`
+okuyor (2b-1'de nötr idi). **Dürüst alan durumu:** gerçek = token-başına outcome/peak/drawdown/
+liquidityStatus; **nötr placeholder** (→ 2b-2b, sessiz düşürme yok): itibar skoru + metrikler +
+`walletAgeDays` + `creatorHoldingPct`. Ertelenen: `creatorSellPct` (trade-flow → 2c), `behavior.*`
+(2c/2e), `liquidityStatus="locked"` (on-chain LP-lock, gelecek), gerçek pump.fun mezuniyet tespiti
+(Raydium migration — şu an marketCap-eşiği proxy). Frontend: **SIFIR değişiklik** (seam alanları
+zaten taşıyordu, UI dokunulmadı). Eşik-kalibrasyonu deploy'da gerçek dağılıma göre yapılacak
+(`OUTCOME_*`, kod değişmeden). Ertelenen minor'lar: `docs/superpowers/followups-frontend.md`
+"Backend Alt-proje 2 slice 2b-2a (Token Outcome Detection) — deferred". **DURUM: whole-branch
+review + merge + deploy kullanıcı onayı bekliyor.**
 
 ### Backlog (kuyruk — henüz spec'lenmedi)
 - **Entegrasyonlar için Ayarlar sekmesi (API key girişi)** — `/settings` altında; kullanıcı
