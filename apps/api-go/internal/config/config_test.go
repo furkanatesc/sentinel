@@ -9,12 +9,24 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("HELIUS_API_KEY", "")
 	t.Setenv("EVENTS_WINDOW", "")
 
+	t.Setenv("SOLANA_RPC_URL", "")
+
 	cfg := Load()
 	if cfg.EventsWindow != 200 {
 		t.Fatalf("EventsWindow = %d, want 200", cfg.EventsWindow)
 	}
 	if cfg.Port != "8080" {
 		t.Fatalf("Port = %q, want 8080", cfg.Port)
+	}
+	if cfg.SolanaRPCURL != "" {
+		t.Fatalf("SolanaRPCURL default = %q, want boş (set edilmezse Helius'a düşer)", cfg.SolanaRPCURL)
+	}
+}
+
+func TestLoadSolanaRPCURLOverride(t *testing.T) {
+	t.Setenv("SOLANA_RPC_URL", "https://example-rpc.tld/?key=abc")
+	if c := Load(); c.SolanaRPCURL != "https://example-rpc.tld/?key=abc" {
+		t.Fatalf("SolanaRPCURL = %q, want override okundu", c.SolanaRPCURL)
 	}
 }
 

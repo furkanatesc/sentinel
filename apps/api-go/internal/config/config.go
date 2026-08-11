@@ -11,6 +11,7 @@ type Config struct {
 	DatabaseURL  string
 	CORSOrigin   string
 	HeliusAPIKey string
+	SolanaRPCURL string // creatorfill resolver için alternatif genel RPC (Helius free-tier getSignaturesForAddress'i bloke ederse); boşsa Helius'a düşer
 	EventsWindow int
 
 	GeckoBaseURL     string
@@ -57,6 +58,7 @@ func Load() Config {
 		DatabaseURL:  os.Getenv("DATABASE_URL"),
 		CORSOrigin:   os.Getenv("CORS_ORIGIN"),
 		HeliusAPIKey: os.Getenv("HELIUS_API_KEY"),
+		SolanaRPCURL: os.Getenv("SOLANA_RPC_URL"),
 		EventsWindow: getenvInt("EVENTS_WINDOW", 200),
 
 		GeckoBaseURL:     getenv("GECKOTERMINAL_BASE_URL", "https://api.geckoterminal.com/api/v2"),
