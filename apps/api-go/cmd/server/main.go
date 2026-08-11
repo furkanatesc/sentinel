@@ -148,20 +148,27 @@ func main() {
 		go ow.Run(ctx)
 	}
 
-	// REST creator backfill (WS blokörü baypas) — arka plan; Helius RPC gerekli
-	if cfg.CreatorFillEnabled && bundle.Tokens != nil && rpcURL != "" {
-		// Paylaşılan hız sınırlayıcı: Helius free-tier RPC 429'u PER-KEY olduğundan
-		// client-side kısıtlama burst'ü gerçekten engeller (bkz GeckoTerminal per-IP
-		// analogunun aksine). getSignaturesForAddress + getTransaction bu bütçeyi paylaşır.
+	// REST creator backfill (WS blokörü baypas) — arka plan; standart RPC gerekli.
+	// Resolver YALNIZ standart getSignaturesForAddress+getTransaction kullanır (Helius
+	// DAS'a bağımlı DEĞİL) → Helius free-tier bu metodu bloke ederse SOLANA_RPC_URL ile
+	// alternatif genel sağlayıcıya yönlendirilir; boşsa Helius rpcURL'e düşer. WS + DAS
+	// (holders/safety) Helius'ta kalır.
+	creatorFillRPC := rpcURL
+	if cfg.SolanaRPCURL != "" {
+		creatorFillRPC = cfg.SolanaRPCURL
+	}
+	if cfg.CreatorFillEnabled && bundle.Tokens != nil && creatorFillRPC != "" {
+		// Paylaşılan hız sınırlayıcı: sağlayıcı 429 burst'ünü önler (deploy-tunable
+		// CREATORFILL_RATE_PER_MIN/BURST; her sağlayıcının kendi limiti olur, defansif).
 		cfLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
-		resolver := ingest.NewCreatorResolver(rpcURL, cfg.CreatorFillMaxSigPages, ingest.WithLimiter(cfLimiter))
+		resolver := ingest.NewCreatorResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, ingest.WithLimiter(cfLimiter))
 		cw := creatorfill.NewWorker(creatorfill.WorkerDeps{
 			Store: bundle.Tokens, Resolver: resolver,
 			Interval: time.Duration(cfg.CreatorFillIntervalSec) * time.Second, Limit: cfg.CreatorFillLimit, Logger: logger,
 		})
 		go cw.Run(ctx)
 	} else if cfg.CreatorFillEnabled {
-		logger.Warn("CREATORFILL: Helius key veya token store yok — backfill başlamayacak")
+		logger.Warn("CREATORFILL: RPC (Helius key veya SOLANA_RPC_URL) veya token store yok — backfill başlamayacak")
 	}
 
 	srv := &http.Server{
