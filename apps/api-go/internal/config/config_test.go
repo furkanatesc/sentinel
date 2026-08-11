@@ -109,4 +109,7 @@ func TestLoadCreatorFillDefaults(t *testing.T) {
 	if !c.CreatorFillEnabled || c.CreatorFillIntervalSec != 30 || c.CreatorFillLimit != 20 || c.CreatorFillMaxSigPages != 3 {
 		t.Fatalf("creatorfill defaults: %+v", c)
 	}
+	if c.CreatorFillRatePerMin != 120 || c.CreatorFillBurst != 2 {
+		t.Fatalf("creatorfill rate defaults: perMin=%d burst=%d", c.CreatorFillRatePerMin, c.CreatorFillBurst)
+	}
 }

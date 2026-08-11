@@ -2,10 +2,18 @@ package ingest
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 )
+
+// Limiter, dışa giden RPC çağrılarını geciktiren paylaşılan hız sınırlayıcıdır
+// (ISP: tek metot). *golang.org/x/time/rate.Limiter bu arayüzü doğrudan karşılar.
+type Limiter interface {
+	Wait(ctx context.Context) error
+}
 
 // sigTxRPC, resolver'ın ihtiyaç duyduğu iki RPC çağrısını soyutlar (DIP; test için fake).
 type sigTxRPC interface {
@@ -19,13 +27,85 @@ type HeliusCreatorResolver struct {
 	rpc         sigTxRPC
 	maxSigPages int
 	pageLimit   int
+	limiter     Limiter                                          // nil → sınırlama yok
+	sleep       func(ctx context.Context, d time.Duration) error // 429 backoff (test için enjekte edilebilir)
 }
 
-func NewCreatorResolver(rpcURL string, maxSigPages int) *HeliusCreatorResolver {
+// ResolverOption, HeliusCreatorResolver'ı yapılandırır (OCP: constructor'ı değiştirmeden genişlet).
+type ResolverOption func(*HeliusCreatorResolver)
+
+// WithLimiter, paylaşılan hız sınırlayıcı enjekte eder. Helius free-tier RPC 429'u
+// PER-KEY'dir (per-IP DEĞİL) → client-side sınırlama gerçekten burst'ü engeller.
+func WithLimiter(l Limiter) ResolverOption {
+	return func(r *HeliusCreatorResolver) { r.limiter = l }
+}
+
+func NewCreatorResolver(rpcURL string, maxSigPages int, opts ...ResolverOption) *HeliusCreatorResolver {
 	if maxSigPages <= 0 {
 		maxSigPages = 3
 	}
-	return &HeliusCreatorResolver{rpc: &heliusSigTx{cli: rpc.New(rpcURL)}, maxSigPages: maxSigPages, pageLimit: 1000}
+	r := &HeliusCreatorResolver{rpc: &heliusSigTx{cli: rpc.New(rpcURL)}, maxSigPages: maxSigPages, pageLimit: 1000, sleep: sleepCtx}
+	for _, o := range opts {
+		o(r)
+	}
+	return r
+}
+
+// crMaxAttempts, 429 (rate-limit) için toplam deneme sayısıdır (1 asıl + retry'lar).
+const crMaxAttempts = 3
+
+// withRetry, her RPC çağrısından önce paylaşılan limiter'dan token alır ve 429'da
+// sınırlı sayıda backoff'lu retry yapar. 429 dışı hatalar anında döner (retry yok).
+func (r *HeliusCreatorResolver) withRetry(ctx context.Context, fn func() error) error {
+	sleep := r.sleep
+	if sleep == nil {
+		sleep = sleepCtx // struct-literal ile kurulan resolver'da (constructor atlanmışsa) nil-panik yerine güvenli varsayılan
+	}
+	var lastErr error
+	for attempt := 0; attempt < crMaxAttempts; attempt++ {
+		if r.limiter != nil {
+			if err := r.limiter.Wait(ctx); err != nil {
+				return err
+			}
+		}
+		err := fn()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if !is429(err) || attempt == crMaxAttempts-1 {
+			return err
+		}
+		if serr := sleep(ctx, crBackoff(attempt)); serr != nil {
+			return serr
+		}
+	}
+	return lastErr
+}
+
+// is429, solana-go rpc hatasının HTTP 429 (rate-limit) olup olmadığını saptar.
+// solana-go 429'u JSON'a çözemez ve mesaja tam "status code: 429" ibaresini gömer;
+// bu spesifik ibareye eşleşmek, hata metninde tesadüfen "429" geçen (ör. slot/imza)
+// rate-limit dışı hataların yanlışlıkla retry'lanmasını önler.
+func is429(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "status code: 429")
+}
+
+// crBackoff, deneme sırasına göre artan gecikme verir (0→500ms, 1→1s).
+func crBackoff(attempt int) time.Duration {
+	return time.Duration(500*(1<<attempt)) * time.Millisecond
+}
+
+// sleepCtx, ctx iptaline duyarlı uyku (varsayılan backoff uygulayıcı).
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 // ResolveCreator, mint'in EN ESKİ sig'ini bulur (create tx), tx log'larından creator'ı çıkarır.
@@ -38,8 +118,12 @@ func (r *HeliusCreatorResolver) ResolveCreator(ctx context.Context, mint string)
 	var before, oldest solana.Signature
 	oldestFound := false
 	for page := 0; page < r.maxSigPages; page++ {
-		sigs, err := r.rpc.listSignatures(ctx, acct, before, r.pageLimit)
-		if err != nil {
+		var sigs []solana.Signature
+		if err := r.withRetry(ctx, func() error {
+			var e error
+			sigs, e = r.rpc.listSignatures(ctx, acct, before, r.pageLimit)
+			return e
+		}); err != nil {
 			return "", false, err
 		}
 		if len(sigs) == 0 {
@@ -55,8 +139,12 @@ func (r *HeliusCreatorResolver) ResolveCreator(ctx context.Context, mint string)
 	if !oldestFound {
 		return "", false, nil
 	}
-	logs, err := r.rpc.txLogs(ctx, oldest)
-	if err != nil {
+	var logs []string
+	if err := r.withRetry(ctx, func() error {
+		var e error
+		logs, e = r.rpc.txLogs(ctx, oldest)
+		return e
+	}); err != nil {
 		return "", false, err
 	}
 	creator, ok := CreatorFromCreateLogs(logs)

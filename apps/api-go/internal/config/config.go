@@ -47,6 +47,8 @@ type Config struct {
 	CreatorFillIntervalSec int
 	CreatorFillLimit       int
 	CreatorFillMaxSigPages int
+	CreatorFillRatePerMin  int // Helius RPC paylaşılan istek bütçesi (istek/dk) — 429 burst'ünü önler
+	CreatorFillBurst       int // token-bucket burst kapasitesi
 }
 
 func Load() Config {
@@ -91,6 +93,8 @@ func Load() Config {
 		CreatorFillIntervalSec: getenvInt("CREATORFILL_INTERVAL_SEC", 30),
 		CreatorFillLimit:       getenvInt("CREATORFILL_LIMIT", 20),
 		CreatorFillMaxSigPages: getenvInt("CREATORFILL_MAX_SIG_PAGES", 3),
+		CreatorFillRatePerMin:  getenvInt("CREATORFILL_RATE_PER_MIN", 120),
+		CreatorFillBurst:       getenvInt("CREATORFILL_BURST", 2),
 	}
 }
 
