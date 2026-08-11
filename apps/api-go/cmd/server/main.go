@@ -31,6 +31,9 @@ var _ ingest.Broadcaster = (*ws.Hub)(nil)
 // paketi rate'i import etmez, uyum yalnız burada bağlanır). İmza saparsa bu satır kırılır.
 var _ market.Limiter = (*rate.Limiter)(nil)
 
+// Aynı kilit ingest.Limiter için (creator-backfill resolver'ı Helius RPC'yi throttle'lar).
+var _ ingest.Limiter = (*rate.Limiter)(nil)
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg := config.Load()
@@ -147,7 +150,11 @@ func main() {
 
 	// REST creator backfill (WS blokörü baypas) — arka plan; Helius RPC gerekli
 	if cfg.CreatorFillEnabled && bundle.Tokens != nil && rpcURL != "" {
-		resolver := ingest.NewCreatorResolver(rpcURL, cfg.CreatorFillMaxSigPages)
+		// Paylaşılan hız sınırlayıcı: Helius free-tier RPC 429'u PER-KEY olduğundan
+		// client-side kısıtlama burst'ü gerçekten engeller (bkz GeckoTerminal per-IP
+		// analogunun aksine). getSignaturesForAddress + getTransaction bu bütçeyi paylaşır.
+		cfLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
+		resolver := ingest.NewCreatorResolver(rpcURL, cfg.CreatorFillMaxSigPages, ingest.WithLimiter(cfLimiter))
 		cw := creatorfill.NewWorker(creatorfill.WorkerDeps{
 			Store: bundle.Tokens, Resolver: resolver,
 			Interval: time.Duration(cfg.CreatorFillIntervalSec) * time.Second, Limit: cfg.CreatorFillLimit, Logger: logger,

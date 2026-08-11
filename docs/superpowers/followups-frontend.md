@@ -451,3 +451,21 @@ edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dilimlere 
     yok (yerel Postgres yok — 1a/1b/1c/2a/2b-1/2b-2a ile aynı desen, deploy'da doğrulanacak).
   - `creatorfill.Worker.Run()` için ayrı bir unit test yok (ticker/cancel döngüsü) — safety/outcome
     worker'larıyla aynı ertelenen kapsam boşluğu.
+
+### Fix: creator-backfill Helius rate-limit / 429-retry (fix/creatorfill-helius-rate-limit)
+
+- **Retry mekanizması duplikasyonu (whole-branch review bulgusu, ERTELENDİ).** `ingest.withRetry`
+  + `crBackoff` + `crMaxAttempts` + `sleepCtx` + `Limiter` arayüzü, `market/geckoterminal.go`'daki
+  `getJSON` + `backoff` + `gtMaxAttempts` + `sleepCtx` + `Limiter`'ın neredeyse birebir kopyası.
+  Tek gerçek fark retryable-yordam (HTTP status==429 vs `is429` ibare-eşleşmesi). Ortak bir
+  `internal/retry` helper'ı (isRetryable(err) predicate ile parametrik) ikisini de kapsardı.
+  **Neden ertelendi:** çıkarmak canlı GeckoTerminal yolunu (market paketi) da değiştirir →
+  bugfix branch kapsamını/riskini büyütür. Ayrı refactor branch'inde ele alınacak.
+- **`is429` HTTP-durum tabanlı değil, string-eşleşme.** solana-go `rpc.Client` durum kodunu
+  yapılandırılmış vermediğinden hata metnindeki tam `"status code: 429"` ibaresine bakılıyor
+  (dar eşleşme, false-positive'i eler). solana-go mesaj formatı değişirse kırılır — düşük risk,
+  deploy'da 429 retry davranışı doğrulanır.
+- **Kalibrasyon (deploy'da):** `CREATORFILL_RATE_PER_MIN`(120=2/s)/`CREATORFILL_BURST`(2) Helius
+  free-tier gerçek RPS'ine göre ayarlanabilir; 2/s hâlâ 429 alırsa düşür (backoff-retry emniyet
+  ağı var). Diğer Helius worker'ları (safety/holders) aynı key bütçesini paylaşır ama ayrı/ılımlı
+  — ileride tüm Helius çağrılarını tek limiter bütçesine bağlamak potansiyel iyileştirme.

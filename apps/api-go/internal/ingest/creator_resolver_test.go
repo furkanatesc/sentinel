@@ -2,7 +2,9 @@ package ingest
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
@@ -122,5 +124,132 @@ func TestResolveCreatorCapHitNoFabrication(t *testing.T) {
 	}
 	if fx.sigCalls != 2 {
 		t.Fatalf("sigCalls=%d, want 2 (cap=maxSigPages'de durmalı)", fx.sigCalls)
+	}
+}
+
+// countingLimiter, Wait çağrılarını sayar (rate-limit uygulandığını kanıtlar).
+type countingLimiter struct{ waits int }
+
+func (c *countingLimiter) Wait(context.Context) error { c.waits++; return nil }
+
+// flakySigTx, ilk failsLeft çağrıda err döner, sonra sabit sigs/logs verir
+// (429 backoff-retry davranışını test için).
+type flakySigTx struct {
+	failsLeft int
+	err       error
+	sigs      []solana.Signature
+	logs      []string
+	sigCalls  int
+}
+
+func (f *flakySigTx) listSignatures(context.Context, solana.PublicKey, solana.Signature, int) ([]solana.Signature, error) {
+	f.sigCalls++
+	if f.failsLeft > 0 {
+		f.failsLeft--
+		return nil, f.err
+	}
+	return f.sigs, nil
+}
+func (f *flakySigTx) txLogs(context.Context, solana.Signature) ([]string, error) { return f.logs, nil }
+
+// TestResolveCreatorRateLimited, her RPC çağrısından ÖNCE limiter.Wait çağrıldığını
+// doğrular (1 listSignatures + 1 txLogs = 2 Wait) — burst'ü önleyen düzeltmenin özü.
+func TestResolveCreatorRateLimited(t *testing.T) {
+	var user [32]byte
+	user[0], user[31] = 4, 8
+	oldest := solana.Signature{1}
+	fx := &fakeSigTx{
+		pages:  [][]solana.Signature{{oldest}},
+		logsBy: map[solana.Signature][]string{oldest: mkCreateLogs(user)},
+	}
+	lim := &countingLimiter{}
+	r := &HeliusCreatorResolver{rpc: fx, maxSigPages: 3, pageLimit: 1000, limiter: lim}
+	_, found, err := r.ResolveCreator(context.Background(), base58.Encode(make([]byte, 32)))
+	if err != nil || !found {
+		t.Fatalf("found=%v err=%v", found, err)
+	}
+	if lim.waits != 2 {
+		t.Fatalf("limiter.Wait=%d, want 2 (her RPC öncesi bir token)", lim.waits)
+	}
+}
+
+// TestResolveCreatorRetriesOn429, 429 hatasında sınırlı backoff-retry yapıldığını
+// ve sonraki denemede başarıya ulaştığını doğrular.
+func TestResolveCreatorRetriesOn429(t *testing.T) {
+	var user [32]byte
+	user[0], user[31] = 4, 8
+	oldest := solana.Signature{1}
+	fx := &flakySigTx{
+		failsLeft: 1,
+		err:       errors.New("rpc call getSignaturesForAddress() on https://x status code: 429. could not decode body"),
+		sigs:      []solana.Signature{oldest},
+		logs:      mkCreateLogs(user),
+	}
+	slept := 0
+	r := &HeliusCreatorResolver{rpc: fx, maxSigPages: 3, pageLimit: 1000,
+		sleep: func(context.Context, time.Duration) error { slept++; return nil }}
+	creator, found, err := r.ResolveCreator(context.Background(), base58.Encode(make([]byte, 32)))
+	if err != nil || !found || creator != base58.Encode(user[:]) {
+		t.Fatalf("creator=%q found=%v err=%v", creator, found, err)
+	}
+	if fx.sigCalls != 2 {
+		t.Fatalf("sigCalls=%d, want 2 (429 sonrası 1 retry)", fx.sigCalls)
+	}
+	if slept != 1 {
+		t.Fatalf("slept=%d, want 1 (429 backoff)", slept)
+	}
+}
+
+// TestResolveCreator429Exhausted, 429 sürekli sürerse denemenin bounded olduğunu
+// (crMaxAttempts'te durup hata döndüğünü) doğrular — sonsuz retry yok.
+func TestResolveCreator429Exhausted(t *testing.T) {
+	fx := &flakySigTx{failsLeft: 99, err: errors.New("status code: 429")}
+	r := &HeliusCreatorResolver{rpc: fx, maxSigPages: 3, pageLimit: 1000,
+		sleep: func(context.Context, time.Duration) error { return nil }}
+	_, found, err := r.ResolveCreator(context.Background(), base58.Encode(make([]byte, 32)))
+	if err == nil || found {
+		t.Fatalf("want err (429 tükendi), got found=%v err=%v", found, err)
+	}
+	if fx.sigCalls != crMaxAttempts {
+		t.Fatalf("sigCalls=%d, want %d (bounded)", fx.sigCalls, crMaxAttempts)
+	}
+}
+
+// TestResolveCreatorNoRetryNon429, 429 DIŞI hatada retry YAPILMADIĞINI (anında
+// hata döndüğünü) doğrular — sadece rate-limit retry'lanır.
+func TestResolveCreatorNoRetryNon429(t *testing.T) {
+	fx := &flakySigTx{failsLeft: 99, err: errors.New("connection refused")}
+	slept := 0
+	r := &HeliusCreatorResolver{rpc: fx, maxSigPages: 3, pageLimit: 1000,
+		sleep: func(context.Context, time.Duration) error { slept++; return nil }}
+	_, _, err := r.ResolveCreator(context.Background(), base58.Encode(make([]byte, 32)))
+	if err == nil {
+		t.Fatal("want err")
+	}
+	if fx.sigCalls != 1 {
+		t.Fatalf("sigCalls=%d, want 1 (429 dışı → retry yok)", fx.sigCalls)
+	}
+	if slept != 0 {
+		t.Fatalf("slept=%d, want 0 (429 dışı → backoff yok)", slept)
+	}
+}
+
+// TestResolveCreatorNoRetryOn429Substring, hata metninde tesadüfen "429" GEÇEN ama
+// gerçek rate-limit ("status code: 429") OLMAYAN bir hatanın retry'lanMADIĞINI
+// doğrular — is429'un dar (spesifik ibare) eşleşmesini kilitler.
+func TestResolveCreatorNoRetryOn429Substring(t *testing.T) {
+	fx := &flakySigTx{failsLeft: 99, err: errors.New("invalid signature at slot 84290: not found")}
+	slept := 0
+	r := &HeliusCreatorResolver{rpc: fx, maxSigPages: 3, pageLimit: 1000,
+		sleep: func(context.Context, time.Duration) error { slept++; return nil }}
+	_, _, err := r.ResolveCreator(context.Background(), base58.Encode(make([]byte, 32)))
+	if err == nil {
+		t.Fatal("want err")
+	}
+	if fx.sigCalls != 1 {
+		t.Fatalf("sigCalls=%d, want 1 (metinde '429' var ama 'status code: 429' yok → retry yok)", fx.sigCalls)
+	}
+	if slept != 0 {
+		t.Fatalf("slept=%d, want 0", slept)
 	}
 }

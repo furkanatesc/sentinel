@@ -50,6 +50,8 @@ bilinmeyen adres → 404).
 | `CREATORFILL_INTERVAL_SEC` | Hayır (default 30) | Backfill döngüsü aralığı (saniye) |
 | `CREATORFILL_LIMIT` | Hayır (default 20) | Döngü başına backfill denenen creator'sız pump.fun token |
 | `CREATORFILL_MAX_SIG_PAGES` | Hayır (default 3) | Mint'in en-eski imzasını ararken `getSignaturesForAddress` sayfalama tavanı |
+| `CREATORFILL_RATE_PER_MIN` | Hayır (default 120) | Helius RPC paylaşılan istek bütçesi (istek/dk); free-tier 429 burst'ünü önler. Per-key limit → client-side kısıtlama etkili |
+| `CREATORFILL_BURST` | Hayır (default 2) | Rate-limiter token-bucket burst kapasitesi |
 
 ## Railway deploy (KULLANICI ADIMI)
 1. Railway'de yeni servis → GitHub repo `furkanatesc/sentinel`, **Root Directory = `apps/api-go`** (nixpacks Go'yu otomatik derler; **Go 1.24** gerekli — `go.mod`'da pinli; start komutu binary'yi çalıştırır).
