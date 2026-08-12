@@ -237,12 +237,19 @@ func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenD
 	if !ok {
 		return TokenDetailBase{}, false, nil
 	}
+	// 2b-2b: creator itibarı (postgres LEFT JOIN creators parite); skorlanmamış/creator'sız → nötr 0/0/boş.
+	rep := f.reputationByAddr[t.creator]
+	repBreakdown := rep.Breakdown
+	if repBreakdown == nil {
+		repBreakdown = []ScoreBreakdownItem{}
+	}
 	return TokenDetailBase{
 		Name: t.row.Name, Symbol: t.row.Symbol, PoolAddr: t.poolAddr, FirstSeenTs: t.firstSeen,
 		Price: t.row.Price, Liquidity: t.row.Liquidity,
 		PriceChangeH24: t.priceChangeH24, MarketCapUSD: t.marketCapUSD, Vol24h: t.vol24h,
 		SafetyScore: t.safetyScore, SafetyConfidence: t.safetyConfidence, Top10Pct: t.top10Pct,
 		SafetyBreakdown: t.safetyBreakdown, SafetyRisks: t.safetyRisks, SafetyScoredTs: t.safetyScoredTs,
+		CreatorRepScore: rep.Score, CreatorRepConfidence: rep.Confidence, CreatorRepBreakdown: repBreakdown,
 	}, true, nil
 }
 
@@ -318,7 +325,12 @@ func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow,
 	defer f.mu.Unlock()
 	out := make([]TokenRow, 0, limit)
 	for i := len(f.order) - 1; i >= 0 && len(out) < limit; i-- {
-		out = append(out, f.byID[f.order[i]].row)
+		tk := f.byID[f.order[i]]
+		row := tk.row
+		// 2b-2b: creatorScore artık nötr değil — creator itibarından (postgres LEFT JOIN creators parite;
+		// skorlanmamış/creator'sız → 0, COALESCE(c.reputation_score,0) ile eşleşir).
+		row.CreatorScore = f.reputationByAddr[tk.creator].Score
+		out = append(out, row)
 	}
 	return out, nil
 }

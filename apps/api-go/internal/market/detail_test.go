@@ -225,6 +225,31 @@ func TestBuildTokenSafetyFromStore(t *testing.T) {
 	}
 }
 
+// TestBuildCreatorReputationFromStore, 2b-2b: scores.creatorReputation artık nötr placeholder
+// değil, TokenDetailBase'in creator itibarı alanlarından (creators tablosu → LEFT JOIN) gelmeli;
+// diğer 3 skor (tokenSafety hariç, o ayrı test) nötr kalmalı.
+func TestBuildCreatorReputationFromStore(t *testing.T) {
+	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
+	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0,
+			CreatorRepScore: 72, CreatorRepConfidence: 1,
+			CreatorRepBreakdown: []store.ScoreBreakdownItem{{Label: "Başarı oranı", Weight: 0, Detail: "ok"}}},
+	}}
+	svc := NewTokenDetailService(TokenDetailDeps{Store: fs, Provider: dp, Holders: &fakeHolders{n: 5}, Now: func() int64 { return 600 }})
+	d, ok, err := svc.Build(context.Background(), "M1")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	sd := d.Scores["creatorReputation"]
+	if sd.Value != 72 || sd.Confidence != 1 || len(sd.Breakdown) != 1 || sd.Key != "creatorReputation" {
+		t.Fatalf("creatorReputation skoru DB'den gelmeli: %+v", sd)
+	}
+	// Diğer skorlar nötr kalmalı.
+	if d.Scores["opportunity"].Confidence != 0 || d.Scores["tokenSafety"].Confidence != 0 || d.Scores["manipulationRisk"].Confidence != 0 {
+		t.Fatalf("diğer 3 skor nötr kalmalı: %+v", d.Scores)
+	}
+}
+
 func TestBuildCache(t *testing.T) {
 	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
 	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{

@@ -125,8 +125,12 @@ func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs
 }
 
 func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow, error) {
-	const q = `SELECT mint, symbol, name, first_seen_ts, price, liquidity, vol5m, holders,
-		creator_score, safety_score, momentum, spark FROM tokens ORDER BY first_seen_ts DESC LIMIT $1`
+	// 2b-2b: creator_score sütunu yerine creators tablosundan LEFT JOIN (creator itibarı gerçek;
+	// skorlanmamış/creator'sız token → COALESCE 0, fake reputationByAddr[""] boş değer ile parite).
+	const q = `SELECT t.mint, t.symbol, t.name, t.first_seen_ts, t.price, t.liquidity, t.vol5m, t.holders,
+		COALESCE(c.reputation_score,0), t.safety_score, t.momentum, t.spark
+		FROM tokens t LEFT JOIN creators c ON c.address = t.creator
+		ORDER BY t.first_seen_ts DESC LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
 	if err != nil {
 		return nil, err
@@ -202,15 +206,21 @@ func (p *postgresStore) EnrichTargets(ctx context.Context, limit int) ([]EnrichT
 }
 
 func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (TokenDetailBase, bool, error) {
-	const q = `SELECT name, symbol, pool_address, first_seen_ts, price, liquidity,
-		price_change_h24, market_cap_usd, vol24h,
-		safety_score, safety_confidence, top10_holder_pct, safety_breakdown, safety_risks, safety_scored_ts
-		FROM tokens WHERE mint=$1`
+	// 2b-2b: creators LEFT JOIN → creator itibarı (skorlanmamış/creator'sız token → COALESCE 0/0/'').
+	const q = `SELECT tokens.name, tokens.symbol, tokens.pool_address, tokens.first_seen_ts,
+		tokens.price, tokens.liquidity,
+		tokens.price_change_h24, tokens.market_cap_usd, tokens.vol24h,
+		tokens.safety_score, tokens.safety_confidence, tokens.top10_holder_pct,
+		tokens.safety_breakdown, tokens.safety_risks, tokens.safety_scored_ts,
+		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0), COALESCE(c.breakdown,'')
+		FROM tokens LEFT JOIN creators c ON c.address = tokens.creator
+		WHERE tokens.mint=$1`
 	var b TokenDetailBase
-	var bdJSON, rkJSON string
+	var bdJSON, rkJSON, repBdJSON string
 	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs,
 		&b.Price, &b.Liquidity, &b.PriceChangeH24, &b.MarketCapUSD, &b.Vol24h,
-		&b.SafetyScore, &b.SafetyConfidence, &b.Top10Pct, &bdJSON, &rkJSON, &b.SafetyScoredTs)
+		&b.SafetyScore, &b.SafetyConfidence, &b.Top10Pct, &bdJSON, &rkJSON, &b.SafetyScoredTs,
+		&b.CreatorRepScore, &b.CreatorRepConfidence, &repBdJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TokenDetailBase{}, false, nil
 	}
@@ -219,6 +229,7 @@ func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (Token
 	}
 	b.SafetyBreakdown = parseBreakdownJSON(bdJSON)
 	b.SafetyRisks = parseRiskGroupsJSON(rkJSON)
+	b.CreatorRepBreakdown = parseBreakdownJSON(repBdJSON)
 	return b, true, nil
 }
 
