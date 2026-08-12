@@ -2,8 +2,14 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 )
+
+// reputationHighDrawdown, deriveRiskFlags'in "Yüksek düşüş" bayrağını tetiklediği eşiktir (%).
+const reputationHighDrawdown = 80
 
 // CreatorRow, frontend CreatorRow (apps/web/lib/api/types.ts) ile birebir JSON şeklidir.
 // 2b-1: Address/TotalTokens gerçek; kalanlar nötr placeholder → 2b-2 (itibar skoru + outcome).
@@ -76,6 +82,27 @@ func neutralBehavior() CreatorBehavior {
 	return CreatorBehavior{RepeatedFunders: []string{}}
 }
 
+// deriveRiskFlags, per-token history item'ın outcome/liquidityStatus/maxDrawdown'undan
+// insan-okunur risk bayrakları türetir (2b-2b). Non-nil döner (boş dizi, nil değil — JSON []).
+func deriveRiskFlags(outcome, liquidityStatus string, maxDrawdown float64) []string {
+	flags := []string{}
+	switch outcome {
+	case "rug":
+		flags = append(flags, "Rug çekildi")
+	case "dumped":
+		flags = append(flags, "Dump edildi")
+	case "dead":
+		flags = append(flags, "Ölü (hacim yok)")
+	}
+	if liquidityStatus == "removed" {
+		flags = append(flags, "Likidite çekildi")
+	}
+	if maxDrawdown >= reputationHighDrawdown {
+		flags = append(flags, fmt.Sprintf("Yüksek düşüş (%%%.0f)", maxDrawdown))
+	}
+	return flags
+}
+
 // newHistoryItem, gerçek piyasa + outcome alanlarını doldurur; creatorSellPct nötr (→ 2c trade-flow).
 func newHistoryItem(mint, symbol string, firstSeenTs int64, currentMcap, peakMcap, maxDrawdown float64, outcome, liquidityStatus string) CreatorTokenHistoryItem {
 	return CreatorTokenHistoryItem{
@@ -86,7 +113,7 @@ func newHistoryItem(mint, symbol string, firstSeenTs int64, currentMcap, peakMca
 		MaxDrawdownPct:   maxDrawdown,
 		LiquidityStatus:  liquidityStatus,
 		Outcome:          outcome,
-		RiskFlags:        []string{}, // nötr → 2b-2b (risk bayrakları itibar skoruyla)
+		RiskFlags:        deriveRiskFlags(outcome, liquidityStatus, maxDrawdown),
 	}
 }
 
@@ -113,9 +140,14 @@ type CreatorStore interface {
 }
 
 func (p *postgresStore) Creators(ctx context.Context, limit int) ([]CreatorRow, error) {
-	const q = `SELECT creator, COUNT(*) AS total FROM tokens
-		WHERE creator <> '' GROUP BY creator
-		ORDER BY total DESC, MIN(first_seen_ts) ASC LIMIT $1`
+	// LEFT JOIN creators: skorlanmamış creator düşmez (COALESCE nötr) — bkz. TestCreatorsListIncludesUnscored.
+	const q = `SELECT t.creator, COUNT(*) AS total,
+		COALESCE(c.reputation_score,0), COALESCE(c.risk_level,'medium'),
+		COALESCE(c.active_tokens,0), COALESCE(c.rugged_tokens,0), COALESCE(c.success_rate_pct,0)
+		FROM tokens t LEFT JOIN creators c ON c.address = t.creator
+		WHERE t.creator <> '' GROUP BY t.creator, c.reputation_score, c.risk_level,
+			c.active_tokens, c.rugged_tokens, c.success_rate_pct
+		ORDER BY total DESC, MIN(t.first_seen_ts) ASC LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
 	if err != nil {
 		return nil, err
@@ -124,10 +156,10 @@ func (p *postgresStore) Creators(ctx context.Context, limit int) ([]CreatorRow, 
 	out := make([]CreatorRow, 0, limit)
 	for rows.Next() {
 		var c CreatorRow
-		if err := rows.Scan(&c.Address, &c.TotalTokens); err != nil {
+		if err := rows.Scan(&c.Address, &c.TotalTokens, &c.ReputationScore, &c.RiskLevel,
+			&c.ActiveTokens, &c.RuggedTokens, &c.SuccessRatePct); err != nil {
 			return nil, err
 		}
-		c.RiskLevel = "medium" // nötr placeholder → 2b-2
 		out = append(out, c)
 	}
 	return out, rows.Err()
@@ -167,5 +199,28 @@ func (p *postgresStore) CreatorDetail(ctx context.Context, address string) (Crea
 	if err := rows.Err(); err != nil {
 		return CreatorProfile{}, false, err
 	}
-	return buildCreatorProfile(address, firstSeen, total, history), true, nil
+
+	prof := buildCreatorProfile(address, firstSeen, total, history)
+	// creators satırını oku (yoksa nötr — Worker henüz skorlamamış, sql.ErrNoRows beklenen durum).
+	var rep CreatorReputation
+	var breakdownJSON string
+	repErr := p.db.QueryRowContext(ctx,
+		`SELECT reputation_score, confidence, risk_level, breakdown, active_tokens, rugged_tokens,
+			graduated_tokens, avg_peak_market_cap, avg_lifetime_hours, success_rate_pct
+		 FROM creators WHERE address=$1`, address).
+		Scan(&rep.Score, &rep.Confidence, &rep.RiskLevel, &breakdownJSON, &rep.ActiveTokens,
+			&rep.RuggedTokens, &rep.GraduatedTokens, &rep.AvgPeakMarketCap, &rep.AvgLifetimeHours, &rep.SuccessRatePct)
+	if repErr != nil && !errors.Is(repErr, sql.ErrNoRows) {
+		return CreatorProfile{}, false, repErr
+	}
+	if repErr == nil {
+		prof.Reputation = ScoreDetail{Key: "creatorReputation", Value: rep.Score, Confidence: rep.Confidence,
+			Breakdown: parseBreakdownJSON(breakdownJSON)}
+		prof.RiskLevel = rep.RiskLevel
+		prof.Metrics = CreatorMetrics{
+			TotalTokens: total, ActiveTokens: rep.ActiveTokens, RuggedTokens: rep.RuggedTokens,
+			AvgPeakMarketCap: rep.AvgPeakMarketCap, AvgLifetimeHours: rep.AvgLifetimeHours, SuccessRatePct: rep.SuccessRatePct,
+		}
+	}
+	return prof, true, nil
 }

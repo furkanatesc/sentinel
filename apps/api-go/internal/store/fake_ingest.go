@@ -105,7 +105,15 @@ func (f *fakeTokenStore) Creators(_ context.Context, limit int) ([]CreatorRow, e
 	}
 	out := make([]CreatorRow, 0, len(counts))
 	for addr, n := range counts {
-		out = append(out, CreatorRow{Address: addr, TotalTokens: n, RiskLevel: "medium"})
+		row := CreatorRow{Address: addr, TotalTokens: n, RiskLevel: "medium"} // nötr → skorlanmamış creator
+		if rep, ok := f.reputationByAddr[addr]; ok {
+			row.ReputationScore = rep.Score
+			row.RiskLevel = rep.RiskLevel
+			row.ActiveTokens = rep.ActiveTokens
+			row.RuggedTokens = rep.RuggedTokens
+			row.SuccessRatePct = rep.SuccessRatePct
+		}
+		out = append(out, row)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].TotalTokens != out[j].TotalTokens {
@@ -150,7 +158,21 @@ func (f *fakeTokenStore) CreatorDetail(_ context.Context, address string) (Creat
 		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen,
 			tk.marketCapUSD, tk.peakMarketCap, tk.maxDrawdownPct, tk.outcome, tk.liquidityStatus))
 	}
-	return buildCreatorProfile(address, firstSeen, len(history), history), true, nil
+	prof := buildCreatorProfile(address, firstSeen, len(history), history)
+	// postgres LEFT JOIN parite: skorlanmışsa gerçek alanlar, yoksa nötr (reputationByAddr'de yok).
+	if rep, ok := f.reputationByAddr[address]; ok {
+		breakdown := rep.Breakdown
+		if breakdown == nil {
+			breakdown = []ScoreBreakdownItem{}
+		}
+		prof.Reputation = ScoreDetail{Key: "creatorReputation", Value: rep.Score, Confidence: rep.Confidence, Breakdown: breakdown}
+		prof.RiskLevel = rep.RiskLevel
+		prof.Metrics = CreatorMetrics{
+			TotalTokens: len(history), ActiveTokens: rep.ActiveTokens, RuggedTokens: rep.RuggedTokens,
+			AvgPeakMarketCap: rep.AvgPeakMarketCap, AvgLifetimeHours: rep.AvgLifetimeHours, SuccessRatePct: rep.SuccessRatePct,
+		}
+	}
+	return prof, true, nil
 }
 
 func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) (bool, error) {

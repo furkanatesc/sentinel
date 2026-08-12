@@ -133,3 +133,78 @@ func TestCreatorDetailNotFound(t *testing.T) {
 		t.Fatalf("bulunmayan creator: ok=%v err=%v", ok, err)
 	}
 }
+
+// contains, dilimde bir string arar (riskFlags testlerinde kullanılır).
+func contains(list []string, want string) bool {
+	for _, v := range list {
+		if v == want {
+			return true
+		}
+	}
+	return false
+}
+
+// TestCreatorDetailReadsRealReputation, 2b-2b: UpsertReputation ile persist edilmiş
+// itibar/metrik CreatorDetail'de nötr placeholder yerine gerçek olarak dönmeli.
+func TestCreatorDetailReadsRealReputation(t *testing.T) {
+	ctx := context.Background()
+	ts := NewFakeTokenStore()
+	f := ts.(*fakeTokenStore)
+	seedToken(t, f, "m1", "A", "rug", 69000, 100, 3700)
+	seedToken(t, f, "m2", "A", "graduated", 80000, 100, 3700)
+	if err := f.UpsertReputation(ctx, CreatorReputation{
+		Address: "A", Score: 55, Confidence: 0.4, RiskLevel: "medium",
+		TotalTokens: 2, RuggedTokens: 1, GraduatedTokens: 1, SuccessRatePct: 50, AvgPeakMarketCap: 74500,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	prof, ok, err := f.CreatorDetail(ctx, "A")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if prof.Reputation.Value != 55 || prof.RiskLevel != "medium" {
+		t.Fatalf("reputation okunmadı: %+v", prof.Reputation)
+	}
+	if prof.Metrics.RuggedTokens != 1 || prof.Metrics.SuccessRatePct != 50 {
+		t.Fatalf("metrics yanlış: %+v", prof.Metrics)
+	}
+}
+
+// TestCreatorDetailRiskFlagsFromOutcome, per-token history item'ların outcome/liquidityStatus/
+// maxDrawdown'dan riskFlags türettiğini doğrular (deriveRiskFlags).
+func TestCreatorDetailRiskFlagsFromOutcome(t *testing.T) {
+	ctx := context.Background()
+	ts := NewFakeTokenStore()
+	f := ts.(*fakeTokenStore)
+	seedTokenFull(t, f, "m1", "A", "rug", "removed", 95) // outcome=rug, liq=removed, drawdown=95
+	prof, ok, err := f.CreatorDetail(ctx, "A")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	flags := prof.History[0].RiskFlags
+	if !contains(flags, "Rug çekildi") || !contains(flags, "Likidite çekildi") {
+		t.Fatalf("riskFlags eksik: %v", flags)
+	}
+	if !contains(flags, "Yüksek düşüş (%95)") {
+		t.Fatalf("yüksek düşüş bayrağı eksik: %v", flags)
+	}
+}
+
+// TestCreatorsListIncludesUnscored, henüz Worker tarafından skorlanmamış creator'ların
+// Creators listesinden düşmemesini (LEFT JOIN + COALESCE nötr) kilitler.
+func TestCreatorsListIncludesUnscored(t *testing.T) {
+	ctx := context.Background()
+	ts := NewFakeTokenStore()
+	f := ts.(*fakeTokenStore)
+	seedToken(t, f, "m1", "A", "active", 0, 100, 0) // creator A yakalandı ama skorlanmadı
+	rows, err := f.Creators(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Address != "A" || rows[0].RiskLevel != "medium" {
+		t.Fatalf("skorlanmamış creator nötr olarak listelenmeli: %+v", rows)
+	}
+	if rows[0].ReputationScore != 0 {
+		t.Fatalf("skorlanmamış creator reputationScore=0 olmalı: %+v", rows[0])
+	}
+}

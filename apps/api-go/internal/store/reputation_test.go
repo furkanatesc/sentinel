@@ -28,6 +28,24 @@ func seedToken(t *testing.T, ts TokenStore, mint, creator, outcome string, peak 
 	}
 }
 
+// seedTokenFull, seedToken'a ek olarak liquidityStatus/maxDrawdown taşır (2b-2b riskFlags
+// testleri için — deriveRiskFlags outcome+liquidityStatus+maxDrawdown'dan türetir).
+func seedTokenFull(t *testing.T, ts TokenStore, mint, creator, outcome, liquidityStatus string, maxDrawdown float64) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := ts.UpsertDiscovered(ctx, DiscoveredToken{Mint: mint, FirstSeenTs: 100}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ts.UpsertToken(ctx, TokenRow{ID: mint, Mint: mint}, 100, creator); err != nil {
+		t.Fatal(err)
+	}
+	if err := ts.UpdateOutcome(ctx, OutcomeUpdate{
+		Mint: mint, Outcome: outcome, LiquidityStatus: liquidityStatus, MaxDrawdownPct: maxDrawdown, ScoredTs: 200,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCreatorAggregatesGroupsByCreatorAndCountsOutcomes(t *testing.T) {
 	ts := NewFakeTokenStore()
 	f := ts.(*fakeTokenStore)
