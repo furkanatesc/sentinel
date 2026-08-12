@@ -36,7 +36,8 @@ func marshalBreakdown(b []ScoreBreakdownItem) (string, error) {
 }
 
 // CreatorAggregates, creator-başına outcome agrega döndürür; skorlanmamış creator'lar
-// önce (round-robin), sonra en-eski skorlanan. active=çözülmemiş (scorer paydaya katmaz).
+// önce (round-robin), sonra en-eski skorlanan, eşitlikte address ASC (deterministik —
+// bkz. fakeTokenStore.CreatorAggregates parite notu). active=çözülmemiş (scorer paydaya katmaz).
 func (p *postgresStore) CreatorAggregates(ctx context.Context, limit int) ([]CreatorAgg, error) {
 	const q = `SELECT t.creator, COUNT(*),
 		SUM(CASE WHEN t.outcome='active'    THEN 1 ELSE 0 END),
@@ -50,7 +51,7 @@ func (p *postgresStore) CreatorAggregates(ctx context.Context, limit int) ([]Cre
 		FROM tokens t LEFT JOIN creators c ON c.address = t.creator
 		WHERE t.creator <> ''
 		GROUP BY t.creator, c.scored_ts
-		ORDER BY c.scored_ts ASC NULLS FIRST
+		ORDER BY c.scored_ts ASC NULLS FIRST, t.creator ASC
 		LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
 	if err != nil {

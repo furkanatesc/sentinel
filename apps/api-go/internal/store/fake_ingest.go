@@ -375,13 +375,19 @@ func (f *fakeTokenStore) CreatorAggregates(_ context.Context, limit int) ([]Crea
 			lifeN[t.creator]++
 		}
 	}
-	// skorlanmamış önce, sonra en-eski scored_ts (round-robin)
+	// skorlanmamış önce, sonra en-eski scored_ts (round-robin); eşitlikte address ASC
+	// (postgres `ORDER BY c.scored_ts ASC NULLS FIRST, t.creator ASC` ile parite — map
+	// iterasyonu rastgele olduğundan ikincil anahtar olmadan sıra deterministik değildi).
 	addrs := make([]string, 0, len(byAddr))
 	for addr := range byAddr {
 		addrs = append(addrs, addr)
 	}
 	sort.SliceStable(addrs, func(i, j int) bool {
-		return f.reputationByAddr[addrs[i]].ScoredTs < f.reputationByAddr[addrs[j]].ScoredTs
+		si, sj := f.reputationByAddr[addrs[i]].ScoredTs, f.reputationByAddr[addrs[j]].ScoredTs
+		if si != sj {
+			return si < sj
+		}
+		return addrs[i] < addrs[j]
 	})
 	out := make([]CreatorAgg, 0, limit)
 	for _, addr := range addrs {

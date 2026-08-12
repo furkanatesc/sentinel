@@ -54,6 +54,56 @@ func TestCreatorAggregatesGroupsByCreatorAndCountsOutcomes(t *testing.T) {
 	}
 }
 
+// TestCreatorAggregatesOrdersUnscoredFirstThenOldestScoredThenAddress, fake↔postgres
+// arasında sürüklenme riski taşıyan sözleşmeyi kapsar: skorlanmamış (reputationByAddr'de
+// yok → ScoredTs=0) creator'lar önce, sonra en-eski scored_ts, eşitlikte address ASC
+// (round 1 review: tiebreak olmadan hem postgres `ORDER BY c.scored_ts ASC NULLS FIRST`
+// hem fake'in map-iterasyon sıralı sort.SliceStable'ı deterministik değildi). Ayrıca
+// AvgPeakMarketCap/AvgLifetimeHours aritmetiğini seedToken fixture'ıyla doğrular.
+func TestCreatorAggregatesOrdersUnscoredFirstThenOldestScoredThenAddress(t *testing.T) {
+	ts := NewFakeTokenStore()
+	f := ts.(*fakeTokenStore)
+	ctx := context.Background()
+
+	// creator A (skorlanmamış): 2 rug — averages'i doğrulamak için kullanılan fixture.
+	seedToken(t, f, "m1", "A", "rug", 1000, 0, 3600) // lifetime = 3600/3600 = 1h
+	seedToken(t, f, "m2", "A", "rug", 3000, 0, 7200) // lifetime = 7200/3600 = 2h
+	// creator Z (skorlanmamış, A ile eşit ScoredTs=0 — address tiebreak'ini test eder).
+	seedToken(t, f, "m3", "Z", "dumped", 500, 0, 1800)
+	// creator B (scored_ts=10 — skorlanmamışlardan sonra, M'den önce).
+	seedToken(t, f, "m4", "B", "graduated", 200, 0, 900)
+	if err := f.UpsertReputation(ctx, CreatorReputation{Address: "B", ScoredTs: 10}); err != nil {
+		t.Fatal(err)
+	}
+	// creator M (scored_ts=50 — en son).
+	seedToken(t, f, "m5", "M", "dead", 100, 0, 100)
+	if err := f.UpsertReputation(ctx, CreatorReputation{Address: "M", ScoredTs: 50}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := f.CreatorAggregates(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 4 {
+		t.Fatalf("agrega sayısı = %d, want 4: %+v", len(got), got)
+	}
+	wantOrder := []string{"A", "Z", "B", "M"}
+	for i, want := range wantOrder {
+		if got[i].Address != want {
+			t.Fatalf("sıra[%d] = %q, want %q (tam sıra: %+v)", i, got[i].Address, want, got)
+		}
+	}
+
+	a := got[0]
+	if a.AvgPeakMarketCap != 2000 {
+		t.Fatalf("A.AvgPeakMarketCap = %v, want 2000", a.AvgPeakMarketCap)
+	}
+	if a.AvgLifetimeHours != 1.5 {
+		t.Fatalf("A.AvgLifetimeHours = %v, want 1.5", a.AvgLifetimeHours)
+	}
+}
+
 func TestUpsertReputationRoundTrips(t *testing.T) {
 	ts := NewFakeTokenStore()
 	f := ts.(*fakeTokenStore)
