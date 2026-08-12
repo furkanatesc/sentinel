@@ -18,6 +18,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/outcome"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
@@ -169,6 +170,19 @@ func main() {
 		go cw.Run(ctx)
 	} else if cfg.CreatorFillEnabled {
 		logger.Warn("CREATORFILL: RPC (Helius key veya SOLANA_RPC_URL) veya token store yok — backfill başlamayacak")
+	}
+
+	// creator reputation scorer (2b-2b) — arka plan; saf DB (RPC YOK)
+	if cfg.ReputationEnabled && bundle.Tokens != nil {
+		rw := reputation.NewWorker(reputation.WorkerDeps{
+			Store: bundle.Tokens,
+			Thresholds: reputation.Thresholds{
+				MinResolved: cfg.ReputationMinResolved,
+				WRug:        cfg.ReputationWRug, WFail: cfg.ReputationWFail, WGrad: cfg.ReputationWGrad,
+			},
+			Interval: time.Duration(cfg.ReputationIntervalSec) * time.Second, Limit: cfg.ReputationLimit, Logger: logger,
+		})
+		go rw.Run(ctx)
 	}
 
 	srv := &http.Server{

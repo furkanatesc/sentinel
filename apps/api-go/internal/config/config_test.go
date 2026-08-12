@@ -125,3 +125,12 @@ func TestLoadCreatorFillDefaults(t *testing.T) {
 		t.Fatalf("creatorfill rate defaults: perMin=%d burst=%d", c.CreatorFillRatePerMin, c.CreatorFillBurst)
 	}
 }
+
+func TestLoadReputationDefaults(t *testing.T) {
+	c := Load()
+	if !c.ReputationEnabled || c.ReputationIntervalSec != 60 || c.ReputationLimit != 60 ||
+		c.ReputationMinResolved != 5 || c.ReputationWRug != 50 || c.ReputationWFail != 20 ||
+		c.ReputationWGrad != 40 || c.ReputationHighDrawdown != 80 {
+		t.Fatalf("reputation defaults: %+v", c)
+	}
+}
