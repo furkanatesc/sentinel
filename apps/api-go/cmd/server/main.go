@@ -18,6 +18,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/outcome"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
@@ -44,7 +45,8 @@ func main() {
 	cleanup := func() error { return nil }
 	if cfg.DatabaseURL != "" {
 		dbctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		b, cl, err := store.OpenPostgres(dbctx, cfg.DatabaseURL)
+		b, cl, err := store.OpenPostgres(dbctx, cfg.DatabaseURL,
+			store.WithHighDrawdownThreshold(cfg.ReputationHighDrawdown))
 		cancel()
 		if err != nil {
 			logger.Error("postgres init failed", "err", err)
@@ -53,7 +55,7 @@ func main() {
 		bundle, cleanup = b, cl
 	} else {
 		logger.Warn("DATABASE_URL yok — in-memory fake store")
-		fakeTokens := store.NewFakeTokenStore()
+		fakeTokens := store.NewFakeTokenStore(store.WithHighDrawdownThreshold(cfg.ReputationHighDrawdown))
 		bundle = store.Bundle{
 			Strategies: store.NewFakeStore(store.SeedRows(), nil),
 			Events:     store.NewFakeEventStore(),
@@ -169,6 +171,19 @@ func main() {
 		go cw.Run(ctx)
 	} else if cfg.CreatorFillEnabled {
 		logger.Warn("CREATORFILL: RPC (Helius key veya SOLANA_RPC_URL) veya token store yok — backfill başlamayacak")
+	}
+
+	// creator reputation scorer (2b-2b) — arka plan; saf DB (RPC YOK)
+	if cfg.ReputationEnabled && bundle.Tokens != nil {
+		rw := reputation.NewWorker(reputation.WorkerDeps{
+			Store: bundle.Tokens,
+			Thresholds: reputation.Thresholds{
+				MinResolved: cfg.ReputationMinResolved,
+				WRug:        cfg.ReputationWRug, WFail: cfg.ReputationWFail, WGrad: cfg.ReputationWGrad,
+			},
+			Interval: time.Duration(cfg.ReputationIntervalSec) * time.Second, Limit: cfg.ReputationLimit, Logger: logger,
+		})
+		go rw.Run(ctx)
 	}
 
 	srv := &http.Server{

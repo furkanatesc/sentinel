@@ -53,6 +53,14 @@ bilinmeyen adres → 404).
 | `CREATORFILL_MAX_SIG_PAGES` | Hayır (default 3) | Mint'in en-eski imzasını ararken `getSignaturesForAddress` sayfalama tavanı |
 | `CREATORFILL_RATE_PER_MIN` | Hayır (default 120) | Helius RPC paylaşılan istek bütçesi (istek/dk); free-tier 429 burst'ünü önler. Per-key limit → client-side kısıtlama etkili |
 | `CREATORFILL_BURST` | Hayır (default 2) | Rate-limiter token-bucket burst kapasitesi |
+| `REPUTATION_ENABLED` | Hayır (default true) | Creator itibar scorer'ı (2b-2b). Saf DB, RPC gerektirmez |
+| `REPUTATION_INTERVAL_SEC` | Hayır (default 60) | Skorlama döngüsü aralığı (saniye) |
+| `REPUTATION_LIMIT` | Hayır (default 60) | Döngü başına skorlanan creator |
+| `REPUTATION_MIN_RESOLVED` | Hayır (default 5) | Tam güven için gereken çözülmüş token (confidence K) |
+| `REPUTATION_W_RUG` | Hayır (default 50) | Rug oranı ceza ağırlığı |
+| `REPUTATION_W_FAIL` | Hayır (default 20) | Dump/dead oranı ceza ağırlığı |
+| `REPUTATION_W_GRAD` | Hayır (default 40) | Graduated oranı ödül ağırlığı |
+| `REPUTATION_HIGH_DRAWDOWN` | Hayır (default 80) | per-token "yüksek düşüş" bayrağı eşiği (%) |
 
 ## Railway deploy (KULLANICI ADIMI)
 1. Railway'de yeni servis → GitHub repo `furkanatesc/sentinel`, **Root Directory = `apps/api-go`** (nixpacks Go'yu otomatik derler; **Go 1.24** gerekli — `go.mod`'da pinli; start komutu binary'yi çalıştırır).

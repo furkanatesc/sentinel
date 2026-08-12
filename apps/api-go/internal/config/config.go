@@ -50,6 +50,15 @@ type Config struct {
 	CreatorFillMaxSigPages int
 	CreatorFillRatePerMin  int // Helius RPC paylaşılan istek bütçesi (istek/dk) — 429 burst'ünü önler
 	CreatorFillBurst       int // token-bucket burst kapasitesi
+
+	ReputationEnabled      bool
+	ReputationIntervalSec  int
+	ReputationLimit        int
+	ReputationMinResolved  int
+	ReputationWRug         float64
+	ReputationWFail        float64
+	ReputationWGrad        float64
+	ReputationHighDrawdown float64
 }
 
 func Load() Config {
@@ -97,6 +106,15 @@ func Load() Config {
 		CreatorFillMaxSigPages: getenvInt("CREATORFILL_MAX_SIG_PAGES", 3),
 		CreatorFillRatePerMin:  getenvInt("CREATORFILL_RATE_PER_MIN", 120),
 		CreatorFillBurst:       getenvInt("CREATORFILL_BURST", 2),
+
+		ReputationEnabled:      getenvBool("REPUTATION_ENABLED", true),
+		ReputationIntervalSec:  getenvInt("REPUTATION_INTERVAL_SEC", 60),
+		ReputationLimit:        getenvInt("REPUTATION_LIMIT", 60),
+		ReputationMinResolved:  getenvInt("REPUTATION_MIN_RESOLVED", 5),
+		ReputationWRug:         getenvFloat("REPUTATION_W_RUG", 50),
+		ReputationWFail:        getenvFloat("REPUTATION_W_FAIL", 20),
+		ReputationWGrad:        getenvFloat("REPUTATION_W_GRAD", 40),
+		ReputationHighDrawdown: getenvFloat("REPUTATION_HIGH_DRAWDOWN", 80),
 	}
 }
 

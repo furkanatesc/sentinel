@@ -88,4 +88,8 @@ type TokenDetailBase struct {
 	SafetyBreakdown                         []ScoreBreakdownItem
 	SafetyRisks                             RiskGroups
 	SafetyScoredTs                          int64
+
+	// 2b-2b creator reputation (creators tablosundan; detail scores.creatorReputation'a).
+	CreatorRepScore, CreatorRepConfidence float64
+	CreatorRepBreakdown                   []ScoreBreakdownItem
 }

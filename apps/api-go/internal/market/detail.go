@@ -144,6 +144,18 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 	}
 	d.Metrics.Top10HolderPct = base.Top10Pct
 
+	// Creator Reputation (2b-2b) — DB'den (creators tablosu, arka plan scorer persist etti);
+	// opportunity + manipulationRisk hâlâ nötr (Alt-proje 2 gelene kadar).
+	d.Scores["creatorReputation"] = store.ScoreDetail{
+		Key: "creatorReputation", Value: base.CreatorRepScore, Confidence: base.CreatorRepConfidence,
+		UpdatedAt: "—", Breakdown: base.CreatorRepBreakdown,
+	}
+	if d.Scores["creatorReputation"].Breakdown == nil {
+		sd := d.Scores["creatorReputation"]
+		sd.Breakdown = []store.ScoreBreakdownItem{}
+		d.Scores["creatorReputation"] = sd
+	}
+
 	s.mu.Lock()
 	ttlSec := int64(s.d.CacheTTL / time.Second)
 	for k, e := range s.cache {

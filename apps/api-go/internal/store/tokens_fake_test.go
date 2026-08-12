@@ -87,6 +87,25 @@ func TestFakeTokenDetailBaseNeverScoredHasEmptyNotNilSafetySlices(t *testing.T) 
 	}
 }
 
+// TestRecentTokensCreatorScoreFromCreators, 2b-2b: TokenRow.CreatorScore artık nötr placeholder
+// değil, creators tablosundaki (fake: reputationByAddr) gerçek creator itibarından gelmeli.
+func TestRecentTokensCreatorScoreFromCreators(t *testing.T) {
+	ts := NewFakeTokenStore()
+	f := ts.(*fakeTokenStore)
+	ctx := context.Background()
+	seedToken(t, f, "m1", "A", "active", 0, 100, 0) // token'ın creator'ı A
+	if err := f.UpsertReputation(ctx, CreatorReputation{Address: "A", Score: 72}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := f.RecentTokens(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].CreatorScore != 72 {
+		t.Fatalf("creatorScore=%v, want 72 (creator itibarı)", rows)
+	}
+}
+
 func TestFakeSafetyScoreTargetsOldestFirstPoolOnly(t *testing.T) {
 	ctx := context.Background()
 	s := NewFakeTokenStore()

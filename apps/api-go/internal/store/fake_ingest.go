@@ -56,10 +56,23 @@ type fakeTokenStore struct {
 	mu    sync.Mutex
 	byID  map[string]fakeTok
 	order []string // ekleme sırası
+	// 2b-2b: hesaplanmış creator itibarı (adres → son itibar).
+	reputationByAddr map[string]CreatorReputation
+	// highDrawdownThreshold, deriveRiskFlags'in "Yüksek düşüş" eşiğidir (2b-2b:
+	// cfg.ReputationHighDrawdown, bkz. WithHighDrawdownThreshold); <=0 → paket varsayılanı (80).
+	highDrawdownThreshold float64
 }
 
-// NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür.
-func NewFakeTokenStore() TokenStore { return &fakeTokenStore{byID: map[string]fakeTok{}} }
+// NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür. opts (ör.
+// WithHighDrawdownThreshold) postgresStore ile aynı creatorStoreConfig'i paylaşır (parite);
+// verilmezse paket varsayılanları geçerli olur — mevcut sıfır-argümanlı çağrılar kırılmaz.
+func NewFakeTokenStore(opts ...CreatorStoreOption) TokenStore {
+	cfg := applyCreatorStoreOptions(opts)
+	return &fakeTokenStore{
+		byID: map[string]fakeTok{}, reputationByAddr: map[string]CreatorReputation{},
+		highDrawdownThreshold: cfg.highDrawdownThreshold,
+	}
+}
 
 func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs int64, creator string) error {
 	f.mu.Lock()
@@ -101,7 +114,15 @@ func (f *fakeTokenStore) Creators(_ context.Context, limit int) ([]CreatorRow, e
 	}
 	out := make([]CreatorRow, 0, len(counts))
 	for addr, n := range counts {
-		out = append(out, CreatorRow{Address: addr, TotalTokens: n, RiskLevel: "medium"})
+		row := CreatorRow{Address: addr, TotalTokens: n, RiskLevel: "medium"} // nötr → skorlanmamış creator
+		if rep, ok := f.reputationByAddr[addr]; ok {
+			row.ReputationScore = rep.Score
+			row.RiskLevel = rep.RiskLevel
+			row.ActiveTokens = rep.ActiveTokens
+			row.RuggedTokens = rep.RuggedTokens
+			row.SuccessRatePct = rep.SuccessRatePct
+		}
+		out = append(out, row)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].TotalTokens != out[j].TotalTokens {
@@ -144,9 +165,23 @@ func (f *fakeTokenStore) CreatorDetail(_ context.Context, address string) (Creat
 	history := make([]CreatorTokenHistoryItem, 0, len(matches))
 	for _, tk := range matches {
 		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen,
-			tk.marketCapUSD, tk.peakMarketCap, tk.maxDrawdownPct, tk.outcome, tk.liquidityStatus))
+			tk.marketCapUSD, tk.peakMarketCap, tk.maxDrawdownPct, tk.outcome, tk.liquidityStatus, f.highDrawdownThreshold))
 	}
-	return buildCreatorProfile(address, firstSeen, len(history), history), true, nil
+	prof := buildCreatorProfile(address, firstSeen, len(history), history)
+	// postgres LEFT JOIN parite: skorlanmışsa gerçek alanlar, yoksa nötr (reputationByAddr'de yok).
+	if rep, ok := f.reputationByAddr[address]; ok {
+		breakdown := rep.Breakdown
+		if breakdown == nil {
+			breakdown = []ScoreBreakdownItem{}
+		}
+		prof.Reputation = ScoreDetail{Key: "creatorReputation", Value: rep.Score, Confidence: rep.Confidence, Breakdown: breakdown}
+		prof.RiskLevel = rep.RiskLevel
+		prof.Metrics = CreatorMetrics{
+			TotalTokens: len(history), ActiveTokens: rep.ActiveTokens, RuggedTokens: rep.RuggedTokens,
+			AvgPeakMarketCap: rep.AvgPeakMarketCap, AvgLifetimeHours: rep.AvgLifetimeHours, SuccessRatePct: rep.SuccessRatePct,
+		}
+	}
+	return prof, true, nil
 }
 
 func (f *fakeTokenStore) UpsertDiscovered(_ context.Context, d DiscoveredToken) (bool, error) {
@@ -211,12 +246,19 @@ func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenD
 	if !ok {
 		return TokenDetailBase{}, false, nil
 	}
+	// 2b-2b: creator itibarı (postgres LEFT JOIN creators parite); skorlanmamış/creator'sız → nötr 0/0/boş.
+	rep := f.reputationByAddr[t.creator]
+	repBreakdown := rep.Breakdown
+	if repBreakdown == nil {
+		repBreakdown = []ScoreBreakdownItem{}
+	}
 	return TokenDetailBase{
 		Name: t.row.Name, Symbol: t.row.Symbol, PoolAddr: t.poolAddr, FirstSeenTs: t.firstSeen,
 		Price: t.row.Price, Liquidity: t.row.Liquidity,
 		PriceChangeH24: t.priceChangeH24, MarketCapUSD: t.marketCapUSD, Vol24h: t.vol24h,
 		SafetyScore: t.safetyScore, SafetyConfidence: t.safetyConfidence, Top10Pct: t.top10Pct,
 		SafetyBreakdown: t.safetyBreakdown, SafetyRisks: t.safetyRisks, SafetyScoredTs: t.safetyScoredTs,
+		CreatorRepScore: rep.Score, CreatorRepConfidence: rep.Confidence, CreatorRepBreakdown: repBreakdown,
 	}, true, nil
 }
 
@@ -292,7 +334,12 @@ func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow,
 	defer f.mu.Unlock()
 	out := make([]TokenRow, 0, limit)
 	for i := len(f.order) - 1; i >= 0 && len(out) < limit; i-- {
-		out = append(out, f.byID[f.order[i]].row)
+		tk := f.byID[f.order[i]]
+		row := tk.row
+		// 2b-2b: creatorScore artık nötr değil — creator itibarından (postgres LEFT JOIN creators parite;
+		// skorlanmamış/creator'sız → 0, COALESCE(c.reputation_score,0) ile eşleşir).
+		row.CreatorScore = f.reputationByAddr[tk.creator].Score
+		out = append(out, row)
 	}
 	return out, nil
 }
@@ -327,5 +374,84 @@ func (f *fakeTokenStore) SetCreatorBackfill(_ context.Context, mint, creator str
 	}
 	cur.creatorBackfillTs = backfillTs
 	f.byID[mint] = cur
+	return nil
+}
+
+// CreatorAggregates, creator-başına outcome agrega döndürür (postgresStore.CreatorAggregates ile
+// aynı sözleşme): skorlanmamış (reputationByAddr'de yok → ScoredTs=0) creator'lar önce, sonra
+// en-eski skorlanan.
+func (f *fakeTokenStore) CreatorAggregates(_ context.Context, limit int) ([]CreatorAgg, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	byAddr := map[string]*CreatorAgg{}
+	peakSum, lifeSum := map[string]float64{}, map[string]float64{}
+	peakN, lifeN := map[string]int{}, map[string]int{}
+	for _, id := range f.order {
+		t := f.byID[id]
+		if t.creator == "" {
+			continue
+		}
+		a := byAddr[t.creator]
+		if a == nil {
+			a = &CreatorAgg{Address: t.creator}
+			byAddr[t.creator] = a
+		}
+		a.Total++
+		switch t.outcome {
+		case "active":
+			a.Active++
+		case "rug":
+			a.Rug++
+		case "dumped":
+			a.Dumped++
+		case "dead":
+			a.Dead++
+		case "graduated":
+			a.Graduated++
+		}
+		if t.peakMarketCap > 0 {
+			peakSum[t.creator] += t.peakMarketCap
+			peakN[t.creator]++
+		}
+		if t.outcome != "active" && t.outcomeScoredTs > 0 {
+			lifeSum[t.creator] += float64(t.outcomeScoredTs-t.firstSeen) / 3600.0
+			lifeN[t.creator]++
+		}
+	}
+	// skorlanmamış önce, sonra en-eski scored_ts (round-robin); eşitlikte address ASC
+	// (postgres `ORDER BY c.scored_ts ASC NULLS FIRST, t.creator ASC` ile parite — map
+	// iterasyonu rastgele olduğundan ikincil anahtar olmadan sıra deterministik değildi).
+	addrs := make([]string, 0, len(byAddr))
+	for addr := range byAddr {
+		addrs = append(addrs, addr)
+	}
+	sort.SliceStable(addrs, func(i, j int) bool {
+		si, sj := f.reputationByAddr[addrs[i]].ScoredTs, f.reputationByAddr[addrs[j]].ScoredTs
+		if si != sj {
+			return si < sj
+		}
+		return addrs[i] < addrs[j]
+	})
+	out := make([]CreatorAgg, 0, limit)
+	for _, addr := range addrs {
+		if len(out) >= limit {
+			break
+		}
+		a := *byAddr[addr]
+		if peakN[addr] > 0 {
+			a.AvgPeakMarketCap = peakSum[addr] / float64(peakN[addr])
+		}
+		if lifeN[addr] > 0 {
+			a.AvgLifetimeHours = lifeSum[addr] / float64(lifeN[addr])
+		}
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+func (f *fakeTokenStore) UpsertReputation(_ context.Context, r CreatorReputation) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reputationByAddr[r.Address] = r
 	return nil
 }
