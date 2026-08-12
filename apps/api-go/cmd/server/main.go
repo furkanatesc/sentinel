@@ -45,7 +45,8 @@ func main() {
 	cleanup := func() error { return nil }
 	if cfg.DatabaseURL != "" {
 		dbctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		b, cl, err := store.OpenPostgres(dbctx, cfg.DatabaseURL)
+		b, cl, err := store.OpenPostgres(dbctx, cfg.DatabaseURL,
+			store.WithHighDrawdownThreshold(cfg.ReputationHighDrawdown))
 		cancel()
 		if err != nil {
 			logger.Error("postgres init failed", "err", err)
@@ -54,7 +55,7 @@ func main() {
 		bundle, cleanup = b, cl
 	} else {
 		logger.Warn("DATABASE_URL yok — in-memory fake store")
-		fakeTokens := store.NewFakeTokenStore()
+		fakeTokens := store.NewFakeTokenStore(store.WithHighDrawdownThreshold(cfg.ReputationHighDrawdown))
 		bundle = store.Bundle{
 			Strategies: store.NewFakeStore(store.SeedRows(), nil),
 			Events:     store.NewFakeEventStore(),

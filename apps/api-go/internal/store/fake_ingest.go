@@ -58,11 +58,20 @@ type fakeTokenStore struct {
 	order []string // ekleme sırası
 	// 2b-2b: hesaplanmış creator itibarı (adres → son itibar).
 	reputationByAddr map[string]CreatorReputation
+	// highDrawdownThreshold, deriveRiskFlags'in "Yüksek düşüş" eşiğidir (2b-2b:
+	// cfg.ReputationHighDrawdown, bkz. WithHighDrawdownThreshold); <=0 → paket varsayılanı (80).
+	highDrawdownThreshold float64
 }
 
-// NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür.
-func NewFakeTokenStore() TokenStore {
-	return &fakeTokenStore{byID: map[string]fakeTok{}, reputationByAddr: map[string]CreatorReputation{}}
+// NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür. opts (ör.
+// WithHighDrawdownThreshold) postgresStore ile aynı creatorStoreConfig'i paylaşır (parite);
+// verilmezse paket varsayılanları geçerli olur — mevcut sıfır-argümanlı çağrılar kırılmaz.
+func NewFakeTokenStore(opts ...CreatorStoreOption) TokenStore {
+	cfg := applyCreatorStoreOptions(opts)
+	return &fakeTokenStore{
+		byID: map[string]fakeTok{}, reputationByAddr: map[string]CreatorReputation{},
+		highDrawdownThreshold: cfg.highDrawdownThreshold,
+	}
 }
 
 func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -156,7 +165,7 @@ func (f *fakeTokenStore) CreatorDetail(_ context.Context, address string) (Creat
 	history := make([]CreatorTokenHistoryItem, 0, len(matches))
 	for _, tk := range matches {
 		history = append(history, newHistoryItem(tk.row.Mint, tk.row.Symbol, tk.firstSeen,
-			tk.marketCapUSD, tk.peakMarketCap, tk.maxDrawdownPct, tk.outcome, tk.liquidityStatus))
+			tk.marketCapUSD, tk.peakMarketCap, tk.maxDrawdownPct, tk.outcome, tk.liquidityStatus, f.highDrawdownThreshold))
 	}
 	prof := buildCreatorProfile(address, firstSeen, len(history), history)
 	// postgres LEFT JOIN parite: skorlanmışsa gerçek alanlar, yoksa nötr (reputationByAddr'de yok).

@@ -10,6 +10,9 @@ import (
 
 type postgresStore struct {
 	db *sql.DB
+	// highDrawdownThreshold, deriveRiskFlags'in "Yüksek düşüş" eşiğidir (2b-2b:
+	// cfg.ReputationHighDrawdown, bkz. WithHighDrawdownThreshold); <=0 → paket varsayılanı (80).
+	highDrawdownThreshold float64
 }
 
 // Bundle, açılan Postgres bağlantısının sunduğu store'ları toplar.
@@ -21,8 +24,9 @@ type Bundle struct {
 }
 
 // OpenPostgres, bağlantı açar, migration'ları çalıştırır, strateji seed'ini uygular
-// ve store bundle'ı ile kapatma fonksiyonu döner.
-func OpenPostgres(ctx context.Context, dsn string) (Bundle, func() error, error) {
+// ve store bundle'ı ile kapatma fonksiyonu döner. opts (ör. WithHighDrawdownThreshold)
+// deploy-tunable eşikleri store'a enjekte eder; verilmezse paket varsayılanları geçerli olur.
+func OpenPostgres(ctx context.Context, dsn string, opts ...CreatorStoreOption) (Bundle, func() error, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return Bundle{}, nil, fmt.Errorf("open: %w", err)
@@ -39,7 +43,8 @@ func OpenPostgres(ctx context.Context, dsn string) (Bundle, func() error, error)
 		db.Close()
 		return Bundle{}, nil, fmt.Errorf("seed: %w", err)
 	}
-	ps := &postgresStore{db: db}
+	cfg := applyCreatorStoreOptions(opts)
+	ps := &postgresStore{db: db, highDrawdownThreshold: cfg.highDrawdownThreshold}
 	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps}, db.Close, nil
 }
 

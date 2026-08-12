@@ -190,6 +190,52 @@ func TestCreatorDetailRiskFlagsFromOutcome(t *testing.T) {
 	}
 }
 
+// TestCreatorDetailHighDrawdownThresholdConfigurable, 2b-2b final-review fix: deriveRiskFlags'in
+// "Yüksek düşüş" eşiğinin artık hardcoded const DEĞİL, cfg.ReputationHighDrawdown'dan (bkz.
+// WithHighDrawdownThreshold) geldiğini kilitler. maxDrawdown=85: varsayılan eşik (80, opsiyonsuz
+// NewFakeTokenStore) bayrağı tetikler; eşik 90'a çekilince (REPUTATION_HIGH_DRAWDOWN=90 paritesi)
+// AYNI 85 artık tetiklemez; eşik 90 iken maxDrawdown=95 yine tetikler (eşik gerçekten kaydı,
+// bayrak sadece kapanmadı kanıtı).
+func TestCreatorDetailHighDrawdownThresholdConfigurable(t *testing.T) {
+	ctx := context.Background()
+
+	// Varsayılan eşik (80) — opsiyonsuz kurucu, mevcut davranışla parite.
+	tsDefault := NewFakeTokenStore()
+	fDefault := tsDefault.(*fakeTokenStore)
+	seedTokenFull(t, fDefault, "m1", "A", "active", "unlocked", 85)
+	profDefault, ok, err := fDefault.CreatorDetail(ctx, "A")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if !contains(profDefault.History[0].RiskFlags, "Yüksek düşüş (%85)") {
+		t.Fatalf("varsayılan eşik (80) ile drawdown=85 bayrak vermeli: %v", profDefault.History[0].RiskFlags)
+	}
+
+	// Eşik 90'a çekildi (REPUTATION_HIGH_DRAWDOWN=90 paritesi) — AYNI drawdown=85 artık tetiklememeli.
+	tsHigh := NewFakeTokenStore(WithHighDrawdownThreshold(90))
+	fHigh := tsHigh.(*fakeTokenStore)
+	seedTokenFull(t, fHigh, "m1", "A", "active", "unlocked", 85)
+	profHigh, ok, err := fHigh.CreatorDetail(ctx, "A")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if contains(profHigh.History[0].RiskFlags, "Yüksek düşüş (%85)") {
+		t.Fatalf("eşik=90 iken drawdown=85 bayrak VERMEMELİ (knob inert olmamalı): %v", profHigh.History[0].RiskFlags)
+	}
+
+	// Eşik 90 iken drawdown=95 hâlâ tetiklemeli (eşik gerçekten uygulanıyor, bayrak sadece kapanmadı).
+	tsHigh2 := NewFakeTokenStore(WithHighDrawdownThreshold(90))
+	fHigh2 := tsHigh2.(*fakeTokenStore)
+	seedTokenFull(t, fHigh2, "m1", "A", "active", "unlocked", 95)
+	profHigh2, ok, err := fHigh2.CreatorDetail(ctx, "A")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if !contains(profHigh2.History[0].RiskFlags, "Yüksek düşüş (%95)") {
+		t.Fatalf("eşik=90 iken drawdown=95 bayrak vermeli: %v", profHigh2.History[0].RiskFlags)
+	}
+}
+
 // TestCreatorsListIncludesUnscored, henüz Worker tarafından skorlanmamış creator'ların
 // Creators listesinden düşmemesini (LEFT JOIN + COALESCE nötr) kilitler.
 func TestCreatorsListIncludesUnscored(t *testing.T) {

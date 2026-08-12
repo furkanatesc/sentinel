@@ -9,7 +9,7 @@ import (
 
 // Thresholds, skor ağırlıkları + güven eşiğidir (config'ten enjekte; deploy-tunable).
 type Thresholds struct {
-	MinResolved    int
+	MinResolved        int
 	WRug, WFail, WGrad float64
 }
 

@@ -8,8 +8,45 @@ import (
 	"time"
 )
 
-// reputationHighDrawdown, deriveRiskFlags'in "Yüksek düşüş" bayrağını tetiklediği eşiktir (%).
+// reputationHighDrawdown, deriveRiskFlags'in "Yüksek düşüş" bayrağını tetiklediği VARSAYILAN
+// eşiktir (%) — cfg.ReputationHighDrawdown ayarlanmamışsa (<=0, ör. cfg'siz kurulan store/test)
+// düşülen taban. Ayarlıysa gerçek eşik onun yerine geçer (bkz. effectiveHighDrawdown).
 const reputationHighDrawdown = 80
+
+// creatorStoreConfig, CreatorStore implementasyonları (postgres + fake) arasında paylaşılan,
+// deploy-tunable itibar eşiklerini taşır (2b-2b: REPUTATION_HIGH_DRAWDOWN).
+type creatorStoreConfig struct {
+	highDrawdownThreshold float64
+}
+
+// CreatorStoreOption, postgresStore/fakeTokenStore kurucularını yapılandırır
+// (OCP: constructor'ı değiştirmeden genişlet — ingest/market'teki WithLimiter deseniyle aynı).
+type CreatorStoreOption func(*creatorStoreConfig)
+
+// WithHighDrawdownThreshold, deriveRiskFlags'in "Yüksek düşüş" eşiğini (cfg.ReputationHighDrawdown)
+// enjekte eder. <=0 verilirse (veya hiç verilmezse) effectiveHighDrawdown paket varsayılanına
+// (80) düşer — mevcut cfg'siz store kurulumlarını/testleri kırmaz.
+func WithHighDrawdownThreshold(v float64) CreatorStoreOption {
+	return func(c *creatorStoreConfig) { c.highDrawdownThreshold = v }
+}
+
+// applyCreatorStoreOptions, opsiyonları sırayla uygulayıp nihai creatorStoreConfig'i döner.
+func applyCreatorStoreOptions(opts []CreatorStoreOption) creatorStoreConfig {
+	var cfg creatorStoreConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
+	return cfg
+}
+
+// effectiveHighDrawdown, yapılandırılmış eşiği uygular; ayarlanmamışsa (<=0) paket
+// varsayılanına (reputationHighDrawdown=80) düşer.
+func effectiveHighDrawdown(threshold float64) float64 {
+	if threshold > 0 {
+		return threshold
+	}
+	return reputationHighDrawdown
+}
 
 // CreatorRow, frontend CreatorRow (apps/web/lib/api/types.ts) ile birebir JSON şeklidir.
 // 2b-1: Address/TotalTokens gerçek; kalanlar nötr placeholder → 2b-2 (itibar skoru + outcome).
@@ -84,7 +121,9 @@ func neutralBehavior() CreatorBehavior {
 
 // deriveRiskFlags, per-token history item'ın outcome/liquidityStatus/maxDrawdown'undan
 // insan-okunur risk bayrakları türetir (2b-2b). Non-nil döner (boş dizi, nil değil — JSON []).
-func deriveRiskFlags(outcome, liquidityStatus string, maxDrawdown float64) []string {
+// highDrawdownThreshold, çağıranın (store) yapılandırılmış eşiğidir (cfg.ReputationHighDrawdown);
+// <=0 ise effectiveHighDrawdown paket varsayılanına (80) düşer.
+func deriveRiskFlags(outcome, liquidityStatus string, maxDrawdown, highDrawdownThreshold float64) []string {
 	flags := []string{}
 	switch outcome {
 	case "rug":
@@ -97,14 +136,14 @@ func deriveRiskFlags(outcome, liquidityStatus string, maxDrawdown float64) []str
 	if liquidityStatus == "removed" {
 		flags = append(flags, "Likidite çekildi")
 	}
-	if maxDrawdown >= reputationHighDrawdown {
+	if maxDrawdown >= effectiveHighDrawdown(highDrawdownThreshold) {
 		flags = append(flags, fmt.Sprintf("Yüksek düşüş (%%%.0f)", maxDrawdown))
 	}
 	return flags
 }
 
 // newHistoryItem, gerçek piyasa + outcome alanlarını doldurur; creatorSellPct nötr (→ 2c trade-flow).
-func newHistoryItem(mint, symbol string, firstSeenTs int64, currentMcap, peakMcap, maxDrawdown float64, outcome, liquidityStatus string) CreatorTokenHistoryItem {
+func newHistoryItem(mint, symbol string, firstSeenTs int64, currentMcap, peakMcap, maxDrawdown float64, outcome, liquidityStatus string, highDrawdownThreshold float64) CreatorTokenHistoryItem {
 	return CreatorTokenHistoryItem{
 		ID: mint, Symbol: symbol, Mint: mint,
 		CreatedAt:        time.Unix(firstSeenTs, 0).UTC().Format(time.RFC3339),
@@ -113,7 +152,7 @@ func newHistoryItem(mint, symbol string, firstSeenTs int64, currentMcap, peakMca
 		MaxDrawdownPct:   maxDrawdown,
 		LiquidityStatus:  liquidityStatus,
 		Outcome:          outcome,
-		RiskFlags:        deriveRiskFlags(outcome, liquidityStatus, maxDrawdown),
+		RiskFlags:        deriveRiskFlags(outcome, liquidityStatus, maxDrawdown, highDrawdownThreshold),
 	}
 }
 
@@ -194,7 +233,7 @@ func (p *postgresStore) CreatorDetail(ctx context.Context, address string) (Crea
 		if err := rows.Scan(&mint, &symbol, &ts, &mcap, &peakMcap, &drawdown, &outcome, &liqStatus); err != nil {
 			return CreatorProfile{}, false, err
 		}
-		history = append(history, newHistoryItem(mint, symbol, ts, mcap, peakMcap, drawdown, outcome, liqStatus))
+		history = append(history, newHistoryItem(mint, symbol, ts, mcap, peakMcap, drawdown, outcome, liqStatus, p.highDrawdownThreshold))
 	}
 	if err := rows.Err(); err != nil {
 		return CreatorProfile{}, false, err
