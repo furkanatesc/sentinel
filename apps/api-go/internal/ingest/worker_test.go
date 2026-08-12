@@ -142,6 +142,12 @@ func (f *failingTokenStore) CreatorFillTargets(context.Context, int) ([]store.Cr
 func (f *failingTokenStore) SetCreatorBackfill(context.Context, string, string, int64) error {
 	return nil
 }
+func (f *failingTokenStore) CreatorAggregates(context.Context, int) ([]store.CreatorAgg, error) {
+	return nil, nil
+}
+func (f *failingTokenStore) UpsertReputation(context.Context, store.CreatorReputation) error {
+	return nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -219,6 +225,12 @@ func (f *snapshotFailingTokenStore) CreatorFillTargets(context.Context, int) ([]
 	return nil, nil
 }
 func (f *snapshotFailingTokenStore) SetCreatorBackfill(context.Context, string, string, int64) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) CreatorAggregates(context.Context, int) ([]store.CreatorAgg, error) {
+	return nil, nil
+}
+func (f *snapshotFailingTokenStore) UpsertReputation(context.Context, store.CreatorReputation) error {
 	return nil
 }
 

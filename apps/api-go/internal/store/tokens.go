@@ -108,6 +108,9 @@ type TokenStore interface {
 	// REST creator-backfill: creator'sız pump.fun hedeflerini döndürür / bulunan creator'ı yazar (merge).
 	CreatorFillTargets(ctx context.Context, limit int) ([]CreatorFillTarget, error)
 	SetCreatorBackfill(ctx context.Context, mint, creator string, backfillTs int64) error
+	// 2b-2b: creator itibar agregası (outcome sayımları) / hesaplanmış itibarı persist eder.
+	CreatorAggregates(ctx context.Context, limit int) ([]CreatorAgg, error)
+	UpsertReputation(ctx context.Context, r CreatorReputation) error
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {

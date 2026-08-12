@@ -56,10 +56,14 @@ type fakeTokenStore struct {
 	mu    sync.Mutex
 	byID  map[string]fakeTok
 	order []string // ekleme sırası
+	// 2b-2b: hesaplanmış creator itibarı (adres → son itibar).
+	reputationByAddr map[string]CreatorReputation
 }
 
 // NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür.
-func NewFakeTokenStore() TokenStore { return &fakeTokenStore{byID: map[string]fakeTok{}} }
+func NewFakeTokenStore() TokenStore {
+	return &fakeTokenStore{byID: map[string]fakeTok{}, reputationByAddr: map[string]CreatorReputation{}}
+}
 
 func (f *fakeTokenStore) UpsertToken(_ context.Context, t TokenRow, firstSeenTs int64, creator string) error {
 	f.mu.Lock()
@@ -327,5 +331,78 @@ func (f *fakeTokenStore) SetCreatorBackfill(_ context.Context, mint, creator str
 	}
 	cur.creatorBackfillTs = backfillTs
 	f.byID[mint] = cur
+	return nil
+}
+
+// CreatorAggregates, creator-başına outcome agrega döndürür (postgresStore.CreatorAggregates ile
+// aynı sözleşme): skorlanmamış (reputationByAddr'de yok → ScoredTs=0) creator'lar önce, sonra
+// en-eski skorlanan.
+func (f *fakeTokenStore) CreatorAggregates(_ context.Context, limit int) ([]CreatorAgg, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	byAddr := map[string]*CreatorAgg{}
+	peakSum, lifeSum := map[string]float64{}, map[string]float64{}
+	peakN, lifeN := map[string]int{}, map[string]int{}
+	for _, id := range f.order {
+		t := f.byID[id]
+		if t.creator == "" {
+			continue
+		}
+		a := byAddr[t.creator]
+		if a == nil {
+			a = &CreatorAgg{Address: t.creator}
+			byAddr[t.creator] = a
+		}
+		a.Total++
+		switch t.outcome {
+		case "active":
+			a.Active++
+		case "rug":
+			a.Rug++
+		case "dumped":
+			a.Dumped++
+		case "dead":
+			a.Dead++
+		case "graduated":
+			a.Graduated++
+		}
+		if t.peakMarketCap > 0 {
+			peakSum[t.creator] += t.peakMarketCap
+			peakN[t.creator]++
+		}
+		if t.outcome != "active" && t.outcomeScoredTs > 0 {
+			lifeSum[t.creator] += float64(t.outcomeScoredTs-t.firstSeen) / 3600.0
+			lifeN[t.creator]++
+		}
+	}
+	// skorlanmamış önce, sonra en-eski scored_ts (round-robin)
+	addrs := make([]string, 0, len(byAddr))
+	for addr := range byAddr {
+		addrs = append(addrs, addr)
+	}
+	sort.SliceStable(addrs, func(i, j int) bool {
+		return f.reputationByAddr[addrs[i]].ScoredTs < f.reputationByAddr[addrs[j]].ScoredTs
+	})
+	out := make([]CreatorAgg, 0, limit)
+	for _, addr := range addrs {
+		if len(out) >= limit {
+			break
+		}
+		a := *byAddr[addr]
+		if peakN[addr] > 0 {
+			a.AvgPeakMarketCap = peakSum[addr] / float64(peakN[addr])
+		}
+		if lifeN[addr] > 0 {
+			a.AvgLifetimeHours = lifeSum[addr] / float64(lifeN[addr])
+		}
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+func (f *fakeTokenStore) UpsertReputation(_ context.Context, r CreatorReputation) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reputationByAddr[r.Address] = r
 	return nil
 }
