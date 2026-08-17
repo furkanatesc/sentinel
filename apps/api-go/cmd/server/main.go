@@ -16,6 +16,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/creatorfill"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/manipulation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/outcome"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
@@ -184,6 +185,22 @@ func main() {
 			Interval: time.Duration(cfg.ReputationIntervalSec) * time.Second, Limit: cfg.ReputationLimit, Logger: logger,
 		})
 		go rw.Run(ctx)
+	}
+
+	// manipulation risk scorer (2c) — arka plan; saf DB (RPC YOK)
+	if cfg.ManipulationEnabled && bundle.Tokens != nil {
+		mw := manipulation.NewWorker(manipulation.WorkerDeps{
+			Store: bundle.Tokens,
+			Thresholds: manipulation.Thresholds{
+				MinTxns: cfg.ManipulationMinTxns, ConfTxns: cfg.ManipulationConfTxns,
+				WImbalance: cfg.ManipulationWImbalance, WWash: cfg.ManipulationWWash,
+				WVolume: cfg.ManipulationWVolume, WCreator: cfg.ManipulationWCreator,
+				WashMin: cfg.ManipulationWashMin, WashMax: cfg.ManipulationWashMax,
+				VolMin: cfg.ManipulationVolMin, VolMax: cfg.ManipulationVolMax,
+			},
+			Interval: time.Duration(cfg.ManipulationIntervalSec) * time.Second, Limit: cfg.ManipulationLimit, Logger: logger,
+		})
+		go mw.Run(ctx)
 	}
 
 	srv := &http.Server{

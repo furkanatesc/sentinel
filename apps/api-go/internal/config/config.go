@@ -59,6 +59,20 @@ type Config struct {
 	ReputationWFail        float64
 	ReputationWGrad        float64
 	ReputationHighDrawdown float64
+
+	ManipulationEnabled     bool
+	ManipulationIntervalSec int
+	ManipulationLimit       int
+	ManipulationMinTxns     int
+	ManipulationConfTxns    int
+	ManipulationWImbalance  float64
+	ManipulationWWash       float64
+	ManipulationWVolume     float64
+	ManipulationWCreator    float64
+	ManipulationWashMin     float64
+	ManipulationWashMax     float64
+	ManipulationVolMin      float64
+	ManipulationVolMax      float64
 }
 
 func Load() Config {
@@ -115,6 +129,20 @@ func Load() Config {
 		ReputationWFail:        getenvFloat("REPUTATION_W_FAIL", 20),
 		ReputationWGrad:        getenvFloat("REPUTATION_W_GRAD", 40),
 		ReputationHighDrawdown: getenvFloat("REPUTATION_HIGH_DRAWDOWN", 80),
+
+		ManipulationEnabled:     getenvBool("MANIPULATION_ENABLED", true),
+		ManipulationIntervalSec: getenvInt("MANIPULATION_INTERVAL_SEC", 60),
+		ManipulationLimit:       getenvInt("MANIPULATION_LIMIT", 60),
+		ManipulationMinTxns:     getenvInt("MANIPULATION_MIN_TXNS", 20),
+		ManipulationConfTxns:    getenvInt("MANIPULATION_CONF_TXNS", 100),
+		ManipulationWImbalance:  getenvFloat("MANIPULATION_W_IMBALANCE", 30),
+		ManipulationWWash:       getenvFloat("MANIPULATION_W_WASH", 35),
+		ManipulationWVolume:     getenvFloat("MANIPULATION_W_VOLUME", 25),
+		ManipulationWCreator:    getenvFloat("MANIPULATION_W_CREATOR", 10),
+		ManipulationWashMin:     getenvFloat("MANIPULATION_WASH_MIN", 3),
+		ManipulationWashMax:     getenvFloat("MANIPULATION_WASH_MAX", 15),
+		ManipulationVolMin:      getenvFloat("MANIPULATION_VOL_MIN", 3),
+		ManipulationVolMax:      getenvFloat("MANIPULATION_VOL_MAX", 20),
 	}
 }
 
