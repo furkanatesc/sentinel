@@ -31,7 +31,7 @@ type Result struct {
 
 func Score(in Inputs, th Thresholds) Result {
 	txns := in.Buys + in.Sells
-	if txns < th.MinTxns {
+	if txns == 0 || txns < th.MinTxns {
 		return Result{Value: 0, Confidence: 0, Breakdown: []store.ScoreBreakdownItem{}}
 	}
 
@@ -60,9 +60,7 @@ func Score(in Inputs, th Thresholds) Result {
 	cCreator := th.WCreator * creatorNorm
 
 	value := cImb + cWash + cVol + cCreator
-	if value > 100 {
-		value = 100
-	}
+	value = clamp(0, 100, value)
 
 	bd := []store.ScoreBreakdownItem{}
 	if cImb > 0 {
@@ -91,6 +89,17 @@ func clamp01(x float64) float64 {
 	}
 	if x > 1 {
 		return 1
+	}
+	return x
+}
+
+// clamp, x'i [lo,hi] aralığına sıkıştırır (spec §3: value = clamp[0,100](...)).
+func clamp(lo, hi, x float64) float64 {
+	if x < lo {
+		return lo
+	}
+	if x > hi {
+		return hi
 	}
 	return x
 }

@@ -1,6 +1,9 @@
 package manipulation
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func defTh() Thresholds {
 	return Thresholds{MinTxns: 20, ConfTxns: 100, WImbalance: 30, WWash: 35, WVolume: 25, WCreator: 10,
@@ -56,5 +59,35 @@ func TestScoreConfidenceRamp(t *testing.T) {
 	r := Score(Inputs{Buys: 25, Sells: 25, Buyers: 40}, defTh()) // txns=50 → 0.5
 	if r.Confidence < 0.49 || r.Confidence > 0.51 {
 		t.Fatalf("conf 0.5 beklenir, gelen %.2f", r.Confidence)
+	}
+}
+
+// TestScoreZeroTxnsWithMinTxnsZero, MIN_TXNS yanlış yapılandırılıp 0'a çekilse bile
+// txns==0 durumunda 0/0 NaN'ının hesaba sızmadan nötr dönüşü sabitler (final-review bulgu #2).
+func TestScoreZeroTxnsWithMinTxnsZero(t *testing.T) {
+	th := defTh()
+	th.MinTxns = 0
+	r := Score(Inputs{Buys: 0, Sells: 0, Buyers: 0}, th)
+	if r.Value != 0 || r.Confidence != 0 {
+		t.Fatalf("nötr (0,0) beklenir, gelen %+v", r)
+	}
+	if r.Breakdown == nil || len(r.Breakdown) != 0 {
+		t.Fatalf("boş-ama-nil-olmayan breakdown beklenir, gelen %+v", r.Breakdown)
+	}
+	if math.IsNaN(r.Value) {
+		t.Fatalf("Value NaN olmamalı, gelen %v", r.Value)
+	}
+}
+
+// TestScoreClampedToZeroWithNegativeWeight, spec §3'teki simetrik clamp[0,100]'ün alt
+// ucunu sabitler: negatif ağırlık ham toplamı 0'ın altına çekse bile Value negatif olmamalı
+// (final-review bulgu #1).
+func TestScoreClampedToZeroWithNegativeWeight(t *testing.T) {
+	th := defTh()
+	th.WImbalance = -50 // yanlış-yapılandırılmış negatif ağırlık → ham toplam < 0
+	th.WWash, th.WVolume, th.WCreator = 0, 0, 0
+	r := Score(Inputs{Buys: 100, Sells: 0, Buyers: 100, Vol24h: 0, Liquidity: 100000}, th) // imbalanceNorm=1 → cImb=-50
+	if r.Value != 0 {
+		t.Fatalf("alt clamp 0 beklenir, gelen %.1f", r.Value)
 	}
 }
