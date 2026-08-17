@@ -82,6 +82,7 @@ func (x *Enricher) tick(ctx context.Context) error {
 				Mint: t.Mint, Price: p.Price, Liquidity: p.LiquidityUSD, Vol5m: p.Vol5m,
 				Momentum: momentumFromChange(p.PriceChangeH1), Spark: appendSpark(t.Spark, p.Price),
 				PriceChangeH24: p.PriceChangeH24, MarketCapUSD: p.MarketCapUSD, Vol24h: p.Vol24h,
+				TxnsBuys: p.TxnsBuys, TxnsSells: p.TxnsSells, TxnsBuyers: p.TxnsBuyers, TxnsSellers: p.TxnsSellers,
 			}); err != nil {
 				x.d.Logger.Warn("update market", "mint", t.Mint, "err", err)
 				continue

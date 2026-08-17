@@ -19,6 +19,8 @@ type Pool struct {
 	PriceChangeH24 float64 // h24 yüzde
 	MarketCapUSD   float64 // market_cap_usd, yoksa fdv_usd
 	Vol24h         float64
+
+	TxnsBuys, TxnsSells, TxnsBuyers, TxnsSellers int // h24 işlem sayıları (2c manipülasyon)
 }
 
 // Candle, OHLCV mumunun grafik için gereken kısmıdır (close + volume).

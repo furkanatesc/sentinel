@@ -222,6 +222,8 @@ func (f *fakeTokenStore) UpdateMarket(_ context.Context, m MarketUpdate) error {
 	cur.row.Price, cur.row.Liquidity = m.Price, m.Liquidity
 	cur.row.Vol5m, cur.row.Momentum = m.Vol5m, m.Momentum
 	cur.priceChangeH24, cur.marketCapUSD, cur.vol24h = m.PriceChangeH24, m.MarketCapUSD, m.Vol24h
+	cur.txnsBuys, cur.txnsSells = m.TxnsBuys, m.TxnsSells
+	cur.txnsBuyers, cur.txnsSellers = m.TxnsBuyers, m.TxnsSellers
 	if m.Spark == nil {
 		m.Spark = []float64{}
 	}

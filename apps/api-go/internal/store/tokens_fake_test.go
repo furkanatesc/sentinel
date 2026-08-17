@@ -143,6 +143,18 @@ func TestFakeUpdateManipulationRoundTrip(t *testing.T) {
 	}
 }
 
+func TestFakeUpdateMarketPersistsTxns(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m", PoolAddr: "p"})
+	f.UpdateMarket(context.Background(), MarketUpdate{Mint: "m", Liquidity: 5000, Vol24h: 20000,
+		TxnsBuys: 80, TxnsSells: 20, TxnsBuyers: 30, TxnsSellers: 10})
+	tg, _ := f.ManipulationTargets(context.Background(), 10)
+	if len(tg) != 1 || tg[0].Buys != 80 || tg[0].Sells != 20 || tg[0].Buyers != 30 ||
+		tg[0].Vol24h != 20000 || tg[0].Liquidity != 5000 {
+		t.Fatalf("txns/market ManipulationTargets'a taşınmalı, gelen %+v", tg)
+	}
+}
+
 func TestFakeManipulationTargetsPoolOnlyOldestFirst(t *testing.T) {
 	f := NewFakeTokenStore()
 	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "np", PoolAddr: ""}) // pool'suz → elenir

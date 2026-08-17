@@ -53,15 +53,21 @@ type gtResponse struct {
 
 type gtPool struct {
 	Attributes struct {
-		Address     string            `json:"address"`
-		Name        string            `json:"name"`
-		PriceUSD    string            `json:"base_token_price_usd"`
-		ReserveUSD  string            `json:"reserve_in_usd"`
-		CreatedAt   string            `json:"pool_created_at"`
-		VolumeUSD   map[string]string `json:"volume_usd"`
-		PriceChange map[string]string `json:"price_change_percentage"`
-		MarketCap   string            `json:"market_cap_usd"`
-		FDV         string            `json:"fdv_usd"`
+		Address      string            `json:"address"`
+		Name         string            `json:"name"`
+		PriceUSD     string            `json:"base_token_price_usd"`
+		ReserveUSD   string            `json:"reserve_in_usd"`
+		CreatedAt    string            `json:"pool_created_at"`
+		VolumeUSD    map[string]string `json:"volume_usd"`
+		PriceChange  map[string]string `json:"price_change_percentage"`
+		MarketCap    string            `json:"market_cap_usd"`
+		FDV          string            `json:"fdv_usd"`
+		Transactions map[string]struct {
+			Buys    int `json:"buys"`
+			Sells   int `json:"sells"`
+			Buyers  int `json:"buyers"`
+			Sellers int `json:"sellers"`
+		} `json:"transactions"`
 	} `json:"attributes"`
 	Relationships struct {
 		BaseToken struct {
@@ -208,6 +214,10 @@ func (r *gtResponse) toPools(filterDex bool) []Pool {
 		if p.Symbol == "" { // include yoksa (enrichment yolu) havuz adından türet
 			p.Symbol = baseSymbolFromName(d.Attributes.Name)
 			p.Name = p.Symbol
+		}
+		if tx, ok := d.Attributes.Transactions["h24"]; ok {
+			p.TxnsBuys, p.TxnsSells = tx.Buys, tx.Sells
+			p.TxnsBuyers, p.TxnsSellers = tx.Buyers, tx.Sellers
 		}
 		out = append(out, p)
 	}

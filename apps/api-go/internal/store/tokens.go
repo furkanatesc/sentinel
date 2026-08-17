@@ -39,9 +39,10 @@ type MarketUpdate struct {
 	Price, Liquidity, Vol5m, Momentum float64
 	Spark                             []float64
 	// Detail header alanları (DB'de persist → getToken canlı çağrısız header sunar).
-	PriceChangeH24 float64
-	MarketCapUSD   float64
-	Vol24h         float64
+	PriceChangeH24                               float64
+	MarketCapUSD                                 float64
+	Vol24h                                       float64
+	TxnsBuys, TxnsSells, TxnsBuyers, TxnsSellers int
 }
 
 // EnrichTarget, enrichment için gereken minimum bilgidir: hangi havuzu sorgulayacağı + mevcut spark.
@@ -195,11 +196,12 @@ func (p *postgresStore) UpdateMarket(ctx context.Context, m MarketUpdate) error 
 	}
 	const q = `UPDATE tokens SET price=$2, liquidity=$3, vol5m=$4, momentum=$5, spark=$6,
 		price_change_h24=$7, market_cap_usd=$8, vol24h=$9,
+		txns_buys=$10, txns_sells=$11, txns_buyers=$12, txns_sellers=$13,
 		peak_market_cap = GREATEST(peak_market_cap, $8),
 		peak_liquidity  = GREATEST(peak_liquidity, $3)
 		WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, m.Mint, m.Price, m.Liquidity, m.Vol5m, m.Momentum, string(sparkJSON),
-		m.PriceChangeH24, m.MarketCapUSD, m.Vol24h)
+		m.PriceChangeH24, m.MarketCapUSD, m.Vol24h, m.TxnsBuys, m.TxnsSells, m.TxnsBuyers, m.TxnsSellers)
 	return err
 }
 

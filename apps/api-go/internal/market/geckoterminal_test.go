@@ -2,6 +2,7 @@ package market
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -90,6 +91,36 @@ func TestNewPoolsHeaderFields(t *testing.T) {
 	}
 	if p.MarketCapUSD != 98000.0 { // market_cap_usd öncelikli
 		t.Fatalf("marketCap yanlış: %v (want 98000, fdv fallback DEĞİL)", p.MarketCapUSD)
+	}
+}
+
+func TestToPoolsParsesTransactionsH24(t *testing.T) {
+	body := `{"data":[{"attributes":{
+		"address":"pool1","name":"AAA / SOL","base_token_price_usd":"1","reserve_in_usd":"1000",
+		"transactions":{"h24":{"buys":80,"sells":20,"buyers":30,"sellers":10}}},
+		"relationships":{"base_token":{"data":{"id":"solana_mintA"}},"dex":{"data":{"id":"pumpfun"}}}}]}`
+	var resp gtResponse
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	pools := resp.toPools(false)
+	if len(pools) != 1 {
+		t.Fatalf("1 havuz bekleniyordu, gelen %d", len(pools))
+	}
+	p := pools[0]
+	if p.TxnsBuys != 80 || p.TxnsSells != 20 || p.TxnsBuyers != 30 || p.TxnsSellers != 10 {
+		t.Fatalf("h24 txns yanlış: %+v", p)
+	}
+}
+
+func TestToPoolsMissingTransactionsZero(t *testing.T) {
+	body := `{"data":[{"attributes":{"address":"p","name":"B / SOL","base_token_price_usd":"1"},
+		"relationships":{"base_token":{"data":{"id":"solana_m"}},"dex":{"data":{"id":"pumpfun"}}}}]}`
+	var resp gtResponse
+	json.Unmarshal([]byte(body), &resp)
+	pools := resp.toPools(false)
+	if len(pools) != 1 || pools[0].TxnsBuys != 0 || pools[0].TxnsBuyers != 0 {
+		t.Fatalf("eksik transactions → 0 beklenir, gelen %+v", pools)
 	}
 }
 
