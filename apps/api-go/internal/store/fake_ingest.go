@@ -268,7 +268,19 @@ func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenD
 		SafetyScore: t.safetyScore, SafetyConfidence: t.safetyConfidence, Top10Pct: t.top10Pct,
 		SafetyBreakdown: t.safetyBreakdown, SafetyRisks: t.safetyRisks, SafetyScoredTs: t.safetyScoredTs,
 		CreatorRepScore: rep.Score, CreatorRepConfidence: rep.Confidence, CreatorRepBreakdown: repBreakdown,
+		ManipulationScore: t.manipScore, ManipulationConfidence: t.manipConf,
+		ManipulationBreakdown: manipBreakdownOrEmpty(t.manipBreakdown), ManipulationScoredTs: t.manipScoredTs,
+		TxnsBuys: t.txnsBuys, TxnsSells: t.txnsSells, TxnsBuyers: t.txnsBuyers,
+		CreatorHoldingPct: t.creatorHoldingPct,
 	}, true, nil
+}
+
+// manipBreakdownOrEmpty, nil breakdown'ı boş dilime çevirir (postgres COALESCE parite; dürüst-nötr).
+func manipBreakdownOrEmpty(b []ScoreBreakdownItem) []ScoreBreakdownItem {
+	if b == nil {
+		return []ScoreBreakdownItem{}
+	}
+	return b
 }
 
 func (f *fakeTokenStore) UpdateSafety(_ context.Context, s SafetyUpdate) error {

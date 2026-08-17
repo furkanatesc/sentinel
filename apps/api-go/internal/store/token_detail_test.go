@@ -56,6 +56,28 @@ func TestFakeTokenDetailBaseCreatorReputationFromCreators(t *testing.T) {
 	}
 }
 
+// TestFakeTokenDetailBaseManipulation, 2c: TokenDetailBase artık manipülasyon skoru
+// (tokens.manipulation_*) + işlem-akışı metriklerini (txns_*, creator_holding_pct) taşımalı.
+func TestFakeTokenDetailBaseManipulation(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m", PoolAddr: "p"})
+	f.UpdateMarket(context.Background(), MarketUpdate{Mint: "m", Liquidity: 1000, Vol24h: 5000,
+		TxnsBuys: 70, TxnsSells: 30, TxnsBuyers: 25})
+	f.UpdateSafety(context.Background(), SafetyUpdate{Mint: "m", CreatorHoldingPct: 33, CreatorHoldingKnown: true})
+	f.UpdateManipulation(context.Background(), ManipulationUpdate{Mint: "m", Score: 48, Confidence: 0.7,
+		Breakdown: []ScoreBreakdownItem{{Label: "x", Weight: 48, Detail: "y"}}, ScoredTs: 99})
+	b, ok, err := f.TokenDetailBase(context.Background(), "m")
+	if err != nil || !ok {
+		t.Fatalf("base: ok=%v err=%v", ok, err)
+	}
+	if b.ManipulationScore != 48 || b.ManipulationConfidence != 0.7 || b.ManipulationScoredTs != 99 {
+		t.Fatalf("manipülasyon alanları yanlış: %+v", b)
+	}
+	if b.TxnsBuys != 70 || b.TxnsSells != 30 || b.TxnsBuyers != 25 || b.CreatorHoldingPct != 33 {
+		t.Fatalf("işlem-akışı alanları yanlış: %+v", b)
+	}
+}
+
 func TestTokenDetailJSONTags(t *testing.T) {
 	// Seam: camelCase alan adları frontend TokenDetail ile eşleşmeli.
 	d := TokenDetail{Scores: map[string]ScoreDetail{}, Series: TokenDetailSeries{

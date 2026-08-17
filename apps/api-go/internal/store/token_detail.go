@@ -92,4 +92,11 @@ type TokenDetailBase struct {
 	// 2b-2b creator reputation (creators tablosundan; detail scores.creatorReputation'a).
 	CreatorRepScore, CreatorRepConfidence float64
 	CreatorRepBreakdown                   []ScoreBreakdownItem
+
+	// 2c manipulation risk (tokens kolonlarından; detail scores.manipulationRisk'e) + işlem-akışı metrikleri.
+	ManipulationScore, ManipulationConfidence float64
+	ManipulationBreakdown                     []ScoreBreakdownItem
+	ManipulationScoredTs                      int64
+	TxnsBuys, TxnsSells, TxnsBuyers           int
+	CreatorHoldingPct                         float64
 }

@@ -238,15 +238,20 @@ func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (Token
 		tokens.price_change_h24, tokens.market_cap_usd, tokens.vol24h,
 		tokens.safety_score, tokens.safety_confidence, tokens.top10_holder_pct,
 		tokens.safety_breakdown, tokens.safety_risks, tokens.safety_scored_ts,
-		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0), COALESCE(c.breakdown,'')
+		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0), COALESCE(c.breakdown,''),
+		tokens.manipulation_score, tokens.manipulation_confidence, tokens.manipulation_breakdown,
+		tokens.manipulation_scored_ts, tokens.txns_buys, tokens.txns_sells, tokens.txns_buyers,
+		tokens.creator_holding_pct
 		FROM tokens LEFT JOIN creators c ON c.address = tokens.creator
 		WHERE tokens.mint=$1`
 	var b TokenDetailBase
-	var bdJSON, rkJSON, repBdJSON string
+	var bdJSON, rkJSON, repBdJSON, manipBdJSON string
 	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs,
 		&b.Price, &b.Liquidity, &b.PriceChangeH24, &b.MarketCapUSD, &b.Vol24h,
 		&b.SafetyScore, &b.SafetyConfidence, &b.Top10Pct, &bdJSON, &rkJSON, &b.SafetyScoredTs,
-		&b.CreatorRepScore, &b.CreatorRepConfidence, &repBdJSON)
+		&b.CreatorRepScore, &b.CreatorRepConfidence, &repBdJSON,
+		&b.ManipulationScore, &b.ManipulationConfidence, &manipBdJSON, &b.ManipulationScoredTs,
+		&b.TxnsBuys, &b.TxnsSells, &b.TxnsBuyers, &b.CreatorHoldingPct)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TokenDetailBase{}, false, nil
 	}
@@ -256,6 +261,7 @@ func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (Token
 	b.SafetyBreakdown = parseBreakdownJSON(bdJSON)
 	b.SafetyRisks = parseRiskGroupsJSON(rkJSON)
 	b.CreatorRepBreakdown = parseBreakdownJSON(repBdJSON)
+	b.ManipulationBreakdown = parseBreakdownJSON(manipBdJSON)
 	return b, true, nil
 }
 
