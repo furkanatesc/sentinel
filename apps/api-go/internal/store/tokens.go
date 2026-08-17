@@ -51,15 +51,19 @@ type EnrichTarget struct {
 	Spark          []float64
 }
 
-// SafetyUpdate, 2a scorer'ının yazdığı token güvenliği sonucudur.
+// SafetyUpdate, 2a scorer'ının yazdığı token güvenliği sonucudur. CreatorHoldingPct/Known,
+// Safety Scorer'ın GİRDİSİ DEĞİL — 2c manipülasyon skoru için aynı holder-fetch'ten
+// (sıfır ek RPC) koşullu persist edilir (Known=false → mevcut değer EZİLMEZ).
 type SafetyUpdate struct {
-	Mint       string
-	Score      float64
-	Confidence float64
-	Top10Pct   float64
-	Breakdown  []ScoreBreakdownItem
-	Risks      RiskGroups
-	ScoredTs   int64
+	Mint                string
+	Score               float64
+	Confidence          float64
+	Top10Pct            float64
+	Breakdown           []ScoreBreakdownItem
+	Risks               RiskGroups
+	ScoredTs            int64
+	CreatorHoldingPct   float64
+	CreatorHoldingKnown bool
 }
 
 // SafetyTarget, skorlanacak token için gereken minimum bilgidir.
@@ -67,6 +71,7 @@ type SafetyTarget struct {
 	Mint      string
 	Liquidity float64
 	Launchpad string
+	Creator   string
 }
 
 // CreatorFillTarget, REST creator-backfill için hedef mint'tir.
@@ -264,14 +269,16 @@ func (p *postgresStore) UpdateSafety(ctx context.Context, s SafetyUpdate) error 
 		return err
 	}
 	const q = `UPDATE tokens SET safety_score=$2, safety_confidence=$3, top10_holder_pct=$4,
-		safety_breakdown=$5, safety_risks=$6, safety_scored_ts=$7 WHERE mint=$1`
+		safety_breakdown=$5, safety_risks=$6, safety_scored_ts=$7,
+		creator_holding_pct = CASE WHEN $8 THEN $9 ELSE creator_holding_pct END
+		WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, s.Mint, s.Score, s.Confidence, s.Top10Pct,
-		string(bdJSON), string(rkJSON), s.ScoredTs)
+		string(bdJSON), string(rkJSON), s.ScoredTs, s.CreatorHoldingKnown, s.CreatorHoldingPct)
 	return err
 }
 
 func (p *postgresStore) SafetyScoreTargets(ctx context.Context, limit int) ([]SafetyTarget, error) {
-	const q = `SELECT mint, liquidity, launchpad FROM tokens
+	const q = `SELECT mint, liquidity, launchpad, creator FROM tokens
 		WHERE pool_address <> '' ORDER BY safety_scored_ts ASC, first_seen_ts DESC LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
 	if err != nil {
@@ -281,7 +288,7 @@ func (p *postgresStore) SafetyScoreTargets(ctx context.Context, limit int) ([]Sa
 	out := make([]SafetyTarget, 0, limit)
 	for rows.Next() {
 		var t SafetyTarget
-		if err := rows.Scan(&t.Mint, &t.Liquidity, &t.Launchpad); err != nil {
+		if err := rows.Scan(&t.Mint, &t.Liquidity, &t.Launchpad, &t.Creator); err != nil {
 			return nil, err
 		}
 		out = append(out, t)

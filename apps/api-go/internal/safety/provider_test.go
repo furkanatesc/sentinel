@@ -16,19 +16,20 @@ func (f fakeAuth) MintAuthorities(context.Context, string) (bool, bool, error) {
 }
 
 type fakeHolders struct {
-	count  int
-	top10  float64
-	capped bool
-	err    error
+	count      int
+	top10      float64
+	creatorPct float64
+	capped     bool
+	err        error
 }
 
-func (f fakeHolders) HolderDistribution(context.Context, string, int) (int, float64, bool, error) {
-	return f.count, f.top10, f.capped, f.err
+func (f fakeHolders) HolderDistribution(context.Context, string, string, int) (int, float64, float64, bool, error) {
+	return f.count, f.top10, f.creatorPct, f.capped, f.err
 }
 
 func TestFetchOnChainBothOK(t *testing.T) {
 	p := NewHeliusProvider(fakeAuth{mint: true, freeze: false}, fakeHolders{count: 300, top10: 42}, 5000)
-	d, err := p.FetchOnChain(context.Background(), "M")
+	d, err := p.FetchOnChain(context.Background(), "M", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +41,7 @@ func TestFetchOnChainBothOK(t *testing.T) {
 func TestFetchOnChainHoldersCappedPropagates(t *testing.T) {
 	// Holders cap'e takılırsa (capped=true) OnChainData.HoldersCapped=true olmalı (confidence düşsün diye).
 	p := NewHeliusProvider(fakeAuth{mint: true, freeze: false}, fakeHolders{count: 5000, top10: 60, capped: true}, 5000)
-	d, err := p.FetchOnChain(context.Background(), "M")
+	d, err := p.FetchOnChain(context.Background(), "M", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestFetchOnChainHoldersCappedPropagates(t *testing.T) {
 func TestFetchOnChainPartialFailureIsolated(t *testing.T) {
 	// Authority hata verir, holders başarılı → AuthoritiesKnown=false, HoldersKnown=true, hard-fail YOK.
 	p := NewHeliusProvider(fakeAuth{err: errors.New("boom")}, fakeHolders{count: 300, top10: 42}, 5000)
-	d, err := p.FetchOnChain(context.Background(), "M")
+	d, err := p.FetchOnChain(context.Background(), "M", "")
 	if err != nil {
 		t.Fatalf("kısmi hata hard-fail olmamalı: %v", err)
 	}

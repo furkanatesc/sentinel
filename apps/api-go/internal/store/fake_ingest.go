@@ -281,6 +281,9 @@ func (f *fakeTokenStore) UpdateSafety(_ context.Context, s SafetyUpdate) error {
 	cur.row.SafetyScore = s.Score
 	cur.safetyScore, cur.safetyConfidence, cur.top10Pct = s.Score, s.Confidence, s.Top10Pct
 	cur.safetyBreakdown, cur.safetyRisks, cur.safetyScoredTs = s.Breakdown, s.Risks, s.ScoredTs
+	if s.CreatorHoldingKnown {
+		cur.creatorHoldingPct = s.CreatorHoldingPct
+	}
 	f.byID[s.Mint] = cur
 	return nil
 }
@@ -299,7 +302,7 @@ func (f *fakeTokenStore) SafetyScoreTargets(_ context.Context, limit int) ([]Saf
 		if t.poolAddr == "" || len(out) >= limit {
 			continue
 		}
-		out = append(out, SafetyTarget{Mint: t.row.Mint, Liquidity: t.row.Liquidity, Launchpad: t.launchpad})
+		out = append(out, SafetyTarget{Mint: t.row.Mint, Liquidity: t.row.Liquidity, Launchpad: t.launchpad, Creator: t.creator})
 	}
 	return out, nil
 }

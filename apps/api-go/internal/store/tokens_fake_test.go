@@ -169,3 +169,18 @@ func TestFakeManipulationTargetsPoolOnlyOldestFirst(t *testing.T) {
 		t.Fatalf("skorlanmamış b önce beklenir, gelen %s", targets[0].Mint)
 	}
 }
+
+func TestFakeUpdateSafetyCreatorHoldingConditional(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m", PoolAddr: "p"})
+	f.UpdateSafety(context.Background(), SafetyUpdate{Mint: "m", CreatorHoldingPct: 55, CreatorHoldingKnown: true})
+	tg, _ := f.ManipulationTargets(context.Background(), 10)
+	if tg[0].CreatorHoldingPct != 55 {
+		t.Fatalf("known=true → 55 yazılmalı, gelen %.1f", tg[0].CreatorHoldingPct)
+	}
+	f.UpdateSafety(context.Background(), SafetyUpdate{Mint: "m", CreatorHoldingKnown: false, CreatorHoldingPct: 0})
+	tg, _ = f.ManipulationTargets(context.Background(), 10)
+	if tg[0].CreatorHoldingPct != 55 {
+		t.Fatalf("known=false → mevcut 55 EZİLMEMELİ, gelen %.1f", tg[0].CreatorHoldingPct)
+	}
+}
