@@ -39,9 +39,10 @@ type MarketUpdate struct {
 	Price, Liquidity, Vol5m, Momentum float64
 	Spark                             []float64
 	// Detail header alanları (DB'de persist → getToken canlı çağrısız header sunar).
-	PriceChangeH24 float64
-	MarketCapUSD   float64
-	Vol24h         float64
+	PriceChangeH24                               float64
+	MarketCapUSD                                 float64
+	Vol24h                                       float64
+	TxnsBuys, TxnsSells, TxnsBuyers, TxnsSellers int
 }
 
 // EnrichTarget, enrichment için gereken minimum bilgidir: hangi havuzu sorgulayacağı + mevcut spark.
@@ -50,15 +51,19 @@ type EnrichTarget struct {
 	Spark          []float64
 }
 
-// SafetyUpdate, 2a scorer'ının yazdığı token güvenliği sonucudur.
+// SafetyUpdate, 2a scorer'ının yazdığı token güvenliği sonucudur. CreatorHoldingPct/Known,
+// Safety Scorer'ın GİRDİSİ DEĞİL — 2c manipülasyon skoru için aynı holder-fetch'ten
+// (sıfır ek RPC) koşullu persist edilir (Known=false → mevcut değer EZİLMEZ).
 type SafetyUpdate struct {
-	Mint       string
-	Score      float64
-	Confidence float64
-	Top10Pct   float64
-	Breakdown  []ScoreBreakdownItem
-	Risks      RiskGroups
-	ScoredTs   int64
+	Mint                string
+	Score               float64
+	Confidence          float64
+	Top10Pct            float64
+	Breakdown           []ScoreBreakdownItem
+	Risks               RiskGroups
+	ScoredTs            int64
+	CreatorHoldingPct   float64
+	CreatorHoldingKnown bool
 }
 
 // SafetyTarget, skorlanacak token için gereken minimum bilgidir.
@@ -66,10 +71,27 @@ type SafetyTarget struct {
 	Mint      string
 	Liquidity float64
 	Launchpad string
+	Creator   string
 }
 
 // CreatorFillTarget, REST creator-backfill için hedef mint'tir.
 type CreatorFillTarget struct{ Mint string }
+
+// ManipulationTarget, 2c manipülasyon skoru için gereken işlem-akışı girdileridir (h24).
+type ManipulationTarget struct {
+	Mint                                 string
+	Buys, Sells, Buyers                  int
+	CreatorHoldingPct, Vol24h, Liquidity float64
+}
+
+// ManipulationUpdate, 2c scorer'ının yazdığı manipülasyon sonucudur.
+type ManipulationUpdate struct {
+	Mint       string
+	Score      float64
+	Confidence float64
+	Breakdown  []ScoreBreakdownItem
+	ScoredTs   int64
+}
 
 // OutcomeTarget, sınıflandırılacak token için gereken anlık + tepe piyasa durumudur.
 type OutcomeTarget struct {
@@ -111,6 +133,9 @@ type TokenStore interface {
 	// 2b-2b: creator itibar agregası (outcome sayımları) / hesaplanmış itibarı persist eder.
 	CreatorAggregates(ctx context.Context, limit int) ([]CreatorAgg, error)
 	UpsertReputation(ctx context.Context, r CreatorReputation) error
+	// 2c: manipülasyon riski agrega girdilerini döndürür / hesaplanmış skoru persist eder.
+	ManipulationTargets(ctx context.Context, limit int) ([]ManipulationTarget, error)
+	UpdateManipulation(ctx context.Context, u ManipulationUpdate) error
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -176,11 +201,12 @@ func (p *postgresStore) UpdateMarket(ctx context.Context, m MarketUpdate) error 
 	}
 	const q = `UPDATE tokens SET price=$2, liquidity=$3, vol5m=$4, momentum=$5, spark=$6,
 		price_change_h24=$7, market_cap_usd=$8, vol24h=$9,
+		txns_buys=$10, txns_sells=$11, txns_buyers=$12, txns_sellers=$13,
 		peak_market_cap = GREATEST(peak_market_cap, $8),
 		peak_liquidity  = GREATEST(peak_liquidity, $3)
 		WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, m.Mint, m.Price, m.Liquidity, m.Vol5m, m.Momentum, string(sparkJSON),
-		m.PriceChangeH24, m.MarketCapUSD, m.Vol24h)
+		m.PriceChangeH24, m.MarketCapUSD, m.Vol24h, m.TxnsBuys, m.TxnsSells, m.TxnsBuyers, m.TxnsSellers)
 	return err
 }
 
@@ -212,15 +238,20 @@ func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (Token
 		tokens.price_change_h24, tokens.market_cap_usd, tokens.vol24h,
 		tokens.safety_score, tokens.safety_confidence, tokens.top10_holder_pct,
 		tokens.safety_breakdown, tokens.safety_risks, tokens.safety_scored_ts,
-		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0), COALESCE(c.breakdown,'')
+		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0), COALESCE(c.breakdown,''),
+		tokens.manipulation_score, tokens.manipulation_confidence, tokens.manipulation_breakdown,
+		tokens.manipulation_scored_ts, tokens.txns_buys, tokens.txns_sells, tokens.txns_buyers,
+		tokens.creator_holding_pct
 		FROM tokens LEFT JOIN creators c ON c.address = tokens.creator
 		WHERE tokens.mint=$1`
 	var b TokenDetailBase
-	var bdJSON, rkJSON, repBdJSON string
+	var bdJSON, rkJSON, repBdJSON, manipBdJSON string
 	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs,
 		&b.Price, &b.Liquidity, &b.PriceChangeH24, &b.MarketCapUSD, &b.Vol24h,
 		&b.SafetyScore, &b.SafetyConfidence, &b.Top10Pct, &bdJSON, &rkJSON, &b.SafetyScoredTs,
-		&b.CreatorRepScore, &b.CreatorRepConfidence, &repBdJSON)
+		&b.CreatorRepScore, &b.CreatorRepConfidence, &repBdJSON,
+		&b.ManipulationScore, &b.ManipulationConfidence, &manipBdJSON, &b.ManipulationScoredTs,
+		&b.TxnsBuys, &b.TxnsSells, &b.TxnsBuyers, &b.CreatorHoldingPct)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TokenDetailBase{}, false, nil
 	}
@@ -230,6 +261,7 @@ func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (Token
 	b.SafetyBreakdown = parseBreakdownJSON(bdJSON)
 	b.SafetyRisks = parseRiskGroupsJSON(rkJSON)
 	b.CreatorRepBreakdown = parseBreakdownJSON(repBdJSON)
+	b.ManipulationBreakdown = parseBreakdownJSON(manipBdJSON)
 	return b, true, nil
 }
 
@@ -243,14 +275,16 @@ func (p *postgresStore) UpdateSafety(ctx context.Context, s SafetyUpdate) error 
 		return err
 	}
 	const q = `UPDATE tokens SET safety_score=$2, safety_confidence=$3, top10_holder_pct=$4,
-		safety_breakdown=$5, safety_risks=$6, safety_scored_ts=$7 WHERE mint=$1`
+		safety_breakdown=$5, safety_risks=$6, safety_scored_ts=$7,
+		creator_holding_pct = CASE WHEN $8 THEN $9 ELSE creator_holding_pct END
+		WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, s.Mint, s.Score, s.Confidence, s.Top10Pct,
-		string(bdJSON), string(rkJSON), s.ScoredTs)
+		string(bdJSON), string(rkJSON), s.ScoredTs, s.CreatorHoldingKnown, s.CreatorHoldingPct)
 	return err
 }
 
 func (p *postgresStore) SafetyScoreTargets(ctx context.Context, limit int) ([]SafetyTarget, error) {
-	const q = `SELECT mint, liquidity, launchpad FROM tokens
+	const q = `SELECT mint, liquidity, launchpad, creator FROM tokens
 		WHERE pool_address <> '' ORDER BY safety_scored_ts ASC, first_seen_ts DESC LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
 	if err != nil {
@@ -260,7 +294,7 @@ func (p *postgresStore) SafetyScoreTargets(ctx context.Context, limit int) ([]Sa
 	out := make([]SafetyTarget, 0, limit)
 	for rows.Next() {
 		var t SafetyTarget
-		if err := rows.Scan(&t.Mint, &t.Liquidity, &t.Launchpad); err != nil {
+		if err := rows.Scan(&t.Mint, &t.Liquidity, &t.Launchpad, &t.Creator); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -317,6 +351,38 @@ func (p *postgresStore) CreatorFillTargets(ctx context.Context, limit int) ([]Cr
 func (p *postgresStore) SetCreatorBackfill(ctx context.Context, mint, creator string, backfillTs int64) error {
 	const q = `UPDATE tokens SET creator=COALESCE(NULLIF($2,''), creator), creator_backfill_ts=$3 WHERE mint=$1`
 	_, err := p.db.ExecContext(ctx, q, mint, creator, backfillTs)
+	return err
+}
+
+func (p *postgresStore) ManipulationTargets(ctx context.Context, limit int) ([]ManipulationTarget, error) {
+	const q = `SELECT mint, txns_buys, txns_sells, txns_buyers, creator_holding_pct, vol24h, liquidity
+		FROM tokens WHERE pool_address <> ''
+		ORDER BY manipulation_scored_ts ASC, first_seen_ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]ManipulationTarget, 0, limit)
+	for rows.Next() {
+		var t ManipulationTarget
+		if err := rows.Scan(&t.Mint, &t.Buys, &t.Sells, &t.Buyers,
+			&t.CreatorHoldingPct, &t.Vol24h, &t.Liquidity); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) UpdateManipulation(ctx context.Context, u ManipulationUpdate) error {
+	bdJSON, err := json.Marshal(u.Breakdown)
+	if err != nil {
+		return err
+	}
+	const q = `UPDATE tokens SET manipulation_score=$2, manipulation_confidence=$3,
+		manipulation_breakdown=$4, manipulation_scored_ts=$5 WHERE mint=$1`
+	_, err = p.db.ExecContext(ctx, q, u.Mint, u.Score, u.Confidence, string(bdJSON), u.ScoredTs)
 	return err
 }
 

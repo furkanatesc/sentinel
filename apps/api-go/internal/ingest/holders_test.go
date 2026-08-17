@@ -82,7 +82,7 @@ func TestHolderDistributionTop10(t *testing.T) {
 	}))
 	defer srv.Close()
 	h := NewHeliusHolders(srv.URL)
-	count, top10, capped, err := h.HolderDistribution(context.Background(), "MintX", 5000)
+	count, top10, _, capped, err := h.HolderDistribution(context.Background(), "MintX", "", 5000)
 	if err != nil || capped {
 		t.Fatalf("err=%v capped=%v", err, capped)
 	}
@@ -106,7 +106,7 @@ func TestHolderDistributionStringOrNullAmountTolerant(t *testing.T) {
 	}))
 	defer srv.Close()
 	h := NewHeliusHolders(srv.URL)
-	count, top10, _, err := h.HolderDistribution(context.Background(), "MintX", 5000)
+	count, top10, _, _, err := h.HolderDistribution(context.Background(), "MintX", "", 5000)
 	if err != nil {
 		t.Fatalf("string/null amount hata vermemeli: %v", err)
 	}
@@ -116,5 +116,34 @@ func TestHolderDistributionStringOrNullAmountTolerant(t *testing.T) {
 	// toplam=40 (30+10+0); top-10 = 40 → %100
 	if top10 < 99.9 || top10 > 100.1 {
 		t.Fatalf("top10=%.2f want 100 (30+10 / 40)", top10)
+	}
+}
+
+func TestHolderDistributionCreatorPct(t *testing.T) {
+	// creator "cA" toplam arzın %40'ını tutuyor (owner map: cA=400, o2=300, o3=300)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"result":{"token_accounts":[
+			{"owner":"cA","amount":400},{"owner":"o2","amount":300},{"owner":"o3","amount":300}]}}`))
+	}))
+	defer srv.Close()
+	h := NewHeliusHolders(srv.URL)
+	_, _, creatorPct, _, err := h.HolderDistribution(context.Background(), "mint", "cA", 5000)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if creatorPct < 39.9 || creatorPct > 40.1 {
+		t.Fatalf("creator payı %%40 beklenir, gelen %.2f", creatorPct)
+	}
+}
+
+func TestHolderDistributionCreatorAbsentZero(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"result":{"token_accounts":[{"owner":"o2","amount":1000}]}}`))
+	}))
+	defer srv.Close()
+	h := NewHeliusHolders(srv.URL)
+	_, _, creatorPct, _, _ := h.HolderDistribution(context.Background(), "mint", "cA", 5000)
+	if creatorPct != 0 {
+		t.Fatalf("creator listede yok → %%0 beklenir, gelen %.2f", creatorPct)
 	}
 }

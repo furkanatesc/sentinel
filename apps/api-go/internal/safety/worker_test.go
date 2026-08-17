@@ -22,7 +22,9 @@ func (f *fakeSafetyStore) UpdateSafety(_ context.Context, s store.SafetyUpdate) 
 
 type stubProvider struct{ d OnChainData }
 
-func (s stubProvider) FetchOnChain(context.Context, string) (OnChainData, error) { return s.d, nil }
+func (s stubProvider) FetchOnChain(context.Context, string, string) (OnChainData, error) {
+	return s.d, nil
+}
 
 func TestScoreOncePersistsResult(t *testing.T) {
 	st := &fakeSafetyStore{targets: []store.SafetyTarget{{Mint: "M1", Liquidity: 5000, Launchpad: "Raydium"}}}

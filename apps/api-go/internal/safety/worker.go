@@ -71,11 +71,12 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		data, err := w.d.Provider.FetchOnChain(ctx, tg.Mint)
+		data, err := w.d.Provider.FetchOnChain(ctx, tg.Mint, tg.Creator)
 		if err != nil {
 			w.d.Logger.Warn("fetch on-chain", "mint", tg.Mint, "err", err)
 			continue
 		}
+		// creator holding Scorer'a GİRMEZ (double-counting olur) — sadece aşağıda persist edilir.
 		res := Score(Inputs{
 			MintAuthorityActive: data.MintAuthorityActive, FreezeAuthorityActive: data.FreezeAuthorityActive,
 			AuthoritiesKnown: data.AuthoritiesKnown, HolderCount: data.HolderCount, Top10Pct: data.Top10Pct,
@@ -84,6 +85,7 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 		if err := w.d.Store.UpdateSafety(ctx, store.SafetyUpdate{
 			Mint: tg.Mint, Score: res.Score, Confidence: res.Confidence, Top10Pct: res.Top10Pct,
 			Breakdown: res.Breakdown, Risks: res.Risks, ScoredTs: now,
+			CreatorHoldingPct: data.CreatorHoldingPct, CreatorHoldingKnown: data.CreatorHoldingKnown,
 		}); err != nil {
 			w.d.Logger.Warn("update safety", "mint", tg.Mint, "err", err)
 		}

@@ -142,9 +142,11 @@ func (h *HeliusHolders) pageAccounts(ctx context.Context, mint string, page int)
 	return r.Result.TokenAccounts, nil
 }
 
-// HolderDistribution, benzersiz-sahip holder sayısı ve top-10 sahip yoğunlaşması (%) döndürür.
-// cap'e ulaşınca durur (capped=true — pahalı büyük token'ları sınırlar; sonuç alt-sınırdır).
-func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint string, capN int) (int, float64, bool, error) {
+// HolderDistribution, benzersiz-sahip holder sayısı, top-10 sahip yoğunlaşması (%) ve
+// creator'ın kendi payı (%) döndürür (aynı fetch'ten — sıfır ek RPC). creator=="" veya
+// byOwner map'inde yoksa creatorPct=0 (dürüst). cap'e ulaşınca durur (capped=true —
+// pahalı büyük token'ları sınırlar; sonuç alt-sınırdır).
+func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint, creator string, capN int) (int, float64, float64, bool, error) {
 	if capN <= 0 {
 		capN = 5000
 	}
@@ -154,7 +156,7 @@ func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint string, cap
 	for page := 1; ; page++ {
 		accs, err := h.pageAccounts(ctx, mint, page)
 		if err != nil {
-			return 0, 0, false, err
+			return 0, 0, 0, false, err
 		}
 		for _, a := range accs {
 			byOwner[a.Owner] += float64(a.Amount)
@@ -183,5 +185,9 @@ func (h *HeliusHolders) HolderDistribution(ctx context.Context, mint string, cap
 	if total > 0 {
 		pct = top10 / total * 100
 	}
-	return len(byOwner), pct, capped, nil
+	creatorPct := 0.0
+	if creator != "" && total > 0 {
+		creatorPct = byOwner[creator] / total * 100
+	}
+	return len(byOwner), pct, creatorPct, capped, nil
 }

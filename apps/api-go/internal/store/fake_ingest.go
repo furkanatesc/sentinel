@@ -50,6 +50,13 @@ type fakeTok struct {
 	outcomeScoredTs                              int64
 	// REST creator-backfill
 	creatorBackfillTs int64
+	// 2c manipülasyon riski: txns_* Task 4'te, creatorHoldingPct Task 5'te yazılır — bu task
+	// sadece alanları + okuma/yazma yüzeyini açar (bkz. ManipulationTargets/UpdateManipulation).
+	txnsBuys, txnsSells, txnsBuyers, txnsSellers int
+	creatorHoldingPct                            float64
+	manipScore, manipConf                        float64
+	manipBreakdown                               []ScoreBreakdownItem
+	manipScoredTs                                int64
 }
 
 type fakeTokenStore struct {
@@ -215,6 +222,8 @@ func (f *fakeTokenStore) UpdateMarket(_ context.Context, m MarketUpdate) error {
 	cur.row.Price, cur.row.Liquidity = m.Price, m.Liquidity
 	cur.row.Vol5m, cur.row.Momentum = m.Vol5m, m.Momentum
 	cur.priceChangeH24, cur.marketCapUSD, cur.vol24h = m.PriceChangeH24, m.MarketCapUSD, m.Vol24h
+	cur.txnsBuys, cur.txnsSells = m.TxnsBuys, m.TxnsSells
+	cur.txnsBuyers, cur.txnsSellers = m.TxnsBuyers, m.TxnsSellers
 	if m.Spark == nil {
 		m.Spark = []float64{}
 	}
@@ -259,7 +268,19 @@ func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenD
 		SafetyScore: t.safetyScore, SafetyConfidence: t.safetyConfidence, Top10Pct: t.top10Pct,
 		SafetyBreakdown: t.safetyBreakdown, SafetyRisks: t.safetyRisks, SafetyScoredTs: t.safetyScoredTs,
 		CreatorRepScore: rep.Score, CreatorRepConfidence: rep.Confidence, CreatorRepBreakdown: repBreakdown,
+		ManipulationScore: t.manipScore, ManipulationConfidence: t.manipConf,
+		ManipulationBreakdown: manipBreakdownOrEmpty(t.manipBreakdown), ManipulationScoredTs: t.manipScoredTs,
+		TxnsBuys: t.txnsBuys, TxnsSells: t.txnsSells, TxnsBuyers: t.txnsBuyers,
+		CreatorHoldingPct: t.creatorHoldingPct,
 	}, true, nil
+}
+
+// manipBreakdownOrEmpty, nil breakdown'ı boş dilime çevirir (postgres COALESCE parite; dürüst-nötr).
+func manipBreakdownOrEmpty(b []ScoreBreakdownItem) []ScoreBreakdownItem {
+	if b == nil {
+		return []ScoreBreakdownItem{}
+	}
+	return b
 }
 
 func (f *fakeTokenStore) UpdateSafety(_ context.Context, s SafetyUpdate) error {
@@ -272,6 +293,9 @@ func (f *fakeTokenStore) UpdateSafety(_ context.Context, s SafetyUpdate) error {
 	cur.row.SafetyScore = s.Score
 	cur.safetyScore, cur.safetyConfidence, cur.top10Pct = s.Score, s.Confidence, s.Top10Pct
 	cur.safetyBreakdown, cur.safetyRisks, cur.safetyScoredTs = s.Breakdown, s.Risks, s.ScoredTs
+	if s.CreatorHoldingKnown {
+		cur.creatorHoldingPct = s.CreatorHoldingPct
+	}
 	f.byID[s.Mint] = cur
 	return nil
 }
@@ -290,7 +314,7 @@ func (f *fakeTokenStore) SafetyScoreTargets(_ context.Context, limit int) ([]Saf
 		if t.poolAddr == "" || len(out) >= limit {
 			continue
 		}
-		out = append(out, SafetyTarget{Mint: t.row.Mint, Liquidity: t.row.Liquidity, Launchpad: t.launchpad})
+		out = append(out, SafetyTarget{Mint: t.row.Mint, Liquidity: t.row.Liquidity, Launchpad: t.launchpad, Creator: t.creator})
 	}
 	return out, nil
 }
@@ -454,4 +478,38 @@ func (f *fakeTokenStore) UpsertReputation(_ context.Context, r CreatorReputation
 	defer f.mu.Unlock()
 	f.reputationByAddr[r.Address] = r
 	return nil
+}
+
+func (f *fakeTokenStore) UpdateManipulation(_ context.Context, u ManipulationUpdate) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cur, ok := f.byID[u.Mint]
+	if !ok {
+		return nil
+	}
+	cur.manipScore, cur.manipConf = u.Score, u.Confidence
+	cur.manipBreakdown, cur.manipScoredTs = u.Breakdown, u.ScoredTs
+	f.byID[u.Mint] = cur
+	return nil
+}
+
+func (f *fakeTokenStore) ManipulationTargets(_ context.Context, limit int) ([]ManipulationTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ids := append([]string{}, f.order...)
+	sort.SliceStable(ids, func(i, j int) bool {
+		return f.byID[ids[i]].manipScoredTs < f.byID[ids[j]].manipScoredTs
+	})
+	out := make([]ManipulationTarget, 0, limit)
+	for _, id := range ids {
+		t := f.byID[id]
+		if t.poolAddr == "" || len(out) >= limit {
+			continue
+		}
+		out = append(out, ManipulationTarget{
+			Mint: t.row.Mint, Buys: t.txnsBuys, Sells: t.txnsSells, Buyers: t.txnsBuyers,
+			CreatorHoldingPct: t.creatorHoldingPct, Vol24h: t.vol24h, Liquidity: t.row.Liquidity,
+		})
+	}
+	return out, nil
 }

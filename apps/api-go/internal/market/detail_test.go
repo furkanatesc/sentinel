@@ -250,6 +250,68 @@ func TestBuildCreatorReputationFromStore(t *testing.T) {
 	}
 }
 
+// TestBuildManipulationRiskAndTxnFlowFromStore, 2c: scores.manipulationRisk artık nötr
+// placeholder değil, TokenDetailBase'in manipülasyon alanlarından (tokens tablosu) gelmeli;
+// metrics.uniqueBuyers/buyRatio/sellRatio/creatorHoldingPct txns_*+creator_holding_pct'ten türemeli.
+func TestBuildManipulationRiskAndTxnFlowFromStore(t *testing.T) {
+	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
+	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0,
+			ManipulationScore: 48, ManipulationConfidence: 0.7, ManipulationScoredTs: 99,
+			ManipulationBreakdown: []store.ScoreBreakdownItem{{Label: "x", Weight: 48, Detail: "y"}},
+			TxnsBuys:              70, TxnsSells: 30, TxnsBuyers: 25, CreatorHoldingPct: 33},
+	}}
+	svc := NewTokenDetailService(TokenDetailDeps{Store: fs, Provider: dp, Holders: &fakeHolders{n: 5}, Now: func() int64 { return 600 }})
+	d, ok, err := svc.Build(context.Background(), "M1")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	sd := d.Scores["manipulationRisk"]
+	if sd.Value != 48 || sd.Confidence != 0.7 || len(sd.Breakdown) != 1 || sd.Key != "manipulationRisk" {
+		t.Fatalf("manipulationRisk skoru DB'den gelmeli: %+v", sd)
+	}
+	if sd.UpdatedAt == "—" {
+		t.Fatalf("manipulationRisk updatedAt scoredTs>0 iken gerçek zaman olmalı: %+v", sd)
+	}
+	if d.Metrics.UniqueBuyers != 25 {
+		t.Fatalf("uniqueBuyers txns_buyers'tan gelmeli: %d", d.Metrics.UniqueBuyers)
+	}
+	if d.Metrics.BuyRatio != 0.7 || d.Metrics.SellRatio != 0.3 {
+		t.Fatalf("buy/sellRatio txns_buys/sells'ten türemeli: buy=%v sell=%v", d.Metrics.BuyRatio, d.Metrics.SellRatio)
+	}
+	if d.Metrics.CreatorHoldingPct != 33 {
+		t.Fatalf("creatorHoldingPct DB'den: %v", d.Metrics.CreatorHoldingPct)
+	}
+	// Diğer skorlar (opportunity) nötr kalmalı.
+	if d.Scores["opportunity"].Confidence != 0 {
+		t.Fatalf("opportunity nötr kalmalı: %+v", d.Scores["opportunity"])
+	}
+}
+
+// TestBuildManipulationRiskNilBreakdown, nil breakdown + sıfır txns → dürüst-nötr guard'lar
+// (boş dilim, sıfır bölme yok) doğrulanmalı.
+func TestBuildManipulationRiskNilBreakdown(t *testing.T) {
+	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
+	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0},
+	}}
+	svc := NewTokenDetailService(TokenDetailDeps{Store: fs, Provider: dp, Holders: &fakeHolders{n: 5}, Now: func() int64 { return 600 }})
+	d, ok, err := svc.Build(context.Background(), "M1")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	sd := d.Scores["manipulationRisk"]
+	if sd.Breakdown == nil || len(sd.Breakdown) != 0 {
+		t.Fatalf("nil breakdown → boş dilim olmalı (nil değil): %+v", sd.Breakdown)
+	}
+	if sd.UpdatedAt != "—" {
+		t.Fatalf("scoredTs=0 iken updatedAt=— olmalı: %q", sd.UpdatedAt)
+	}
+	if d.Metrics.BuyRatio != 0 || d.Metrics.SellRatio != 0 {
+		t.Fatalf("txns=0 iken buy/sellRatio 0 kalmalı (sıfıra bölme yok): buy=%v sell=%v", d.Metrics.BuyRatio, d.Metrics.SellRatio)
+	}
+}
+
 func TestBuildCache(t *testing.T) {
 	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
 	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{

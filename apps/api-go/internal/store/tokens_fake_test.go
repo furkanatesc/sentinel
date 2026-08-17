@@ -124,3 +124,63 @@ func TestFakeSafetyScoreTargetsOldestFirstPoolOnly(t *testing.T) {
 		t.Fatalf("launchpad taşınmalı: %+v", got[0])
 	}
 }
+
+func TestFakeUpdateManipulationRoundTrip(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m1", PoolAddr: "p1"})
+	bd := []ScoreBreakdownItem{{Label: "Alım/satım dengesizliği", Weight: 30, Detail: "buyRatio=0.90"}}
+	if err := f.UpdateManipulation(context.Background(), ManipulationUpdate{
+		Mint: "m1", Score: 42, Confidence: 0.5, Breakdown: bd, ScoredTs: 1234,
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	targets, err := f.ManipulationTargets(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("targets: %v", err)
+	}
+	if len(targets) != 1 || targets[0].Mint != "m1" {
+		t.Fatalf("beklenen 1 hedef m1, gelen %+v", targets)
+	}
+}
+
+func TestFakeUpdateMarketPersistsTxns(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m", PoolAddr: "p"})
+	f.UpdateMarket(context.Background(), MarketUpdate{Mint: "m", Liquidity: 5000, Vol24h: 20000,
+		TxnsBuys: 80, TxnsSells: 20, TxnsBuyers: 30, TxnsSellers: 10})
+	tg, _ := f.ManipulationTargets(context.Background(), 10)
+	if len(tg) != 1 || tg[0].Buys != 80 || tg[0].Sells != 20 || tg[0].Buyers != 30 ||
+		tg[0].Vol24h != 20000 || tg[0].Liquidity != 5000 {
+		t.Fatalf("txns/market ManipulationTargets'a taşınmalı, gelen %+v", tg)
+	}
+}
+
+func TestFakeManipulationTargetsPoolOnlyOldestFirst(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "np", PoolAddr: ""}) // pool'suz → elenir
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "a", PoolAddr: "pa"})
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "b", PoolAddr: "pb"})
+	f.UpdateManipulation(context.Background(), ManipulationUpdate{Mint: "a", ScoredTs: 500}) // a skorlandı
+	targets, _ := f.ManipulationTargets(context.Background(), 10)
+	if len(targets) != 2 {
+		t.Fatalf("pool'lu 2 token bekleniyordu, gelen %d", len(targets))
+	}
+	if targets[0].Mint != "b" { // skorlanmamış (ts=0) önce
+		t.Fatalf("skorlanmamış b önce beklenir, gelen %s", targets[0].Mint)
+	}
+}
+
+func TestFakeUpdateSafetyCreatorHoldingConditional(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m", PoolAddr: "p"})
+	f.UpdateSafety(context.Background(), SafetyUpdate{Mint: "m", CreatorHoldingPct: 55, CreatorHoldingKnown: true})
+	tg, _ := f.ManipulationTargets(context.Background(), 10)
+	if tg[0].CreatorHoldingPct != 55 {
+		t.Fatalf("known=true → 55 yazılmalı, gelen %.1f", tg[0].CreatorHoldingPct)
+	}
+	f.UpdateSafety(context.Background(), SafetyUpdate{Mint: "m", CreatorHoldingKnown: false, CreatorHoldingPct: 0})
+	tg, _ = f.ManipulationTargets(context.Background(), 10)
+	if tg[0].CreatorHoldingPct != 55 {
+		t.Fatalf("known=false → mevcut 55 EZİLMEMELİ, gelen %.1f", tg[0].CreatorHoldingPct)
+	}
+}

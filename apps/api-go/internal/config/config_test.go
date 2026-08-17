@@ -134,3 +134,17 @@ func TestLoadReputationDefaults(t *testing.T) {
 		t.Fatalf("reputation defaults: %+v", c)
 	}
 }
+
+func TestManipulationDefaults(t *testing.T) {
+	c := Load()
+	if !c.ManipulationEnabled {
+		t.Fatal("MANIPULATION_ENABLED default true beklenir")
+	}
+	if c.ManipulationMinTxns != 20 || c.ManipulationConfTxns != 100 {
+		t.Fatalf("eşik defaultları yanlış: minTxns=%d confTxns=%d", c.ManipulationMinTxns, c.ManipulationConfTxns)
+	}
+	if c.ManipulationWImbalance != 30 || c.ManipulationWWash != 35 ||
+		c.ManipulationWVolume != 25 || c.ManipulationWCreator != 10 {
+		t.Fatalf("ağırlık defaultları yanlış: %+v", c)
+	}
+}

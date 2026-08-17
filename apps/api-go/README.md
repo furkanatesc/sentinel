@@ -61,6 +61,27 @@ bilinmeyen adres → 404).
 | `REPUTATION_W_FAIL` | Hayır (default 20) | Dump/dead oranı ceza ağırlığı |
 | `REPUTATION_W_GRAD` | Hayır (default 40) | Graduated oranı ödül ağırlığı |
 | `REPUTATION_HIGH_DRAWDOWN` | Hayır (default 80) | per-token "yüksek düşüş" bayrağı eşiği (%) |
+| `MANIPULATION_ENABLED` | Hayır (default true) | Manipülasyon riski scorer'ı (2c). Saf DB, RPC gerektirmez |
+| `MANIPULATION_INTERVAL_SEC` | Hayır (default 60) | Skorlama döngüsü aralığı (saniye) |
+| `MANIPULATION_LIMIT` | Hayır (default 60) | Döngü başına skorlanan token |
+| `MANIPULATION_MIN_TXNS` | Hayır (default 20) | Skor üretmek için gereken minimum h24 işlem sayısı (altında skor=0/conf=0) |
+| `MANIPULATION_CONF_TXNS` | Hayır (default 100) | Tam güven için gereken h24 işlem sayısı (confidence tavanı) |
+| `MANIPULATION_W_IMBALANCE` | Hayır (default 30) | Alım/satım dengesizliği ceza ağırlığı |
+| `MANIPULATION_W_WASH` | Hayır (default 35) | Wash-trading proxy (işlem/alıcı oranı) ceza ağırlığı |
+| `MANIPULATION_W_VOLUME` | Hayır (default 25) | Hacim/likidite oranı ceza ağırlığı |
+| `MANIPULATION_W_CREATOR` | Hayır (default 10) | Creator holding oranı ceza ağırlığı |
+| `MANIPULATION_WASH_MIN` | Hayır (default 3) | Wash-proxy band alt sınırı (bu değerin altı ceza almaz; `getenvFloat >0` şartıyla 0 girilemez — YAGNI sınırı) |
+| `MANIPULATION_WASH_MAX` | Hayır (default 15) | Wash-proxy band üst sınırı (bu değerin üstü tam ceza alır) |
+| `MANIPULATION_VOL_MIN` | Hayır (default 3) | Hacim/likidite band alt sınırı |
+| `MANIPULATION_VOL_MAX` | Hayır (default 20) | Hacim/likidite band üst sınırı |
+
+## Manipülasyon riski (2c)
+Kural-tabanlı, saf-DB agrega-proxy scorer — RPC yok, per-wallet/trade-flow analiz yok. Girdi: GeckoTerminal
+`transactions.h24` (buys/sells/buyers) + safety `creator_holding` + market hacim/likidite; `manipulation.Scorer`
+bu agregaları eşiklere (`MANIPULATION_*`) karşı puanlayıp inverted (yüksek risk = düşük güven token) bir skor +
+breakdown üretir. `MANIPULATION_MIN_TXNS` altındaki token'larda skor=0/confidence=0 döner (düşük-aktivite için
+dürüst "veri yok", "risksiz" değil). Per-wallet sniper/bot-activity/creator-sell tespiti (trade-flow gerektirir)
+kasıtlı olarak 2e'ye ertelendi — bu slice yalnız agrega-proxy sinyaller kullanır.
 
 ## Railway deploy (KULLANICI ADIMI)
 1. Railway'de yeni servis → GitHub repo `furkanatesc/sentinel`, **Root Directory = `apps/api-go`** (nixpacks Go'yu otomatik derler; **Go 1.24** gerekli — `go.mod`'da pinli; start komutu binary'yi çalıştırır).

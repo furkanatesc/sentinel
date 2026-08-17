@@ -145,7 +145,7 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 	d.Metrics.Top10HolderPct = base.Top10Pct
 
 	// Creator Reputation (2b-2b) — DB'den (creators tablosu, arka plan scorer persist etti);
-	// opportunity + manipulationRisk hâlâ nötr (Alt-proje 2 gelene kadar).
+	// opportunity hâlâ nötr (Alt-proje 2 gelene kadar).
 	d.Scores["creatorReputation"] = store.ScoreDetail{
 		Key: "creatorReputation", Value: base.CreatorRepScore, Confidence: base.CreatorRepConfidence,
 		UpdatedAt: "—", Breakdown: base.CreatorRepBreakdown,
@@ -155,6 +155,30 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 		sd.Breakdown = []store.ScoreBreakdownItem{}
 		d.Scores["creatorReputation"] = sd
 	}
+
+	// Manipulation Risk (2c) — DB'den (tokens kolonları, arka plan scorer persist etti); opportunity nötr kalır.
+	manipUpdated := "—"
+	if base.ManipulationScoredTs > 0 {
+		manipUpdated = time.Unix(base.ManipulationScoredTs, 0).UTC().Format(time.RFC3339)
+	}
+	d.Scores["manipulationRisk"] = store.ScoreDetail{
+		Key: "manipulationRisk", Value: base.ManipulationScore, Confidence: base.ManipulationConfidence,
+		UpdatedAt: manipUpdated, Breakdown: base.ManipulationBreakdown,
+	}
+	if d.Scores["manipulationRisk"].Breakdown == nil {
+		sd := d.Scores["manipulationRisk"]
+		sd.Breakdown = []store.ScoreBreakdownItem{}
+		d.Scores["manipulationRisk"] = sd
+	}
+
+	// İşlem-akışı metrikleri (2c) — top10/holders zaten set; sniperPct/botActivityPct 2e'ye kadar 0.
+	txns := base.TxnsBuys + base.TxnsSells
+	d.Metrics.UniqueBuyers = base.TxnsBuyers
+	if txns > 0 {
+		d.Metrics.BuyRatio = float64(base.TxnsBuys) / float64(txns)
+		d.Metrics.SellRatio = float64(base.TxnsSells) / float64(txns)
+	}
+	d.Metrics.CreatorHoldingPct = base.CreatorHoldingPct
 
 	s.mu.Lock()
 	ttlSec := int64(s.d.CacheTTL / time.Second)
