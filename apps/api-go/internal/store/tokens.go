@@ -71,6 +71,22 @@ type SafetyTarget struct {
 // CreatorFillTarget, REST creator-backfill için hedef mint'tir.
 type CreatorFillTarget struct{ Mint string }
 
+// ManipulationTarget, 2c manipülasyon skoru için gereken işlem-akışı girdileridir (h24).
+type ManipulationTarget struct {
+	Mint                                 string
+	Buys, Sells, Buyers                  int
+	CreatorHoldingPct, Vol24h, Liquidity float64
+}
+
+// ManipulationUpdate, 2c scorer'ının yazdığı manipülasyon sonucudur.
+type ManipulationUpdate struct {
+	Mint       string
+	Score      float64
+	Confidence float64
+	Breakdown  []ScoreBreakdownItem
+	ScoredTs   int64
+}
+
 // OutcomeTarget, sınıflandırılacak token için gereken anlık + tepe piyasa durumudur.
 type OutcomeTarget struct {
 	Mint                                                             string
@@ -111,6 +127,9 @@ type TokenStore interface {
 	// 2b-2b: creator itibar agregası (outcome sayımları) / hesaplanmış itibarı persist eder.
 	CreatorAggregates(ctx context.Context, limit int) ([]CreatorAgg, error)
 	UpsertReputation(ctx context.Context, r CreatorReputation) error
+	// 2c: manipülasyon riski agrega girdilerini döndürür / hesaplanmış skoru persist eder.
+	ManipulationTargets(ctx context.Context, limit int) ([]ManipulationTarget, error)
+	UpdateManipulation(ctx context.Context, u ManipulationUpdate) error
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -317,6 +336,38 @@ func (p *postgresStore) CreatorFillTargets(ctx context.Context, limit int) ([]Cr
 func (p *postgresStore) SetCreatorBackfill(ctx context.Context, mint, creator string, backfillTs int64) error {
 	const q = `UPDATE tokens SET creator=COALESCE(NULLIF($2,''), creator), creator_backfill_ts=$3 WHERE mint=$1`
 	_, err := p.db.ExecContext(ctx, q, mint, creator, backfillTs)
+	return err
+}
+
+func (p *postgresStore) ManipulationTargets(ctx context.Context, limit int) ([]ManipulationTarget, error) {
+	const q = `SELECT mint, txns_buys, txns_sells, txns_buyers, creator_holding_pct, vol24h, liquidity
+		FROM tokens WHERE pool_address <> ''
+		ORDER BY manipulation_scored_ts ASC, first_seen_ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]ManipulationTarget, 0, limit)
+	for rows.Next() {
+		var t ManipulationTarget
+		if err := rows.Scan(&t.Mint, &t.Buys, &t.Sells, &t.Buyers,
+			&t.CreatorHoldingPct, &t.Vol24h, &t.Liquidity); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) UpdateManipulation(ctx context.Context, u ManipulationUpdate) error {
+	bdJSON, err := json.Marshal(u.Breakdown)
+	if err != nil {
+		return err
+	}
+	const q = `UPDATE tokens SET manipulation_score=$2, manipulation_confidence=$3,
+		manipulation_breakdown=$4, manipulation_scored_ts=$5 WHERE mint=$1`
+	_, err = p.db.ExecContext(ctx, q, u.Mint, u.Score, u.Confidence, string(bdJSON), u.ScoredTs)
 	return err
 }
 

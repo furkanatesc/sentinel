@@ -124,3 +124,36 @@ func TestFakeSafetyScoreTargetsOldestFirstPoolOnly(t *testing.T) {
 		t.Fatalf("launchpad taşınmalı: %+v", got[0])
 	}
 }
+
+func TestFakeUpdateManipulationRoundTrip(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m1", PoolAddr: "p1"})
+	bd := []ScoreBreakdownItem{{Label: "Alım/satım dengesizliği", Weight: 30, Detail: "buyRatio=0.90"}}
+	if err := f.UpdateManipulation(context.Background(), ManipulationUpdate{
+		Mint: "m1", Score: 42, Confidence: 0.5, Breakdown: bd, ScoredTs: 1234,
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	targets, err := f.ManipulationTargets(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("targets: %v", err)
+	}
+	if len(targets) != 1 || targets[0].Mint != "m1" {
+		t.Fatalf("beklenen 1 hedef m1, gelen %+v", targets)
+	}
+}
+
+func TestFakeManipulationTargetsPoolOnlyOldestFirst(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "np", PoolAddr: ""}) // pool'suz → elenir
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "a", PoolAddr: "pa"})
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "b", PoolAddr: "pb"})
+	f.UpdateManipulation(context.Background(), ManipulationUpdate{Mint: "a", ScoredTs: 500}) // a skorlandı
+	targets, _ := f.ManipulationTargets(context.Background(), 10)
+	if len(targets) != 2 {
+		t.Fatalf("pool'lu 2 token bekleniyordu, gelen %d", len(targets))
+	}
+	if targets[0].Mint != "b" { // skorlanmamış (ts=0) önce
+		t.Fatalf("skorlanmamış b önce beklenir, gelen %s", targets[0].Mint)
+	}
+}

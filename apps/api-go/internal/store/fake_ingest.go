@@ -50,6 +50,13 @@ type fakeTok struct {
 	outcomeScoredTs                              int64
 	// REST creator-backfill
 	creatorBackfillTs int64
+	// 2c manipülasyon riski: txns_* Task 4'te, creatorHoldingPct Task 5'te yazılır — bu task
+	// sadece alanları + okuma/yazma yüzeyini açar (bkz. ManipulationTargets/UpdateManipulation).
+	txnsBuys, txnsSells, txnsBuyers, txnsSellers int
+	creatorHoldingPct                            float64
+	manipScore, manipConf                        float64
+	manipBreakdown                               []ScoreBreakdownItem
+	manipScoredTs                                int64
 }
 
 type fakeTokenStore struct {
@@ -454,4 +461,38 @@ func (f *fakeTokenStore) UpsertReputation(_ context.Context, r CreatorReputation
 	defer f.mu.Unlock()
 	f.reputationByAddr[r.Address] = r
 	return nil
+}
+
+func (f *fakeTokenStore) UpdateManipulation(_ context.Context, u ManipulationUpdate) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cur, ok := f.byID[u.Mint]
+	if !ok {
+		return nil
+	}
+	cur.manipScore, cur.manipConf = u.Score, u.Confidence
+	cur.manipBreakdown, cur.manipScoredTs = u.Breakdown, u.ScoredTs
+	f.byID[u.Mint] = cur
+	return nil
+}
+
+func (f *fakeTokenStore) ManipulationTargets(_ context.Context, limit int) ([]ManipulationTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ids := append([]string{}, f.order...)
+	sort.SliceStable(ids, func(i, j int) bool {
+		return f.byID[ids[i]].manipScoredTs < f.byID[ids[j]].manipScoredTs
+	})
+	out := make([]ManipulationTarget, 0, limit)
+	for _, id := range ids {
+		t := f.byID[id]
+		if t.poolAddr == "" || len(out) >= limit {
+			continue
+		}
+		out = append(out, ManipulationTarget{
+			Mint: t.row.Mint, Buys: t.txnsBuys, Sells: t.txnsSells, Buyers: t.txnsBuyers,
+			CreatorHoldingPct: t.creatorHoldingPct, Vol24h: t.vol24h, Liquidity: t.row.Liquidity,
+		})
+	}
+	return out, nil
 }

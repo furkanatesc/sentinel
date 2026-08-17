@@ -148,6 +148,12 @@ func (f *failingTokenStore) CreatorAggregates(context.Context, int) ([]store.Cre
 func (f *failingTokenStore) UpsertReputation(context.Context, store.CreatorReputation) error {
 	return nil
 }
+func (f *failingTokenStore) ManipulationTargets(context.Context, int) ([]store.ManipulationTarget, error) {
+	return nil, nil
+}
+func (f *failingTokenStore) UpdateManipulation(context.Context, store.ManipulationUpdate) error {
+	return nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -231,6 +237,12 @@ func (f *snapshotFailingTokenStore) CreatorAggregates(context.Context, int) ([]s
 	return nil, nil
 }
 func (f *snapshotFailingTokenStore) UpsertReputation(context.Context, store.CreatorReputation) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) ManipulationTargets(context.Context, int) ([]store.ManipulationTarget, error) {
+	return nil, nil
+}
+func (f *snapshotFailingTokenStore) UpdateManipulation(context.Context, store.ManipulationUpdate) error {
 	return nil
 }
 
