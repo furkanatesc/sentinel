@@ -3,6 +3,7 @@ package safety
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +66,21 @@ func TestFetchOnChainPartialFailureIsolated(t *testing.T) {
 	}
 	if !d.HoldersKnown || d.HolderCount != 300 {
 		t.Fatalf("holders yine de bilinmeli: %+v", d)
+	}
+}
+
+func TestFetchOnChainBothFailHardErrors(t *testing.T) {
+	// İki kaynak da hata verirse hiç veri yok → hard-fail (worker skip + önceki skoru koru).
+	// Hata mesajı iki kaynağın nedenini de taşımalı (gözlemlenebilirlik — 429 görünsün).
+	p := NewHeliusProvider(fakeAuth{err: errors.New("auth 429")}, fakeHolders{err: errors.New("holders 429")}, 5000)
+	d, err := p.FetchOnChain(context.Background(), "M", "")
+	if err == nil {
+		t.Fatal("iki kaynak da başarısızsa hard-fail beklenir")
+	}
+	if d.AuthoritiesKnown || d.HoldersKnown {
+		t.Fatalf("veri olmamalı: %+v", d)
+	}
+	if !strings.Contains(err.Error(), "auth 429") || !strings.Contains(err.Error(), "holders 429") {
+		t.Fatalf("hata iki kaynağın nedenini de taşımalı: %v", err)
 	}
 }

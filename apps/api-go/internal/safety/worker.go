@@ -61,20 +61,32 @@ func (w *Worker) Run(ctx context.Context) {
 }
 
 // scoreOnce, bir döngü: hedefleri çek → her birini skorla → persist (kısmi hata izole).
+// Döngü sonunda tik başına TEK özet log basar (gözlemlenebilirlik): hiçbir token
+// skorlanamazsa (ör. Helius 429 → sessiz nötr-sıfır) WARN + örnek neden ile alarm verir.
 func (w *Worker) scoreOnce(ctx context.Context) error {
 	targets, err := w.d.Store.SafetyScoreTargets(ctx, w.d.Limit)
 	if err != nil {
 		return err
 	}
 	now := w.d.Now()
+	var scored, totalFail, authUnknown, holdersUnknown int
+	var sampleErr error
 	for _, tg := range targets {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		data, err := w.d.Provider.FetchOnChain(ctx, tg.Mint, tg.Creator)
 		if err != nil {
-			w.d.Logger.Warn("fetch on-chain", "mint", tg.Mint, "err", err)
+			// İki kaynak da başarısız → önceki gerçek skoru neutral ile EZME (skip).
+			totalFail++
+			sampleErr = err
 			continue
+		}
+		if !data.AuthoritiesKnown {
+			authUnknown++
+		}
+		if !data.HoldersKnown {
+			holdersUnknown++
 		}
 		// creator holding Scorer'a GİRMEZ (double-counting olur) — sadece aşağıda persist edilir.
 		res := Score(Inputs{
@@ -88,7 +100,29 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 			CreatorHoldingPct: data.CreatorHoldingPct, CreatorHoldingKnown: data.CreatorHoldingKnown,
 		}); err != nil {
 			w.d.Logger.Warn("update safety", "mint", tg.Mint, "err", err)
+			continue
+		}
+		if res.Confidence > 0 {
+			scored++
 		}
 	}
+	if len(targets) > 0 {
+		w.logCycle(ctx, len(targets), scored, totalFail, authUnknown, holdersUnknown, sampleErr)
+	}
 	return nil
+}
+
+// logCycle, tik özetini basar: hiç skorlama olmadıysa WARN (alarm), aksi hâlde INFO.
+// sampleErr (varsa) kök nedeni taşır (ör. Helius 429) — sessiz degradation'ı görünür kılar.
+func (w *Worker) logCycle(ctx context.Context, targets, scored, totalFail, authUnknown, holdersUnknown int, sampleErr error) {
+	attrs := []any{"targets", targets, "scored", scored, "totalFail", totalFail,
+		"authUnknown", authUnknown, "holdersUnknown", holdersUnknown}
+	if sampleErr != nil {
+		attrs = append(attrs, "sampleErr", sampleErr.Error())
+	}
+	level := slog.LevelInfo
+	if scored == 0 {
+		level = slog.LevelWarn
+	}
+	w.d.Logger.Log(ctx, level, "safety cycle", attrs...)
 }
