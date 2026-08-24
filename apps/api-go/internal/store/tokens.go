@@ -124,6 +124,9 @@ type OutcomeUpdate struct {
 	ScoredTs                       int64
 }
 
+// KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
+type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
+
 // TokenStore, mint-PK token kaynağıdır (upsert; DIP).
 type TokenStore interface {
 	// firstSeenTs, TokenRow'da olmayan (frontend kontratında yok) first_seen_ts
@@ -156,6 +159,8 @@ type TokenStore interface {
 	// 2d: kompozit opportunity girdilerini döndürür / hesaplanmış skoru+signal'ı persist eder.
 	OpportunityScoreTargets(ctx context.Context, limit int) ([]OpportunityTarget, error)
 	UpdateOpportunity(ctx context.Context, u OpportunityUpdate) error
+	// 2d: Overview KPI kartları için 4 türetilebilir sayım (tek agrega).
+	Kpis(ctx context.Context) (KpiCounts, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -443,6 +448,20 @@ func (p *postgresStore) UpdateOpportunity(ctx context.Context, u OpportunityUpda
 		opportunity_breakdown=$4, opportunity_scored_ts=$5, last_signal=$6 WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, u.Mint, u.Score, u.Confidence, string(bd), u.ScoredTs, u.Signal)
 	return err
+}
+
+func (p *postgresStore) Kpis(ctx context.Context) (KpiCounts, error) {
+	const q = `SELECT
+		COUNT(*) FILTER (WHERE first_seen_ts >= $1),
+		COUNT(*) FILTER (WHERE safety_score >= 70 AND safety_confidence >= 0.5),
+		COUNT(*) FILTER (WHERE (manipulation_score >= 70 AND manipulation_confidence >= 0.5)
+		                    OR (safety_score <= 30 AND safety_confidence >= 0.5)),
+		COUNT(*) FILTER (WHERE last_signal IN ('buy','watch'))
+		FROM tokens`
+	var c KpiCounts
+	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+	err := p.db.QueryRowContext(ctx, q, cutoff).Scan(&c.Detected, &c.HighConf, &c.Critical, &c.Signals)
+	return c, err
 }
 
 // parseSparkJSON, boş/bozuk JSON'da boş dilim döner (asla nil değil).

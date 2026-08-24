@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"time"
 )
 
 type fakeEventStore struct {
@@ -558,4 +559,29 @@ func (f *fakeTokenStore) UpdateOpportunity(_ context.Context, u OpportunityUpdat
 	cur.signal = u.Signal
 	f.byID[u.Mint] = cur
 	return nil
+}
+
+// Kpis, postgresStore.Kpis ile AYNI eşikler+boolean mantığıyla (24s cutoff = now-86400,
+// highConf/critical/signals eşikleri) in-memory token'ları sayar (parite).
+func (f *fakeTokenStore) Kpis(_ context.Context) (KpiCounts, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var c KpiCounts
+	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+	for _, id := range f.order {
+		t := f.byID[id]
+		if t.firstSeen >= cutoff {
+			c.Detected++
+		}
+		if t.safetyScore >= 70 && t.safetyConfidence >= 0.5 {
+			c.HighConf++
+		}
+		if (t.manipScore >= 70 && t.manipConf >= 0.5) || (t.safetyScore <= 30 && t.safetyConfidence >= 0.5) {
+			c.Critical++
+		}
+		if t.signal == "buy" || t.signal == "watch" {
+			c.Signals++
+		}
+	}
+	return c, nil
 }

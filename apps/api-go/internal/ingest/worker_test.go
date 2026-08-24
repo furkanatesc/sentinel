@@ -160,6 +160,9 @@ func (f *failingTokenStore) OpportunityScoreTargets(context.Context, int) ([]sto
 func (f *failingTokenStore) UpdateOpportunity(context.Context, store.OpportunityUpdate) error {
 	return nil
 }
+func (f *failingTokenStore) Kpis(context.Context) (store.KpiCounts, error) {
+	return store.KpiCounts{}, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -256,6 +259,9 @@ func (f *snapshotFailingTokenStore) OpportunityScoreTargets(context.Context, int
 }
 func (f *snapshotFailingTokenStore) UpdateOpportunity(context.Context, store.OpportunityUpdate) error {
 	return nil
+}
+func (f *snapshotFailingTokenStore) Kpis(context.Context) (store.KpiCounts, error) {
+	return store.KpiCounts{}, nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {

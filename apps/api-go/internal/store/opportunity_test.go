@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 // seedScoredToken, opportunity target/update testlerinin ihtiyaç duyduğu alt-skorları fake
@@ -69,5 +70,53 @@ func TestOpportunityTargetsAndUpdate_Fake(t *testing.T) {
 		if r.Mint == "m1" && (r.Signal == nil || *r.Signal != "buy") {
 			t.Fatalf("signal beklenen buy, got %v", r.Signal)
 		}
+	}
+}
+
+// seedKpiTokens, TestKpis_Counts_Fake'in ihtiyaç duyduğu 3 token'ı taze first_seen_ts (24s
+// "detected" penceresi içinde) ile hazırlar: k-highconf (safety 80/conf 1 → highConf),
+// k-critical (manipulation 80/conf 1 → critical), k-signal (last_signal=buy → signals).
+func seedKpiTokens(t *testing.T, ts TokenStore) {
+	t.Helper()
+	ctx := context.Background()
+	now := time.Now().Unix()
+
+	seed := func(mint string) {
+		if _, err := ts.UpsertDiscovered(ctx, DiscoveredToken{
+			Mint: mint, Symbol: mint, Launchpad: "Pump.fun", PoolAddr: "p-" + mint, FirstSeenTs: now,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	seed("k-highconf")
+	if err := ts.UpdateSafety(ctx, SafetyUpdate{Mint: "k-highconf", Score: 80, Confidence: 1, ScoredTs: now}); err != nil {
+		t.Fatal(err)
+	}
+
+	seed("k-critical")
+	if err := ts.UpdateManipulation(ctx, ManipulationUpdate{Mint: "k-critical", Score: 80, Confidence: 1, ScoredTs: now}); err != nil {
+		t.Fatal(err)
+	}
+
+	seed("k-signal")
+	if err := ts.UpdateOpportunity(ctx, OpportunityUpdate{
+		Mint: "k-signal", Score: 50, Confidence: 0.5, Signal: "buy", ScoredTs: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestKpis_Counts_Fake(t *testing.T) {
+	ctx := context.Background()
+	fs := NewFakeTokenStore()
+	seedKpiTokens(t, fs) // yardımcı: 1 high-safe (safety80@1), 1 kritik (manip80@1), 1 buy-signal
+	ts := fs.(TokenStore)
+	c, err := ts.Kpis(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.HighConf < 1 || c.Critical < 1 || c.Signals < 1 || c.Detected < 3 {
+		t.Fatalf("kpi sayımları yanlış: %+v", c)
 	}
 }
