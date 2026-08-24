@@ -29,7 +29,7 @@ bilinmeyen adres → 404).
 | `PORT` | Hayır (default 8080) | HTTP port |
 | `CORS_ORIGIN` | Hayır | İzin verilen frontend origin |
 | `HELIUS_API_KEY` | **Ingestion worker için evet** | Yoksa worker başlamaz — REST endpoint'ler (`/api/*`) yine çalışır, sadece boş/durağan DB ile |
-| `SOLANA_RPC_URL` | Hayır | Creator-backfill resolver'ı için alternatif genel RPC (ör. QuickNode/Alchemy/Chainstack free). Helius free-tier `getSignaturesForAddress`'i bloke ettiğinden gerekir. Set edilirse resolver bunu kullanır (standart getSignaturesForAddress+getTransaction); boşsa Helius rpcURL'e düşer. WS + DAS (holders/safety) yine Helius'ta kalır |
+| `SOLANA_RPC_URL` | Hayır (ama Helius 429'da şiddetle önerilir) | Standart-RPC metodları için alternatif genel RPC (ör. QuickNode/Alchemy/Chainstack free). Helius free-tier 429 verdiğinde şunları güvenilir sağlayıcıya yönlendirir: **creator-backfill** (`getSignaturesForAddress`+`getTransaction`) **ve safety authorities** (`getAccountInfo` → mint/freeze authority). Set edilirse bunlar SOLANA_RPC_URL'e gider; boşsa Helius rpcURL'e düşer. **holders (`getTokenAccounts`, DAS-özel) yine Helius'ta kalır** — DAS-sağlayıcı ertelendi (holders 429'da degraded ama safety-cycle logunda görünür) |
 | `EVENTS_WINDOW` | Hayır (default 200) | `/api/events` + `/api/tokens` snapshot'larının döndürdüğü satır sayısı |
 | `GECKOTERMINAL_RATE_PER_MIN` | Hayır (default 25) | Paylaşılan GeckoTerminal istek bütçesi (istek/dk). Keşif + enrichment + token detail TEK token-bucket'tan çeker; keysiz free-tier (~30/dk) 429'unu önler |
 | `GECKOTERMINAL_BURST` | Hayır (default 2) | Token-bucket burst kapasitesi (detail'in 2 çağrısı — header+OHLCV — birlikte geçebilsin) |
