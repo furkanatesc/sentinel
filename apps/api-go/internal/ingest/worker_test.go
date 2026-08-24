@@ -154,6 +154,12 @@ func (f *failingTokenStore) ManipulationTargets(context.Context, int) ([]store.M
 func (f *failingTokenStore) UpdateManipulation(context.Context, store.ManipulationUpdate) error {
 	return nil
 }
+func (f *failingTokenStore) OpportunityScoreTargets(context.Context, int) ([]store.OpportunityTarget, error) {
+	return nil, nil
+}
+func (f *failingTokenStore) UpdateOpportunity(context.Context, store.OpportunityUpdate) error {
+	return nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -243,6 +249,12 @@ func (f *snapshotFailingTokenStore) ManipulationTargets(context.Context, int) ([
 	return nil, nil
 }
 func (f *snapshotFailingTokenStore) UpdateManipulation(context.Context, store.ManipulationUpdate) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) OpportunityScoreTargets(context.Context, int) ([]store.OpportunityTarget, error) {
+	return nil, nil
+}
+func (f *snapshotFailingTokenStore) UpdateOpportunity(context.Context, store.OpportunityUpdate) error {
 	return nil
 }
 

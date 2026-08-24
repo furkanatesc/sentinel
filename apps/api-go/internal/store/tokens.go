@@ -93,6 +93,23 @@ type ManipulationUpdate struct {
 	ScoredTs   int64
 }
 
+// OpportunityTarget, kompozit opportunity için gereken alt-skorlar + confidence'lar (JOIN creators).
+type OpportunityTarget struct {
+	Mint                                                                     string
+	Safety, SafetyConf, Creator, CreatorConf, Manipulation, ManipulationConf float64
+	Momentum, Liquidity                                                      float64
+}
+
+// OpportunityUpdate, opportunity scorer'ının yazdığı kompozit sonuçtur (+ türetilmiş signal).
+type OpportunityUpdate struct {
+	Mint       string
+	Score      float64
+	Confidence float64
+	Breakdown  []ScoreBreakdownItem
+	Signal     string // "buy"|"watch"|"avoid"|"" ("" → last_signal boş → frontend null)
+	ScoredTs   int64
+}
+
 // OutcomeTarget, sınıflandırılacak token için gereken anlık + tepe piyasa durumudur.
 type OutcomeTarget struct {
 	Mint                                                             string
@@ -136,6 +153,9 @@ type TokenStore interface {
 	// 2c: manipülasyon riski agrega girdilerini döndürür / hesaplanmış skoru persist eder.
 	ManipulationTargets(ctx context.Context, limit int) ([]ManipulationTarget, error)
 	UpdateManipulation(ctx context.Context, u ManipulationUpdate) error
+	// 2d: kompozit opportunity girdilerini döndürür / hesaplanmış skoru+signal'ı persist eder.
+	OpportunityScoreTargets(ctx context.Context, limit int) ([]OpportunityTarget, error)
+	UpdateOpportunity(ctx context.Context, u OpportunityUpdate) error
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -152,8 +172,9 @@ func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs
 func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow, error) {
 	// 2b-2b: creator_score sütunu yerine creators tablosundan LEFT JOIN (creator itibarı gerçek;
 	// skorlanmamış/creator'sız token → COALESCE 0, fake reputationByAddr[""] boş değer ile parite).
+	// 2d: t.last_signal de seçilir (fake/postgres parite; boş → nil, frontend null).
 	const q = `SELECT t.mint, t.symbol, t.name, t.first_seen_ts, t.price, t.liquidity, t.vol5m, t.holders,
-		COALESCE(c.reputation_score,0), t.safety_score, t.momentum, t.spark
+		COALESCE(c.reputation_score,0), t.safety_score, t.momentum, t.spark, t.last_signal
 		FROM tokens t LEFT JOIN creators c ON c.address = t.creator
 		ORDER BY t.first_seen_ts DESC LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
@@ -167,8 +188,9 @@ func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow
 		var t TokenRow
 		var firstSeen int64
 		var sparkJSON string
+		var signal string
 		if err := rows.Scan(&t.Mint, &t.Symbol, &t.Name, &firstSeen, &t.Price, &t.Liquidity,
-			&t.Vol5m, &t.Holders, &t.CreatorScore, &t.SafetyScore, &t.Momentum, &sparkJSON); err != nil {
+			&t.Vol5m, &t.Holders, &t.CreatorScore, &t.SafetyScore, &t.Momentum, &sparkJSON, &signal); err != nil {
 			return nil, err
 		}
 		t.ID = t.Mint
@@ -177,6 +199,9 @@ func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow
 			t.AgeSeconds = 0
 		}
 		t.Spark = parseSparkJSON(sparkJSON)
+		if signal != "" {
+			t.Signal = &signal
+		}
 		out = append(out, t)
 	}
 	return out, rows.Err()
@@ -383,6 +408,40 @@ func (p *postgresStore) UpdateManipulation(ctx context.Context, u ManipulationUp
 	const q = `UPDATE tokens SET manipulation_score=$2, manipulation_confidence=$3,
 		manipulation_breakdown=$4, manipulation_scored_ts=$5 WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, u.Mint, u.Score, u.Confidence, string(bdJSON), u.ScoredTs)
+	return err
+}
+
+func (p *postgresStore) OpportunityScoreTargets(ctx context.Context, limit int) ([]OpportunityTarget, error) {
+	const q = `SELECT t.mint, t.safety_score, t.safety_confidence,
+		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0),
+		t.manipulation_score, t.manipulation_confidence, t.momentum, t.liquidity
+		FROM tokens t LEFT JOIN creators c ON c.address = t.creator
+		ORDER BY t.first_seen_ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]OpportunityTarget, 0, limit)
+	for rows.Next() {
+		var t OpportunityTarget
+		if err := rows.Scan(&t.Mint, &t.Safety, &t.SafetyConf, &t.Creator, &t.CreatorConf,
+			&t.Manipulation, &t.ManipulationConf, &t.Momentum, &t.Liquidity); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) UpdateOpportunity(ctx context.Context, u OpportunityUpdate) error {
+	bd, err := json.Marshal(u.Breakdown)
+	if err != nil {
+		return err
+	}
+	const q = `UPDATE tokens SET opportunity_score=$2, opportunity_confidence=$3,
+		opportunity_breakdown=$4, opportunity_scored_ts=$5, last_signal=$6 WHERE mint=$1`
+	_, err = p.db.ExecContext(ctx, q, u.Mint, u.Score, u.Confidence, string(bd), u.ScoredTs, u.Signal)
 	return err
 }
 

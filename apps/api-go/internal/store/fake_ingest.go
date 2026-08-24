@@ -57,6 +57,11 @@ type fakeTok struct {
 	manipScore, manipConf                        float64
 	manipBreakdown                               []ScoreBreakdownItem
 	manipScoredTs                                int64
+	// 2d: kompozit opportunity skoru + türetilmiş signal (last_signal parity; boş → nil/null).
+	signal                            string
+	opportunityScore, opportunityConf float64
+	opportunityBreakdown              []ScoreBreakdownItem
+	opportunityScoredTs               int64
 }
 
 type fakeTokenStore struct {
@@ -363,6 +368,13 @@ func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow,
 		// 2b-2b: creatorScore artık nötr değil — creator itibarından (postgres LEFT JOIN creators parite;
 		// skorlanmamış/creator'sız → 0, COALESCE(c.reputation_score,0) ile eşleşir).
 		row.CreatorScore = f.reputationByAddr[tk.creator].Score
+		// 2d: last_signal parity — boş → nil (frontend null), doluysa *string.
+		if tk.signal != "" {
+			signal := tk.signal
+			row.Signal = &signal
+		} else {
+			row.Signal = nil
+		}
 		out = append(out, row)
 	}
 	return out, nil
@@ -512,4 +524,38 @@ func (f *fakeTokenStore) ManipulationTargets(_ context.Context, limit int) ([]Ma
 		})
 	}
 	return out, nil
+}
+
+// OpportunityScoreTargets, postgres `t LEFT JOIN creators c` semantiğini birebir taklit eder:
+// tüm token'lar (pool_address filtresi YOK — postgres sorgusu da filtrelemiyor), creator'sız/
+// skorlanmamış creator → reputation/confidence 0 (COALESCE parite).
+func (f *fakeTokenStore) OpportunityScoreTargets(_ context.Context, limit int) ([]OpportunityTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]OpportunityTarget, 0, limit)
+	for i := len(f.order) - 1; i >= 0 && len(out) < limit; i-- { // en yeni önce (first_seen_ts DESC)
+		t := f.byID[f.order[i]]
+		rep := f.reputationByAddr[t.creator]
+		out = append(out, OpportunityTarget{
+			Mint: t.row.Mint, Safety: t.safetyScore, SafetyConf: t.safetyConfidence,
+			Creator: rep.Score, CreatorConf: rep.Confidence,
+			Manipulation: t.manipScore, ManipulationConf: t.manipConf,
+			Momentum: t.row.Momentum, Liquidity: t.row.Liquidity,
+		})
+	}
+	return out, nil
+}
+
+func (f *fakeTokenStore) UpdateOpportunity(_ context.Context, u OpportunityUpdate) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cur, ok := f.byID[u.Mint]
+	if !ok {
+		return nil
+	}
+	cur.opportunityScore, cur.opportunityConf = u.Score, u.Confidence
+	cur.opportunityBreakdown, cur.opportunityScoredTs = u.Breakdown, u.ScoredTs
+	cur.signal = u.Signal
+	f.byID[u.Mint] = cur
+	return nil
 }
