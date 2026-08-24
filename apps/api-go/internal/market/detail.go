@@ -144,8 +144,7 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 	}
 	d.Metrics.Top10HolderPct = base.Top10Pct
 
-	// Creator Reputation (2b-2b) — DB'den (creators tablosu, arka plan scorer persist etti);
-	// opportunity hâlâ nötr (Alt-proje 2 gelene kadar).
+	// Creator Reputation (2b-2b) — DB'den (creators tablosu, arka plan scorer persist etti).
 	d.Scores["creatorReputation"] = store.ScoreDetail{
 		Key: "creatorReputation", Value: base.CreatorRepScore, Confidence: base.CreatorRepConfidence,
 		UpdatedAt: "—", Breakdown: base.CreatorRepBreakdown,
@@ -156,7 +155,7 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 		d.Scores["creatorReputation"] = sd
 	}
 
-	// Manipulation Risk (2c) — DB'den (tokens kolonları, arka plan scorer persist etti); opportunity nötr kalır.
+	// Manipulation Risk (2c) — DB'den (tokens kolonları, arka plan scorer persist etti).
 	manipUpdated := "—"
 	if base.ManipulationScoredTs > 0 {
 		manipUpdated = time.Unix(base.ManipulationScoredTs, 0).UTC().Format(time.RFC3339)
@@ -169,6 +168,21 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 		sd := d.Scores["manipulationRisk"]
 		sd.Breakdown = []store.ScoreBreakdownItem{}
 		d.Scores["manipulationRisk"] = sd
+	}
+
+	// Opportunity (2d) — DB'den (tokens kolonları, arka plan worker persist etti).
+	oppUpdated := "—"
+	if base.OpportunityScoredTs > 0 {
+		oppUpdated = time.Unix(base.OpportunityScoredTs, 0).UTC().Format(time.RFC3339)
+	}
+	d.Scores["opportunity"] = store.ScoreDetail{
+		Key: "opportunity", Value: base.OpportunityScore, Confidence: base.OpportunityConfidence,
+		UpdatedAt: oppUpdated, Breakdown: base.OpportunityBreakdown,
+	}
+	if d.Scores["opportunity"].Breakdown == nil {
+		sd := d.Scores["opportunity"]
+		sd.Breakdown = []store.ScoreBreakdownItem{}
+		d.Scores["opportunity"] = sd
 	}
 
 	// İşlem-akışı metrikleri (2c) — top10/holders zaten set; sniperPct/botActivityPct 2e'ye kadar 0.

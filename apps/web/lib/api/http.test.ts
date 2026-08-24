@@ -153,3 +153,24 @@ it("LIVE_ENDPOINTS getCreators ve getCreator içerir", () => {
   expect(LIVE_ENDPOINTS.has("getCreators")).toBe(true);
   expect(LIVE_ENDPOINTS.has("getCreator")).toBe(true);
 });
+
+const sampleKpis = [{ id: "detected", label: "x", value: "3", change: 0, spark: [], updated: "n" }];
+
+it("getKpis gerçek API'den Kpi[] döndürür", async () => {
+  vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(sampleKpis)));
+  const r = await httpApi.getKpis();
+  expect(r[0].id).toBe("detected");
+});
+
+const sampleRadar = [{ x: 1, y: 2, z: 3, name: "A", level: "good" }];
+
+it("getRadar gerçek API'den RadarPoint[] döndürür", async () => {
+  vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(sampleRadar)));
+  const r = await httpApi.getRadar();
+  expect(r[0].name).toBe("A");
+});
+
+it("LIVE_ENDPOINTS getKpis ve getRadar içerir", () => {
+  expect(LIVE_ENDPOINTS.has("getKpis")).toBe(true);
+  expect(LIVE_ENDPOINTS.has("getRadar")).toBe(true);
+});

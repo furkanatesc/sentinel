@@ -154,6 +154,18 @@ func (f *failingTokenStore) ManipulationTargets(context.Context, int) ([]store.M
 func (f *failingTokenStore) UpdateManipulation(context.Context, store.ManipulationUpdate) error {
 	return nil
 }
+func (f *failingTokenStore) OpportunityScoreTargets(context.Context, int) ([]store.OpportunityTarget, error) {
+	return nil, nil
+}
+func (f *failingTokenStore) UpdateOpportunity(context.Context, store.OpportunityUpdate) error {
+	return nil
+}
+func (f *failingTokenStore) Kpis(context.Context) (store.KpiCounts, error) {
+	return store.KpiCounts{}, nil
+}
+func (f *failingTokenStore) Radar(context.Context, int) ([]store.RadarPoint, error) {
+	return nil, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -244,6 +256,18 @@ func (f *snapshotFailingTokenStore) ManipulationTargets(context.Context, int) ([
 }
 func (f *snapshotFailingTokenStore) UpdateManipulation(context.Context, store.ManipulationUpdate) error {
 	return nil
+}
+func (f *snapshotFailingTokenStore) OpportunityScoreTargets(context.Context, int) ([]store.OpportunityTarget, error) {
+	return nil, nil
+}
+func (f *snapshotFailingTokenStore) UpdateOpportunity(context.Context, store.OpportunityUpdate) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) Kpis(context.Context) (store.KpiCounts, error) {
+	return store.KpiCounts{}, nil
+}
+func (f *snapshotFailingTokenStore) Radar(context.Context, int) ([]store.RadarPoint, error) {
+	return nil, nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {

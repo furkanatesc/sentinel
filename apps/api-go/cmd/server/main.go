@@ -18,6 +18,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/manipulation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/opportunity"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/outcome"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
@@ -203,6 +204,16 @@ func main() {
 			Interval: time.Duration(cfg.ManipulationIntervalSec) * time.Second, Limit: cfg.ManipulationLimit, Logger: logger,
 		})
 		go mw.Run(ctx)
+	}
+
+	// opportunity kompozit scorer (2d) — arka plan; saf DB (RPC YOK)
+	if cfg.OpportunityEnabled && bundle.Tokens != nil {
+		ow := opportunity.NewWorker(opportunity.WorkerDeps{
+			Store:    bundle.Tokens,
+			Interval: time.Duration(cfg.OpportunityIntervalSec) * time.Second,
+			Limit:    cfg.OpportunityLimit, Logger: logger,
+		})
+		go ow.Run(ctx)
 	}
 
 	srv := &http.Server{

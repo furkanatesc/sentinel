@@ -78,6 +78,22 @@ func TestFakeTokenDetailBaseManipulation(t *testing.T) {
 	}
 }
 
+// TestFakeTokenDetailBaseOpportunity, 2d: TokenDetailBase artık kompozit opportunity
+// skorunu (tokens.opportunity_*) taşımalı (UpdateOpportunity → TokenDetailBase parite).
+func TestFakeTokenDetailBaseOpportunity(t *testing.T) {
+	f := NewFakeTokenStore()
+	f.UpsertDiscovered(context.Background(), DiscoveredToken{Mint: "m", PoolAddr: "p"})
+	f.UpdateOpportunity(context.Background(), OpportunityUpdate{Mint: "m", Score: 72, Confidence: 0.8,
+		Breakdown: []ScoreBreakdownItem{{Label: "x", Weight: 72, Detail: "y"}}, ScoredTs: 99})
+	b, ok, err := f.TokenDetailBase(context.Background(), "m")
+	if err != nil || !ok {
+		t.Fatalf("base: ok=%v err=%v", ok, err)
+	}
+	if b.OpportunityScore != 72 || b.OpportunityConfidence != 0.8 || b.OpportunityScoredTs != 99 || len(b.OpportunityBreakdown) != 1 {
+		t.Fatalf("opportunity alanları yanlış: %+v", b)
+	}
+}
+
 func TestTokenDetailJSONTags(t *testing.T) {
 	// Seam: camelCase alan adları frontend TokenDetail ile eşleşmeli.
 	d := TokenDetail{Scores: map[string]ScoreDetail{}, Series: TokenDetailSeries{

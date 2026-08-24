@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math"
 	"time"
 )
 
@@ -93,6 +94,23 @@ type ManipulationUpdate struct {
 	ScoredTs   int64
 }
 
+// OpportunityTarget, kompozit opportunity için gereken alt-skorlar + confidence'lar (JOIN creators).
+type OpportunityTarget struct {
+	Mint                                                                     string
+	Safety, SafetyConf, Creator, CreatorConf, Manipulation, ManipulationConf float64
+	Momentum, Liquidity                                                      float64
+}
+
+// OpportunityUpdate, opportunity scorer'ının yazdığı kompozit sonuçtur (+ türetilmiş signal).
+type OpportunityUpdate struct {
+	Mint       string
+	Score      float64
+	Confidence float64
+	Breakdown  []ScoreBreakdownItem
+	Signal     string // "buy"|"watch"|"avoid"|"" ("" → last_signal boş → frontend null)
+	ScoredTs   int64
+}
+
 // OutcomeTarget, sınıflandırılacak token için gereken anlık + tepe piyasa durumudur.
 type OutcomeTarget struct {
 	Mint                                                             string
@@ -105,6 +123,18 @@ type OutcomeUpdate struct {
 	Mint, Outcome, LiquidityStatus string
 	MaxDrawdownPct                 float64
 	ScoredTs                       int64
+}
+
+// KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
+type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
+
+// RadarPoint, Overview radar scatter noktası (frontend RadarPoint ile birebir). level: RiskLevel.
+type RadarPoint struct {
+	X    float64 `json:"x"` // creatorScore
+	Y    float64 `json:"y"` // momentum
+	Z    float64 `json:"z"` // liquidity
+	Name string  `json:"name"`
+	Level string `json:"level"`
 }
 
 // TokenStore, mint-PK token kaynağıdır (upsert; DIP).
@@ -136,6 +166,13 @@ type TokenStore interface {
 	// 2c: manipülasyon riski agrega girdilerini döndürür / hesaplanmış skoru persist eder.
 	ManipulationTargets(ctx context.Context, limit int) ([]ManipulationTarget, error)
 	UpdateManipulation(ctx context.Context, u ManipulationUpdate) error
+	// 2d: kompozit opportunity girdilerini döndürür / hesaplanmış skoru+signal'ı persist eder.
+	OpportunityScoreTargets(ctx context.Context, limit int) ([]OpportunityTarget, error)
+	UpdateOpportunity(ctx context.Context, u OpportunityUpdate) error
+	// 2d: Overview KPI kartları için 4 türetilebilir sayım (tek agrega).
+	Kpis(ctx context.Context) (KpiCounts, error)
+	// 2d: radar scatter noktaları (creatorScore/momentum/liquidity) + risk level (scoreToLevel parity).
+	Radar(ctx context.Context, limit int) ([]RadarPoint, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -152,8 +189,9 @@ func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs
 func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow, error) {
 	// 2b-2b: creator_score sütunu yerine creators tablosundan LEFT JOIN (creator itibarı gerçek;
 	// skorlanmamış/creator'sız token → COALESCE 0, fake reputationByAddr[""] boş değer ile parite).
+	// 2d: t.last_signal de seçilir (fake/postgres parite; boş → nil, frontend null).
 	const q = `SELECT t.mint, t.symbol, t.name, t.first_seen_ts, t.price, t.liquidity, t.vol5m, t.holders,
-		COALESCE(c.reputation_score,0), t.safety_score, t.momentum, t.spark
+		COALESCE(c.reputation_score,0), t.safety_score, t.momentum, t.spark, t.last_signal
 		FROM tokens t LEFT JOIN creators c ON c.address = t.creator
 		ORDER BY t.first_seen_ts DESC LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
@@ -167,8 +205,9 @@ func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow
 		var t TokenRow
 		var firstSeen int64
 		var sparkJSON string
+		var signal string
 		if err := rows.Scan(&t.Mint, &t.Symbol, &t.Name, &firstSeen, &t.Price, &t.Liquidity,
-			&t.Vol5m, &t.Holders, &t.CreatorScore, &t.SafetyScore, &t.Momentum, &sparkJSON); err != nil {
+			&t.Vol5m, &t.Holders, &t.CreatorScore, &t.SafetyScore, &t.Momentum, &sparkJSON, &signal); err != nil {
 			return nil, err
 		}
 		t.ID = t.Mint
@@ -177,6 +216,9 @@ func (p *postgresStore) RecentTokens(ctx context.Context, limit int) ([]TokenRow
 			t.AgeSeconds = 0
 		}
 		t.Spark = parseSparkJSON(sparkJSON)
+		if signal != "" {
+			t.Signal = &signal
+		}
 		out = append(out, t)
 	}
 	return out, rows.Err()
@@ -241,17 +283,20 @@ func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (Token
 		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0), COALESCE(c.breakdown,''),
 		tokens.manipulation_score, tokens.manipulation_confidence, tokens.manipulation_breakdown,
 		tokens.manipulation_scored_ts, tokens.txns_buys, tokens.txns_sells, tokens.txns_buyers,
-		tokens.creator_holding_pct
+		tokens.creator_holding_pct,
+		tokens.opportunity_score, tokens.opportunity_confidence, tokens.opportunity_breakdown,
+		tokens.opportunity_scored_ts
 		FROM tokens LEFT JOIN creators c ON c.address = tokens.creator
 		WHERE tokens.mint=$1`
 	var b TokenDetailBase
-	var bdJSON, rkJSON, repBdJSON, manipBdJSON string
+	var bdJSON, rkJSON, repBdJSON, manipBdJSON, oppBdJSON string
 	err := p.db.QueryRowContext(ctx, q, mint).Scan(&b.Name, &b.Symbol, &b.PoolAddr, &b.FirstSeenTs,
 		&b.Price, &b.Liquidity, &b.PriceChangeH24, &b.MarketCapUSD, &b.Vol24h,
 		&b.SafetyScore, &b.SafetyConfidence, &b.Top10Pct, &bdJSON, &rkJSON, &b.SafetyScoredTs,
 		&b.CreatorRepScore, &b.CreatorRepConfidence, &repBdJSON,
 		&b.ManipulationScore, &b.ManipulationConfidence, &manipBdJSON, &b.ManipulationScoredTs,
-		&b.TxnsBuys, &b.TxnsSells, &b.TxnsBuyers, &b.CreatorHoldingPct)
+		&b.TxnsBuys, &b.TxnsSells, &b.TxnsBuyers, &b.CreatorHoldingPct,
+		&b.OpportunityScore, &b.OpportunityConfidence, &oppBdJSON, &b.OpportunityScoredTs)
 	if errors.Is(err, sql.ErrNoRows) {
 		return TokenDetailBase{}, false, nil
 	}
@@ -262,6 +307,7 @@ func (p *postgresStore) TokenDetailBase(ctx context.Context, mint string) (Token
 	b.SafetyRisks = parseRiskGroupsJSON(rkJSON)
 	b.CreatorRepBreakdown = parseBreakdownJSON(repBdJSON)
 	b.ManipulationBreakdown = parseBreakdownJSON(manipBdJSON)
+	b.OpportunityBreakdown = parseBreakdownJSON(oppBdJSON)
 	return b, true, nil
 }
 
@@ -384,6 +430,90 @@ func (p *postgresStore) UpdateManipulation(ctx context.Context, u ManipulationUp
 		manipulation_breakdown=$4, manipulation_scored_ts=$5 WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, u.Mint, u.Score, u.Confidence, string(bdJSON), u.ScoredTs)
 	return err
+}
+
+func (p *postgresStore) OpportunityScoreTargets(ctx context.Context, limit int) ([]OpportunityTarget, error) {
+	const q = `SELECT t.mint, t.safety_score, t.safety_confidence,
+		COALESCE(c.reputation_score,0), COALESCE(c.confidence,0),
+		t.manipulation_score, t.manipulation_confidence, t.momentum, t.liquidity
+		FROM tokens t LEFT JOIN creators c ON c.address = t.creator
+		ORDER BY t.first_seen_ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]OpportunityTarget, 0, limit)
+	for rows.Next() {
+		var t OpportunityTarget
+		if err := rows.Scan(&t.Mint, &t.Safety, &t.SafetyConf, &t.Creator, &t.CreatorConf,
+			&t.Manipulation, &t.ManipulationConf, &t.Momentum, &t.Liquidity); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) UpdateOpportunity(ctx context.Context, u OpportunityUpdate) error {
+	bd, err := json.Marshal(u.Breakdown)
+	if err != nil {
+		return err
+	}
+	const q = `UPDATE tokens SET opportunity_score=$2, opportunity_confidence=$3,
+		opportunity_breakdown=$4, opportunity_scored_ts=$5, last_signal=$6 WHERE mint=$1`
+	_, err = p.db.ExecContext(ctx, q, u.Mint, u.Score, u.Confidence, string(bd), u.ScoredTs, u.Signal)
+	return err
+}
+
+func (p *postgresStore) Kpis(ctx context.Context) (KpiCounts, error) {
+	const q = `SELECT
+		COUNT(*) FILTER (WHERE first_seen_ts >= $1),
+		COUNT(*) FILTER (WHERE safety_score >= 70 AND safety_confidence >= 0.5),
+		COUNT(*) FILTER (WHERE (manipulation_score >= 70 AND manipulation_confidence >= 0.5)
+		                    OR (safety_score <= 30 AND safety_confidence >= 0.5)),
+		COUNT(*) FILTER (WHERE last_signal IN ('buy','watch'))
+		FROM tokens`
+	var c KpiCounts
+	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+	err := p.db.QueryRowContext(ctx, q, cutoff).Scan(&c.Detected, &c.HighConf, &c.Critical, &c.Signals)
+	return c, err
+}
+
+func (p *postgresStore) Radar(ctx context.Context, limit int) ([]RadarPoint, error) {
+	rows, err := p.RecentTokens(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	return radarFrom(rows), nil
+}
+
+// scoreToLevel, frontend format.ts scoreToLevel ile birebir (parity).
+func scoreToLevel(score float64) string {
+	switch {
+	case score <= 24:
+		return "critical"
+	case score <= 49:
+		return "high"
+	case score <= 69:
+		return "medium"
+	case score <= 84:
+		return "good"
+	default:
+		return "strong"
+	}
+}
+
+// radarFrom, TokenRow listesini radar noktalarına çevirir (mock radarFrom birebir).
+func radarFrom(rows []TokenRow) []RadarPoint {
+	out := make([]RadarPoint, 0, len(rows))
+	for _, t := range rows {
+		out = append(out, RadarPoint{
+			X: t.CreatorScore, Y: t.Momentum, Z: t.Liquidity, Name: t.Symbol,
+			Level: scoreToLevel(math.Round((t.CreatorScore + t.SafetyScore) / 2)),
+		})
+	}
+	return out
 }
 
 // parseSparkJSON, boş/bozuk JSON'da boş dilim döner (asla nil değil).

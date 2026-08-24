@@ -40,6 +40,8 @@ func NewRouter(d RouterDeps) http.Handler {
 	}
 	if d.Tokens != nil {
 		r.Get("/api/tokens", tokensHandler(d.Tokens, d.EventsWindow))
+		r.Get("/api/kpis", kpisHandler(d.Tokens))
+		r.Get("/api/radar", radarHandler(d.Tokens, d.EventsWindow))
 	}
 	if d.TokenDetail != nil {
 		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail, d.TokenDetailTimeout))

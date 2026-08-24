@@ -73,6 +73,10 @@ type Config struct {
 	ManipulationWashMax     float64
 	ManipulationVolMin      float64
 	ManipulationVolMax      float64
+
+	OpportunityEnabled     bool
+	OpportunityIntervalSec int
+	OpportunityLimit       int
 }
 
 func Load() Config {
@@ -143,6 +147,10 @@ func Load() Config {
 		ManipulationWashMax:     getenvFloat("MANIPULATION_WASH_MAX", 15),
 		ManipulationVolMin:      getenvFloat("MANIPULATION_VOL_MIN", 3),
 		ManipulationVolMax:      getenvFloat("MANIPULATION_VOL_MAX", 20),
+
+		OpportunityEnabled:     getenvBool("OPPORTUNITY_ENABLED", true),
+		OpportunityIntervalSec: getenvInt("OPPORTUNITY_INTERVAL_SEC", 60),
+		OpportunityLimit:       getenvInt("OPPORTUNITY_LIMIT", 100),
 	}
 }
 

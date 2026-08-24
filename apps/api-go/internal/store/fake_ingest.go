@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"time"
 )
 
 type fakeEventStore struct {
@@ -57,6 +58,11 @@ type fakeTok struct {
 	manipScore, manipConf                        float64
 	manipBreakdown                               []ScoreBreakdownItem
 	manipScoredTs                                int64
+	// 2d: kompozit opportunity skoru + türetilmiş signal (last_signal parity; boş → nil/null).
+	signal                            string
+	opportunityScore, opportunityConf float64
+	opportunityBreakdown              []ScoreBreakdownItem
+	opportunityScoredTs               int64
 }
 
 type fakeTokenStore struct {
@@ -269,14 +275,16 @@ func (f *fakeTokenStore) TokenDetailBase(_ context.Context, mint string) (TokenD
 		SafetyBreakdown: t.safetyBreakdown, SafetyRisks: t.safetyRisks, SafetyScoredTs: t.safetyScoredTs,
 		CreatorRepScore: rep.Score, CreatorRepConfidence: rep.Confidence, CreatorRepBreakdown: repBreakdown,
 		ManipulationScore: t.manipScore, ManipulationConfidence: t.manipConf,
-		ManipulationBreakdown: manipBreakdownOrEmpty(t.manipBreakdown), ManipulationScoredTs: t.manipScoredTs,
+		ManipulationBreakdown: breakdownOrEmpty(t.manipBreakdown), ManipulationScoredTs: t.manipScoredTs,
 		TxnsBuys: t.txnsBuys, TxnsSells: t.txnsSells, TxnsBuyers: t.txnsBuyers,
 		CreatorHoldingPct: t.creatorHoldingPct,
+		OpportunityScore:  t.opportunityScore, OpportunityConfidence: t.opportunityConf,
+		OpportunityBreakdown: breakdownOrEmpty(t.opportunityBreakdown), OpportunityScoredTs: t.opportunityScoredTs,
 	}, true, nil
 }
 
-// manipBreakdownOrEmpty, nil breakdown'ı boş dilime çevirir (postgres COALESCE parite; dürüst-nötr).
-func manipBreakdownOrEmpty(b []ScoreBreakdownItem) []ScoreBreakdownItem {
+// breakdownOrEmpty, nil breakdown'ı boş dilime çevirir (postgres COALESCE parite; dürüst-nötr; 2c/2d ortak).
+func breakdownOrEmpty(b []ScoreBreakdownItem) []ScoreBreakdownItem {
 	if b == nil {
 		return []ScoreBreakdownItem{}
 	}
@@ -363,6 +371,13 @@ func (f *fakeTokenStore) RecentTokens(_ context.Context, limit int) ([]TokenRow,
 		// 2b-2b: creatorScore artık nötr değil — creator itibarından (postgres LEFT JOIN creators parite;
 		// skorlanmamış/creator'sız → 0, COALESCE(c.reputation_score,0) ile eşleşir).
 		row.CreatorScore = f.reputationByAddr[tk.creator].Score
+		// 2d: last_signal parity — boş → nil (frontend null), doluysa *string.
+		if tk.signal != "" {
+			signal := tk.signal
+			row.Signal = &signal
+		} else {
+			row.Signal = nil
+		}
 		out = append(out, row)
 	}
 	return out, nil
@@ -512,4 +527,71 @@ func (f *fakeTokenStore) ManipulationTargets(_ context.Context, limit int) ([]Ma
 		})
 	}
 	return out, nil
+}
+
+// OpportunityScoreTargets, postgres `t LEFT JOIN creators c` semantiğini birebir taklit eder:
+// tüm token'lar (pool_address filtresi YOK — postgres sorgusu da filtrelemiyor), creator'sız/
+// skorlanmamış creator → reputation/confidence 0 (COALESCE parite).
+func (f *fakeTokenStore) OpportunityScoreTargets(_ context.Context, limit int) ([]OpportunityTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]OpportunityTarget, 0, limit)
+	for i := len(f.order) - 1; i >= 0 && len(out) < limit; i-- { // en yeni önce (first_seen_ts DESC)
+		t := f.byID[f.order[i]]
+		rep := f.reputationByAddr[t.creator]
+		out = append(out, OpportunityTarget{
+			Mint: t.row.Mint, Safety: t.safetyScore, SafetyConf: t.safetyConfidence,
+			Creator: rep.Score, CreatorConf: rep.Confidence,
+			Manipulation: t.manipScore, ManipulationConf: t.manipConf,
+			Momentum: t.row.Momentum, Liquidity: t.row.Liquidity,
+		})
+	}
+	return out, nil
+}
+
+func (f *fakeTokenStore) UpdateOpportunity(_ context.Context, u OpportunityUpdate) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cur, ok := f.byID[u.Mint]
+	if !ok {
+		return nil
+	}
+	cur.opportunityScore, cur.opportunityConf = u.Score, u.Confidence
+	cur.opportunityBreakdown, cur.opportunityScoredTs = u.Breakdown, u.ScoredTs
+	cur.signal = u.Signal
+	f.byID[u.Mint] = cur
+	return nil
+}
+
+// Kpis, postgresStore.Kpis ile AYNI eşikler+boolean mantığıyla (24s cutoff = now-86400,
+// highConf/critical/signals eşikleri) in-memory token'ları sayar (parite).
+func (f *fakeTokenStore) Kpis(_ context.Context) (KpiCounts, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var c KpiCounts
+	cutoff := time.Now().Add(-24 * time.Hour).Unix()
+	for _, id := range f.order {
+		t := f.byID[id]
+		if t.firstSeen >= cutoff {
+			c.Detected++
+		}
+		if t.safetyScore >= 70 && t.safetyConfidence >= 0.5 {
+			c.HighConf++
+		}
+		if (t.manipScore >= 70 && t.manipConf >= 0.5) || (t.safetyScore <= 30 && t.safetyConfidence >= 0.5) {
+			c.Critical++
+		}
+		if t.signal == "buy" || t.signal == "watch" {
+			c.Signals++
+		}
+	}
+	return c, nil
+}
+
+func (f *fakeTokenStore) Radar(ctx context.Context, limit int) ([]RadarPoint, error) {
+	rows, err := f.RecentTokens(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	return radarFrom(rows), nil
 }
