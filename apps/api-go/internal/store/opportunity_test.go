@@ -146,8 +146,29 @@ func TestRadar_Projection_Fake(t *testing.T) {
 	if len(pts) == 0 {
 		t.Fatal("radar noktası bekleniyordu")
 	}
-	// x=creatorScore, z=liquidity projeksiyonu (RecentTokens ile aynı kaynak).
-	if pts[0].Name == "" || pts[0].Level == "" {
-		t.Fatalf("radar noktası eksik: %+v", pts[0])
+	// x=creatorScore, y=momentum, z=liquidity projeksiyonu; Level=scoreToLevel(round((creatorScore+safety)/2)).
+	// Seeded token: creatorScore=0, momentum=60, liquidity=1000, safety=80, symbol="M1".
+	// Expected: X=0, Y=60, Z=1000, Name="M1", Level=scoreToLevel(round(40))="high".
+	var radarPt *RadarPoint
+	for i := range pts {
+		if pts[i].Name == "M1" {
+			radarPt = &pts[i]
+			break
+		}
+	}
+	if radarPt == nil {
+		t.Fatalf("seeded token radar noktası (M1) bulunamadı: %+v", pts)
+	}
+	if radarPt.X != 0 {
+		t.Fatalf("radar X=%.0f want 0", radarPt.X)
+	}
+	if radarPt.Y != 60 {
+		t.Fatalf("radar Y=%.0f want 60", radarPt.Y)
+	}
+	if radarPt.Z != 1000 {
+		t.Fatalf("radar Z=%.0f want 1000", radarPt.Z)
+	}
+	if radarPt.Level != "high" {
+		t.Fatalf("radar Level=%q want %q", radarPt.Level, "high")
 	}
 }
