@@ -124,10 +124,15 @@ func main() {
 		})
 	}
 
-	// token safety scorer (2a) — arka plan; Helius key + market gerekli
+	// token safety scorer (2a) — arka plan; Helius key + market gerekli.
+	// authorities (getAccountInfo) STANDART Solana RPC metodu → Helius free-tier 429'da
+	// SOLANA_RPC_URL ile güvenilir genel sağlayıcıya yönlendirilir (creatorfill deseni);
+	// boşsa Helius'a düşer. holders (getTokenAccounts) DAS-özel → Helius'ta KALIR (429'da
+	// degraded ama observability fix'i ile görünür; DAS-sağlayıcı ertelendi).
 	if cfg.SafetyEnabled && bundle.Tokens != nil && rpcURL != "" {
 		provider := safety.NewHeliusProvider(
-			ingest.NewHeliusAuthorities(rpcURL), ingest.NewHeliusHolders(rpcURL), cfg.SafetyHoldersCap)
+			ingest.NewHeliusAuthorities(preferRPC(cfg.SolanaRPCURL, rpcURL)),
+			ingest.NewHeliusHolders(rpcURL), cfg.SafetyHoldersCap)
 		sw := safety.NewWorker(safety.WorkerDeps{
 			Store: bundle.Tokens, Provider: provider,
 			Interval: time.Duration(cfg.SafetyIntervalSec) * time.Second, Limit: cfg.SafetyLimit, Logger: logger,
@@ -155,11 +160,8 @@ func main() {
 	// Resolver YALNIZ standart getSignaturesForAddress+getTransaction kullanır (Helius
 	// DAS'a bağımlı DEĞİL) → Helius free-tier bu metodu bloke ederse SOLANA_RPC_URL ile
 	// alternatif genel sağlayıcıya yönlendirilir; boşsa Helius rpcURL'e düşer. WS + DAS
-	// (holders/safety) Helius'ta kalır.
-	creatorFillRPC := rpcURL
-	if cfg.SolanaRPCURL != "" {
-		creatorFillRPC = cfg.SolanaRPCURL
-	}
+	// holders Helius'ta kalır (safety authorities de SOLANA_RPC_URL'e yönlendirildi, bkz üstte).
+	creatorFillRPC := preferRPC(cfg.SolanaRPCURL, rpcURL)
 	if cfg.CreatorFillEnabled && bundle.Tokens != nil && creatorFillRPC != "" {
 		// Paylaşılan hız sınırlayıcı: sağlayıcı 429 burst'ünü önler (deploy-tunable
 		// CREATORFILL_RATE_PER_MIN/BURST; her sağlayıcının kendi limiti olur, defansif).
@@ -227,6 +229,17 @@ func main() {
 	defer cancel()
 	_ = srv.Shutdown(shutCtx)
 	logger.Info("stopped")
+}
+
+// preferRPC, override (SOLANA_RPC_URL) boş değilse onu, boşsa fallback'i (Helius rpcURL)
+// döndürür. Helius free-tier 429'ında standart-RPC metodlarını (getAccountInfo /
+// getSignaturesForAddress) güvenilir genel sağlayıcıya yönlendiren ortak seçim (DRY:
+// creatorfill + safety authorities aynı deseni paylaşır).
+func preferRPC(override, fallback string) string {
+	if override != "" {
+		return override
+	}
+	return fallback
 }
 
 // noopHolders, Helius key yokken holders'ı 0 döndürür (dürüst — sayı yok).
