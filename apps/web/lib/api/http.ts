@@ -1,5 +1,5 @@
 import type { SentinelApi } from "./contract";
-import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile } from "./types";
+import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint } from "./types";
 import { wsSubscribe } from "./ws";
 
 // TODO(backend): AWS REST + WebSocket implementasyonu. Endpoint aileleri
@@ -19,10 +19,10 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export const httpApi: SentinelApi = {
-  getKpis: notReady,
+  getKpis: () => getJson<Kpi[]>("/api/kpis"),
   getTokens: () => getJson<TokenRow[]>("/api/tokens"),
   getAlerts: notReady,
-  getRadar: notReady,
+  getRadar: () => getJson<RadarPoint[]>("/api/radar"),
   getToken: (mint: string) => getJson<TokenDetail>(`/api/token/${encodeURIComponent(mint)}`),
   getEvents: () => getJson<FeedEvent[]>("/api/events"),
   getWalletGraph: notReady,

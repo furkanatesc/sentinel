@@ -19,5 +19,6 @@ it("http modunda canlı endpoint httpApi'den, kalan mockApi'den", () => {
   expect(getApi().getTokens).toBe(httpApi.getTokens);
   expect(getApi().subscribeEvents).toBe(httpApi.subscribeEvents);
   expect(getApi().subscribeTokens).toBe(httpApi.subscribeTokens);
-  expect(getApi().getKpis).toBe(mockApi.getKpis);
+  expect(getApi().getKpis).toBe(httpApi.getKpis);
+  expect(getApi().getRadar).toBe(httpApi.getRadar);
 });

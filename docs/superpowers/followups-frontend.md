@@ -469,3 +469,30 @@ edilmedi. Sessiz düşürme yok — deploy doğrulamasına ve sonraki dilimlere 
   free-tier gerçek RPS'ine göre ayarlanabilir; 2/s hâlâ 429 alırsa düşür (backoff-retry emniyet
   ağı var). Diğer Helius worker'ları (safety/holders) aynı key bütçesini paylaşır ama ayrı/ılımlı
   — ileride tüm Helius çağrılarını tek limiter bütçesine bağlamak potansiyel iyileştirme.
+
+## Backend Alt-proje 2 slice 2d (Opportunity + Overview) — deferred
+
+Slice 2d (`feat/backend-scoring-2d`, 2026-08-24) `getKpis`/`getRadar`'ı gerçeğe döndürdü: kompozit
+`opportunity` skoru (safety+reputation+manipulation girdilerinden, saf-DB) + arka plan `opportunity.Worker`,
+`/api/kpis` (4 gerçek + 4 placeholder KPI) ve `/api/radar` (opportunity projeksiyonu + risk-level parity).
+Frontend `httpApi.getKpis`/`getRadar` artık gerçek endpoint'lere bağlı (`LIVE_ENDPOINTS`'e eklendi); UI
+bileşenleri (Overview ekranı) dokunulmadı — yalnız seam. Aşağıdakiler bilinçle bu dilime dahil edilmedi.
+Sessiz düşürme yok:
+
+- **Trading/ops KPI'ları (4 placeholder) → Alt-proje 5'e (trade execution) bağlı.** `/api/kpis`'in 4
+  gerçek alanı (detected/opportunity/safety-avg/manipulation-avg gibi) DB agregasından geliyor; kalan 4
+  (ör. açık pozisyon, günlük PnL, aktif emir, win-rate) trade/execution verisi gerektiriyor — henüz yok.
+- **KPI change/spark trend serisi yok.** `Kpi.change`/`Kpi.spark` şu an anlık değerden türetilen nötr/sabit
+  alanlar; gerçek zaman-serisi trend'i için ayrı bir örnekleme/kayıt mekanizması gerekiyor (1c'deki
+  `series.liquidity`/`series.holders` ertelemesiyle aynı sınıf).
+- **Radar zaman-serisi yok.** `/api/radar` yalnız anlık bir projeksiyon (tek snapshot); zaman içindeki
+  hareketi (ör. "son 1 saatte radar'da yükseliş") göstermek ayrı bir kayıt gerektirir.
+- **Opportunity ağırlık/eşikleri config'e alınmadı (kısmen).** `MANIPULATION_*`/`REPUTATION_*` gibi
+  kalibrasyon env'leri var ama opportunity'nin kendi bileşen-ağırlıkları (safety/reputation/manipulation
+  katkı payları) kod içinde sabit; deploy'da gerçek dağılıma göre ayarlanabilir env'lere taşınabilir (diğer
+  slice'ların "kalibrasyon env, placeholder değil" deseniyle aynı).
+- **Opportunity, girdi-kalitesi düşük skorları miras alıyor (dürüst, silent-fail değil).** Safety skorunun
+  `confidence` alanı Helius holders-DAS sağlayıcısı bağlanana kadar 0.5'te kalıyor (bkz 🔴 aktif Helius-safety
+  bulgusu); creator reputation da WS/creator-backfill seyrek çalıştığından bazı token'larda düşük-örneklem.
+  Opportunity bu iki skoru girdi olarak kullandığından, onların degraded confidence'ı opportunity skoruna da
+  yansır — ayrı bir düzeltme değil, üst akış kararlarına (Helius sağlayıcı, WS güvenilirliği) bağlı.
