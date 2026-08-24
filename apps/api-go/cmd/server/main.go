@@ -23,6 +23,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/walletgraph"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
 )
 
@@ -177,6 +178,18 @@ func main() {
 		logger.Warn("CREATORFILL: RPC (Helius key veya SOLANA_RPC_URL) veya token store yok — backfill başlamayacak")
 	}
 
+	// funder resolver worker (2e-1) — arka plan; creator cüzdanlarının funder'ını yakalar (bundler tespiti).
+	// creatorfill ile aynı RPC'yi (creatorFillRPC) kullanır ama ayrı limiter/bütçe (defansif — kendi RPC bütçesi).
+	if cfg.WalletGraphEnabled && bundle.Tokens != nil && creatorFillRPC != "" {
+		fLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
+		fres := walletgraph.NewFunderResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, walletgraph.WithLimiter(fLimiter))
+		fw := walletgraph.NewWorker(walletgraph.WorkerDeps{
+			Store: bundle.Tokens, Resolver: fres,
+			Interval: time.Duration(cfg.FunderResolveIntervalSec) * time.Second, Limit: cfg.FunderResolveLimit, Logger: logger,
+		})
+		go fw.Run(ctx)
+	}
+
 	// creator reputation scorer (2b-2b) — arka plan; saf DB (RPC YOK)
 	if cfg.ReputationEnabled && bundle.Tokens != nil {
 		rw := reputation.NewWorker(reputation.WorkerDeps{
@@ -221,10 +234,12 @@ func main() {
 		Handler: api.NewRouter(api.RouterDeps{
 			Strategies: bundle.Strategies, Events: bundle.Events, Tokens: bundle.Tokens,
 			Hub: hub, CORSOrigin: cfg.CORSOrigin, EventsWindow: cfg.EventsWindow,
-			TokenDetail:        detailSvc,
-			TokenDetailTimeout: time.Duration(cfg.TokenDetailTimeoutSec) * time.Second,
-			Creators:           bundle.Creators,
-			CreatorsLimit:      cfg.CreatorsListLimit,
+			TokenDetail:           detailSvc,
+			TokenDetailTimeout:    time.Duration(cfg.TokenDetailTimeoutSec) * time.Second,
+			Creators:              bundle.Creators,
+			CreatorsLimit:         cfg.CreatorsListLimit,
+			WalletGraphMinCluster: cfg.WalletGraphMinCluster,
+			WalletGraphMaxDegree:  cfg.WalletGraphMaxDegree,
 		}),
 	}
 	go func() {

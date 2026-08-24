@@ -77,6 +77,12 @@ type Config struct {
 	OpportunityEnabled     bool
 	OpportunityIntervalSec int
 	OpportunityLimit       int
+
+	WalletGraphEnabled       bool
+	FunderResolveIntervalSec int
+	FunderResolveLimit       int
+	WalletGraphMinCluster    int
+	WalletGraphMaxDegree     int
 }
 
 func Load() Config {
@@ -151,6 +157,12 @@ func Load() Config {
 		OpportunityEnabled:     getenvBool("OPPORTUNITY_ENABLED", true),
 		OpportunityIntervalSec: getenvInt("OPPORTUNITY_INTERVAL_SEC", 60),
 		OpportunityLimit:       getenvInt("OPPORTUNITY_LIMIT", 100),
+
+		WalletGraphEnabled:       getenvBool("WALLET_GRAPH_ENABLED", true),
+		FunderResolveIntervalSec: getenvInt("FUNDER_RESOLVE_INTERVAL_SEC", 60),
+		FunderResolveLimit:       getenvInt("FUNDER_RESOLVE_LIMIT", 40),
+		WalletGraphMinCluster:    getenvInt("WALLET_GRAPH_MIN_CLUSTER", 2),
+		WalletGraphMaxDegree:     getenvInt("WALLET_GRAPH_MAX_DEGREE", 50),
 	}
 }
 

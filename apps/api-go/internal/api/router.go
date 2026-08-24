@@ -14,16 +14,18 @@ import (
 
 // RouterDeps, router'ın bağımlılıklarıdır (DIP: nil olan store'lar için route atlanır).
 type RouterDeps struct {
-	Strategies         store.StrategyStore
-	Events             store.EventStore
-	Tokens             store.TokenStore
-	TokenDetail        TokenDetailProvider
-	TokenDetailTimeout time.Duration // 0 → sınırsız (kullanıcı yolunu limiter kuyruğunda süresiz bekletmemek için)
-	Hub                *ws.Hub
-	CORSOrigin         string
-	EventsWindow       int
-	Creators           store.CreatorStore
-	CreatorsLimit      int
+	Strategies            store.StrategyStore
+	Events                store.EventStore
+	Tokens                store.TokenStore
+	TokenDetail           TokenDetailProvider
+	TokenDetailTimeout    time.Duration // 0 → sınırsız (kullanıcı yolunu limiter kuyruğunda süresiz bekletmemek için)
+	Hub                   *ws.Hub
+	CORSOrigin            string
+	EventsWindow          int
+	Creators              store.CreatorStore
+	CreatorsLimit         int
+	WalletGraphMinCluster int
+	WalletGraphMaxDegree  int
 }
 
 // NewRouter, HTTP yönlendiricisini kurar.
@@ -42,6 +44,14 @@ func NewRouter(d RouterDeps) http.Handler {
 		r.Get("/api/tokens", tokensHandler(d.Tokens, d.EventsWindow))
 		r.Get("/api/kpis", kpisHandler(d.Tokens))
 		r.Get("/api/radar", radarHandler(d.Tokens, d.EventsWindow))
+		mc, md := d.WalletGraphMinCluster, d.WalletGraphMaxDegree
+		if mc <= 0 {
+			mc = 2
+		}
+		if md <= 0 {
+			md = 50
+		}
+		r.Get("/api/wallet-graph", walletGraphHandler(d.Tokens, mc, md))
 	}
 	if d.TokenDetail != nil {
 		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail, d.TokenDetailTimeout))
