@@ -148,3 +148,10 @@ func TestManipulationDefaults(t *testing.T) {
 		t.Fatalf("ağırlık defaultları yanlış: %+v", c)
 	}
 }
+
+func TestOpportunityDefaults(t *testing.T) {
+	cfg := Load()
+	if cfg.OpportunityIntervalSec != 60 || cfg.OpportunityLimit != 100 || !cfg.OpportunityEnabled {
+		t.Fatalf("opportunity default yanlış: %+v", cfg)
+	}
+}
