@@ -74,6 +74,12 @@ type fakeTokenStore struct {
 	// highDrawdownThreshold, deriveRiskFlags'in "Yüksek düşüş" eşiğidir (2b-2b:
 	// cfg.ReputationHighDrawdown, bkz. WithHighDrawdownThreshold); <=0 → paket varsayılanı (80).
 	highDrawdownThreshold float64
+	// 2e-1: wallet_funders parity (wallet → funder + resolved_ts; resolved_ts>0 → çözülmüş,
+	// funder="" not-found işareti dahil).
+	walletFunders map[string]struct {
+		funder     string
+		resolvedTs int64
+	}
 }
 
 // NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür. opts (ör.
@@ -84,6 +90,10 @@ func NewFakeTokenStore(opts ...CreatorStoreOption) TokenStore {
 	return &fakeTokenStore{
 		byID: map[string]fakeTok{}, reputationByAddr: map[string]CreatorReputation{},
 		highDrawdownThreshold: cfg.highDrawdownThreshold,
+		walletFunders: map[string]struct {
+			funder     string
+			resolvedTs int64
+		}{},
 	}
 }
 
@@ -594,4 +604,44 @@ func (f *fakeTokenStore) Radar(ctx context.Context, limit int) ([]RadarPoint, er
 		return nil, err
 	}
 	return radarFrom(rows), nil
+}
+
+// FunderTargets, postgresStore.FunderTargets ile parite: fake token'lardaki distinct
+// non-empty creator'lardan resolved_ts>0 OLMAYANLAR (funder="" not-found işareti de çözülmüş
+// sayılır — postgres semantiğiyle birebir).
+func (f *fakeTokenStore) FunderTargets(_ context.Context, limit int) ([]FunderTarget, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	seen := map[string]bool{}
+	creators := make([]string, 0, len(f.order))
+	for _, id := range f.order {
+		c := f.byID[id].creator
+		if c == "" || seen[c] {
+			continue
+		}
+		seen[c] = true
+		creators = append(creators, c)
+	}
+	sort.Strings(creators) // postgres ORDER BY t.creator parity
+	out := make([]FunderTarget, 0, limit)
+	for _, c := range creators {
+		if len(out) >= limit {
+			break
+		}
+		if wf, ok := f.walletFunders[c]; ok && wf.resolvedTs > 0 {
+			continue
+		}
+		out = append(out, FunderTarget{Wallet: c})
+	}
+	return out, nil
+}
+
+func (f *fakeTokenStore) SetFunder(_ context.Context, wallet, funder string, resolvedTs int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.walletFunders[wallet] = struct {
+		funder     string
+		resolvedTs int64
+	}{funder: funder, resolvedTs: resolvedTs}
+	return nil
 }

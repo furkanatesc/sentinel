@@ -125,6 +125,9 @@ type OutcomeUpdate struct {
 	ScoredTs                       int64
 }
 
+// FunderTarget, funder'ı henüz çözülmemiş bir creator cüzdanıdır (2e-1).
+type FunderTarget struct{ Wallet string }
+
 // KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
 type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
 
@@ -173,6 +176,9 @@ type TokenStore interface {
 	Kpis(ctx context.Context) (KpiCounts, error)
 	// 2d: radar scatter noktaları (creatorScore/momentum/liquidity) + risk level (scoreToLevel parity).
 	Radar(ctx context.Context, limit int) ([]RadarPoint, error)
+	// 2e-1: funder'ı çözülmemiş creator hedefleri / bulunan funder'ı persist eder.
+	FunderTargets(ctx context.Context, limit int) ([]FunderTarget, error)
+	SetFunder(ctx context.Context, wallet, funder string, resolvedTs int64) error
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -486,6 +492,34 @@ func (p *postgresStore) Radar(ctx context.Context, limit int) ([]RadarPoint, err
 		return nil, err
 	}
 	return radarFrom(rows), nil
+}
+
+func (p *postgresStore) FunderTargets(ctx context.Context, limit int) ([]FunderTarget, error) {
+	const q = `SELECT DISTINCT t.creator FROM tokens t
+		WHERE t.creator <> ''
+		  AND t.creator NOT IN (SELECT wallet FROM wallet_funders WHERE resolved_ts > 0)
+		ORDER BY t.creator LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]FunderTarget, 0, limit)
+	for rows.Next() {
+		var f FunderTarget
+		if err := rows.Scan(&f.Wallet); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) SetFunder(ctx context.Context, wallet, funder string, resolvedTs int64) error {
+	const q = `INSERT INTO wallet_funders (wallet, funder, resolved_ts) VALUES ($1,$2,$3)
+		ON CONFLICT (wallet) DO UPDATE SET funder=EXCLUDED.funder, resolved_ts=EXCLUDED.resolved_ts`
+	_, err := p.db.ExecContext(ctx, q, wallet, funder, resolvedTs)
+	return err
 }
 
 // scoreToLevel, frontend format.ts scoreToLevel ile birebir (parity).

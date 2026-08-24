@@ -166,6 +166,10 @@ func (f *failingTokenStore) Kpis(context.Context) (store.KpiCounts, error) {
 func (f *failingTokenStore) Radar(context.Context, int) ([]store.RadarPoint, error) {
 	return nil, nil
 }
+func (f *failingTokenStore) FunderTargets(context.Context, int) ([]store.FunderTarget, error) {
+	return nil, nil
+}
+func (f *failingTokenStore) SetFunder(context.Context, string, string, int64) error { return nil }
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -268,6 +272,12 @@ func (f *snapshotFailingTokenStore) Kpis(context.Context) (store.KpiCounts, erro
 }
 func (f *snapshotFailingTokenStore) Radar(context.Context, int) ([]store.RadarPoint, error) {
 	return nil, nil
+}
+func (f *snapshotFailingTokenStore) FunderTargets(context.Context, int) ([]store.FunderTarget, error) {
+	return nil, nil
+}
+func (f *snapshotFailingTokenStore) SetFunder(context.Context, string, string, int64) error {
+	return nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {
