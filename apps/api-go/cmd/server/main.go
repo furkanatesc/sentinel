@@ -164,11 +164,14 @@ func main() {
 	// alternatif genel sağlayıcıya yönlendirilir; boşsa Helius rpcURL'e düşer. WS + DAS
 	// holders Helius'ta kalır (safety authorities de SOLANA_RPC_URL'e yönlendirildi, bkz üstte).
 	creatorFillRPC := preferRPC(cfg.SolanaRPCURL, rpcURL)
+	// Paylaşılan hız sınırlayıcı: creatorfill + funder worker'ları AYNI creatorFillRPC
+	// (SOLANA_RPC_URL) uç noktasına vurur — iki ayrı tam-hızlı limiter toplam QPS'i
+	// ikiye katlar ve zaten 429'a yatkın sağlayıcıyı daha da zorlar. Tek instance ile
+	// ikisi arasında toplam SOLANA_RPC_URL baskısı sınırlanır (deploy-tunable
+	// CREATORFILL_RATE_PER_MIN/BURST).
+	sharedRPCLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
 	if cfg.CreatorFillEnabled && bundle.Tokens != nil && creatorFillRPC != "" {
-		// Paylaşılan hız sınırlayıcı: sağlayıcı 429 burst'ünü önler (deploy-tunable
-		// CREATORFILL_RATE_PER_MIN/BURST; her sağlayıcının kendi limiti olur, defansif).
-		cfLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
-		resolver := ingest.NewCreatorResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, ingest.WithLimiter(cfLimiter))
+		resolver := ingest.NewCreatorResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, ingest.WithLimiter(sharedRPCLimiter))
 		cw := creatorfill.NewWorker(creatorfill.WorkerDeps{
 			Store: bundle.Tokens, Resolver: resolver,
 			Interval: time.Duration(cfg.CreatorFillIntervalSec) * time.Second, Limit: cfg.CreatorFillLimit, Logger: logger,
@@ -179,10 +182,10 @@ func main() {
 	}
 
 	// funder resolver worker (2e-1) — arka plan; creator cüzdanlarının funder'ını yakalar (bundler tespiti).
-	// creatorfill ile aynı RPC'yi (creatorFillRPC) kullanır ama ayrı limiter/bütçe (defansif — kendi RPC bütçesi).
+	// creatorfill ile AYNI RPC'yi (creatorFillRPC) VE aynı sharedRPCLimiter'ı kullanır
+	// (toplam QPS'i sınırlamak için — bkz üstteki sharedRPCLimiter yorumu).
 	if cfg.WalletGraphEnabled && bundle.Tokens != nil && creatorFillRPC != "" {
-		fLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
-		fres := walletgraph.NewFunderResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, walletgraph.WithLimiter(fLimiter))
+		fres := walletgraph.NewFunderResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, walletgraph.WithLimiter(sharedRPCLimiter))
 		fw := walletgraph.NewWorker(walletgraph.WorkerDeps{
 			Store: bundle.Tokens, Resolver: fres,
 			Interval: time.Duration(cfg.FunderResolveIntervalSec) * time.Second, Limit: cfg.FunderResolveLimit, Logger: logger,

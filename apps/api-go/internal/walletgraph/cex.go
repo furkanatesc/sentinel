@@ -15,5 +15,4 @@ var knownCEX = map[string]string{
 	"AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2": "Bybit",
 }
 
-func IsCEX(addr string) bool      { _, ok := knownCEX[addr]; return ok }
-func cexLabel(addr string) string { return knownCEX[addr] }
+func IsCEX(addr string) bool { _, ok := knownCEX[addr]; return ok }

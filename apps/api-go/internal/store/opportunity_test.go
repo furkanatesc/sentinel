@@ -146,9 +146,9 @@ func TestRadar_Projection_Fake(t *testing.T) {
 	if len(pts) == 0 {
 		t.Fatal("radar noktası bekleniyordu")
 	}
-	// x=creatorScore, y=momentum, z=liquidity projeksiyonu; Level=scoreToLevel(round((creatorScore+safety)/2)).
+	// x=creatorScore, y=momentum, z=liquidity projeksiyonu; Level=ScoreToLevel(round((creatorScore+safety)/2)).
 	// Seeded token: creatorScore=0, momentum=60, liquidity=1000, safety=80, symbol="M1".
-	// Expected: X=0, Y=60, Z=1000, Name="M1", Level=scoreToLevel(round(40))="high".
+	// Expected: X=0, Y=60, Z=1000, Name="M1", Level=ScoreToLevel(round(40))="high".
 	var radarPt *RadarPoint
 	for i := range pts {
 		if pts[i].Name == "M1" {
