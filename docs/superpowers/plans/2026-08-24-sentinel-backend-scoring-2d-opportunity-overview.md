@@ -47,7 +47,7 @@ ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_score      DOUBLE PRECIS
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_confidence DOUBLE PRECISION NOT NULL DEFAULT 0;
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_breakdown  TEXT             NOT NULL DEFAULT '';
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_scored_ts  BIGINT           NOT NULL DEFAULT 0;
--- last_signal 0002'de var (TEXT NOT NULL DEFAULT '')
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS last_signal            TEXT             NOT NULL DEFAULT ''; -- DÜZELTME 2026-08-24: tokens'ta yoktu (0001 strategies'te var, farklı domain)
 
 -- +goose Down
 ALTER TABLE tokens DROP COLUMN IF EXISTS opportunity_score;
@@ -787,7 +787,7 @@ git commit -m "feat(2d): Radar store projeksiyon + Go scoreToLevel parity"
 
 **Files:**
 - Modify: `apps/api-go/internal/store/token_detail.go` (TokenDetailBase opportunity alanları)
-- Modify: `apps/api-go/internal/store/tokens.go` (`TokenDetailBase` SELECT + `RecentTokens` SELECT `last_signal`)
+- Modify: `apps/api-go/internal/store/tokens.go` (`TokenDetailBase` SELECT opportunity kolonları) — **NOT (controller ruling 2026-08-24): `RecentTokens` SELECT `last_signal` Task 1'e taşındı; Task 6 RecentTokens'a DOKUNMAZ**
 - Modify: `apps/api-go/internal/market/detail.go` (`Build` scores.opportunity bağla)
 - Modify: `apps/api-go/internal/store/fake_ingest.go` (fake TokenDetailBase opportunity + RecentTokens signal — Task 1'de kısmen yapıldı)
 - Test: `apps/api-go/internal/market/detail_test.go` (ekle) + store parity testi
@@ -821,7 +821,7 @@ Expected: FAIL.
 	OpportunityScoredTs                     int64
 ```
 `tokens.go` `TokenDetailBase` SELECT'ine `opportunity_score, opportunity_confidence, opportunity_breakdown, opportunity_scored_ts` kolonlarını ekle + scan + breakdown JSON parse (mevcut manipulation_breakdown parse deseni birebir).
-`RecentTokens` SELECT'ine `t.last_signal` ekle + scan → `signal != "" ? &signal : nil` → `t.Signal`.
+(RecentTokens `last_signal` SELECT Task 1'de yapıldı — controller ruling; burada TEKRAR EKLEME.)
 `detail.go` `Build` — manipulation bloğunun altına (satır ~172 sonrası), `opportunity nötr kalır` yorumunu kaldırıp:
 ```go
 	// Opportunity (2d) — DB'den (tokens kolonları, arka plan worker persist etti).

@@ -93,7 +93,7 @@ else if value >= 45:                                  signal = "watch"
 else:                                                 signal = "avoid"
 ```
 - Eşikler kod-sabiti (kalibrasyon; ağırlıklar gibi). `SIGNAL_MIN_CONF` düşük-conf token'ı `null` yapar → "buy" ancak yeterli veriyle verilir (dürüst, agresif değil).
-- `last_signal` kolonu **zaten var** (0002) → yeni migration'da signal için kolon GEREKMEZ; opportunity worker `last_signal`'ı da yazar.
+- `last_signal` kolonu tokens'ta **YOKTU** (DÜZELTME 2026-08-24: 0002 tokens CREATE'inde yok; "last_signal" yalnız 0001'deki AYRI `strategies` tablosunda — farklı domain). → migration `0011` `tokens.last_signal TEXT NOT NULL DEFAULT ''` ekler; opportunity worker `last_signal`'ı yazar.
 
 ---
 
@@ -148,7 +148,7 @@ ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_score      DOUBLE PRECIS
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_confidence DOUBLE PRECISION NOT NULL DEFAULT 0;
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_breakdown  TEXT             NOT NULL DEFAULT '';
 ALTER TABLE tokens ADD COLUMN IF NOT EXISTS opportunity_scored_ts  BIGINT           NOT NULL DEFAULT 0;
--- last_signal 0002'de var (TEXT NOT NULL DEFAULT '')
+ALTER TABLE tokens ADD COLUMN IF NOT EXISTS last_signal            TEXT             NOT NULL DEFAULT ''; -- DÜZELTME: tokens'ta yoktu (0001 strategies'te var, farklı domain)
 ```
 Down: dört kolonu DROP.
 
