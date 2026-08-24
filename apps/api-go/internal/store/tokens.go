@@ -140,11 +140,33 @@ type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
 
 // RadarPoint, Overview radar scatter noktası (frontend RadarPoint ile birebir). level: RiskLevel.
 type RadarPoint struct {
-	X    float64 `json:"x"` // creatorScore
-	Y    float64 `json:"y"` // momentum
-	Z    float64 `json:"z"` // liquidity
-	Name string  `json:"name"`
-	Level string `json:"level"`
+	X     float64 `json:"x"` // creatorScore
+	Y     float64 `json:"y"` // momentum
+	Z     float64 `json:"z"` // liquidity
+	Name  string  `json:"name"`
+	Level string  `json:"level"`
+}
+
+// GraphNode/GraphEdge/WalletGraphResult, frontend WalletGraph (types.ts) ile birebir JSON şekilleridir.
+// balanceSol alanı 2e-1'de üretilmez → struct'a KONMAZ (frontend'de opsiyonel).
+type GraphNode struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Label     string `json:"label"`
+	Address   string `json:"address,omitempty"`
+	RiskLevel string `json:"riskLevel"`
+	FirstSeen string `json:"firstSeen"`
+	LastSeen  string `json:"lastSeen"`
+}
+type GraphEdge struct {
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+	Type   string `json:"type"`
+}
+type WalletGraphResult struct {
+	Nodes []GraphNode `json:"nodes"`
+	Edges []GraphEdge `json:"edges"`
 }
 
 // TokenStore, mint-PK token kaynağıdır (upsert; DIP).
@@ -565,8 +587,9 @@ func (p *postgresStore) WalletGraphClusters(ctx context.Context, minCluster, max
 	return out, rows.Err()
 }
 
-// scoreToLevel, frontend format.ts scoreToLevel ile birebir (parity).
-func scoreToLevel(score float64) string {
+// ScoreToLevel, frontend format.ts scoreToLevel ile birebir (parity). Export edilmiştir
+// (2e-1 walletgraph paketi de kullanır — tek eşik kaynağı, tekrarlanmaz).
+func ScoreToLevel(score float64) string {
 	switch {
 	case score <= 24:
 		return "critical"
@@ -587,7 +610,7 @@ func radarFrom(rows []TokenRow) []RadarPoint {
 	for _, t := range rows {
 		out = append(out, RadarPoint{
 			X: t.CreatorScore, Y: t.Momentum, Z: t.Liquidity, Name: t.Symbol,
-			Level: scoreToLevel(math.Round((t.CreatorScore + t.SafetyScore) / 2)),
+			Level: ScoreToLevel(math.Round((t.CreatorScore + t.SafetyScore) / 2)),
 		})
 	}
 	return out

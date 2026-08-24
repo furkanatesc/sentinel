@@ -128,8 +128,8 @@ func TestScoreToLevel_ParityWithFrontend(t *testing.T) {
 	}{{10, "critical"}, {24, "critical"}, {25, "high"}, {49, "high"},
 		{50, "medium"}, {69, "medium"}, {70, "good"}, {84, "good"}, {85, "strong"}, {100, "strong"}}
 	for _, c := range cases {
-		if got := scoreToLevel(c.s); got != c.want {
-			t.Fatalf("scoreToLevel(%.0f)=%q want %q", c.s, got, c.want)
+		if got := ScoreToLevel(c.s); got != c.want {
+			t.Fatalf("ScoreToLevel(%.0f)=%q want %q", c.s, got, c.want)
 		}
 	}
 }
