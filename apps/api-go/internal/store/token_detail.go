@@ -99,4 +99,9 @@ type TokenDetailBase struct {
 	ManipulationScoredTs                      int64
 	TxnsBuys, TxnsSells, TxnsBuyers           int
 	CreatorHoldingPct                         float64
+
+	// 2d opportunity (tokens kolonlarından; detail scores.opportunity'e).
+	OpportunityScore, OpportunityConfidence float64
+	OpportunityBreakdown                    []ScoreBreakdownItem
+	OpportunityScoredTs                     int64
 }

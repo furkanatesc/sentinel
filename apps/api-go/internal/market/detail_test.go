@@ -312,6 +312,29 @@ func TestBuildManipulationRiskNilBreakdown(t *testing.T) {
 	}
 }
 
+// TestBuild_OpportunityFromDB, 2d: scores.opportunity artık nötr placeholder değil,
+// TokenDetailBase'in opportunity alanlarından (tokens tablosu, arka plan worker persist etti) gelmeli.
+func TestBuild_OpportunityFromDB(t *testing.T) {
+	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
+	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
+		"M1": {Name: "One", Symbol: "ONE", PoolAddr: "P1", FirstSeenTs: 0,
+			OpportunityScore: 72, OpportunityConfidence: 0.8, OpportunityScoredTs: 99,
+			OpportunityBreakdown: []store.ScoreBreakdownItem{{Label: "x", Weight: 72, Detail: "y"}}},
+	}}
+	svc := NewTokenDetailService(TokenDetailDeps{Store: fs, Provider: dp, Holders: &fakeHolders{n: 5}, Now: func() int64 { return 600 }})
+	d, ok, err := svc.Build(context.Background(), "M1")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	sd := d.Scores["opportunity"]
+	if sd.Value != 72 || sd.Confidence != 0.8 || sd.Breakdown == nil || len(sd.Breakdown) != 1 || sd.Key != "opportunity" {
+		t.Fatalf("opportunity skoru DB'den gelmeli: %+v", sd)
+	}
+	if sd.UpdatedAt == "—" {
+		t.Fatalf("opportunity updatedAt scoredTs>0 iken gerçek zaman olmalı: %+v", sd)
+	}
+}
+
 func TestBuildCache(t *testing.T) {
 	dp := &detailProvider{pools: []Pool{{PoolAddr: "P1", Mint: "M1"}}}
 	fs := &fakeDetailStore{base: map[string]store.TokenDetailBase{
