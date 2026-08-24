@@ -2,7 +2,7 @@
 
 Backend Alt-proje 0 (platform iskeleti) + Alt-proje 1 slice 1a (Solana ingestion + WS transport).
 Endpoint'ler: `GET /api/strategies`, `GET /api/events`, `GET /api/tokens`, `GET /api/creators`,
-`GET /api/creator/{address}`, `GET /api/kpis`, `GET /api/radar`, `GET /ws` (WebSocket).
+`GET /api/creator/{address}`, `GET /api/kpis`, `GET /api/radar`, `GET /api/wallet-graph`, `GET /ws` (WebSocket).
 
 ## Yerel çalıştırma
 ```bash
@@ -21,6 +21,8 @@ DATABASE_URL=postgres://user:pass@localhost:5432/sentinel PORT=8080 \
 bilinmeyen adres → 404).
 `GET http://localhost:8080/api/kpis` → Overview KPI özetleri (opportunity/detected/safety-avg + 4 placeholder).
 `GET http://localhost:8080/api/radar` → fırsat radarı noktaları (opportunity skoruna göre projeksiyon).
+`GET http://localhost:8080/api/wallet-graph` → funding-cüzdan kümeleri (funder→token-creator ilişkisi;
+derece-eşiği + CEX allowlist ile filtrelenmiş graph, bkz `WALLET_GRAPH_*`).
 `GET ws://localhost:8080/ws` → WebSocket; `events` topic'i tekil `FeedEvent` yayınlar, `tokens` topic'i tam
 `TokenRow[]` snapshot yayınlar.
 
@@ -79,6 +81,11 @@ bilinmeyen adres → 404).
 | `OPPORTUNITY_ENABLED` | Hayır (default true) | Fırsat (opportunity) kompozit scorer'ı (2d). Saf DB, RPC gerektirmez |
 | `OPPORTUNITY_INTERVAL_SEC` | Hayır (default 60) | Skorlama döngüsü aralığı (saniye) |
 | `OPPORTUNITY_LIMIT` | Hayır (default 100) | Döngü başına skorlanan token |
+| `WALLET_GRAPH_ENABLED` | Hayır (default true) | Funder-resolve arka plan worker'ı (2e-1). `SOLANA_RPC_URL`/Helius RPC gerektirir |
+| `FUNDER_RESOLVE_INTERVAL_SEC` | Hayır (default 60) | Funder-çözümleme döngüsü aralığı (saniye) |
+| `FUNDER_RESOLVE_LIMIT` | Hayır (default 40) | Döngü başına çözümlenen cüzdan |
+| `WALLET_GRAPH_MIN_CLUSTER` | Hayır (default 2) | `/api/wallet-graph` küme sorgusunda minimum funder→token-creator küme boyutu |
+| `WALLET_GRAPH_MAX_DEGREE` | Hayır (default 50) | Graph düğümü başına maksimum derece (aşırı-bağlı CEX/hub cüzdanları filtreler) |
 
 ## Manipülasyon riski (2c)
 Kural-tabanlı, saf-DB agrega-proxy scorer — RPC yok, per-wallet/trade-flow analiz yok. Girdi: GeckoTerminal
@@ -96,6 +103,6 @@ kasıtlı olarak 2e'ye ertelendi — bu slice yalnız agrega-proxy sinyaller kul
 
 ## Frontend'i bağlama (KULLANICI ADIMI)
 Vercel projesine env ekle: `NEXT_PUBLIC_API_BASE_URL=<railway-url>`, `NEXT_PUBLIC_DATA_SOURCE=http` → redeploy.
-Strategies/Events/Tokens/Token Detail/Creators/Creator Profile/Overview (KPI+Radar) ekranları gerçek API'den,
-kalan ekranlar (Alerts, Wallet Graph, Portfolio/Positions, Terminal, Backtest) mock ile çalışır (hibrit,
+Strategies/Events/Tokens/Token Detail/Creators/Creator Profile/Overview (KPI+Radar)/Wallet Graph ekranları
+gerçek API'den, kalan ekranlar (Alerts, Portfolio/Positions, Terminal, Backtest) mock ile çalışır (hibrit,
 bkz `apps/web/lib/api/live-endpoints.ts`).

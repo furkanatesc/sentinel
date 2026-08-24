@@ -496,3 +496,37 @@ Sessiz düşürme yok:
   bulgusu); creator reputation da WS/creator-backfill seyrek çalıştığından bazı token'larda düşük-örneklem.
   Opportunity bu iki skoru girdi olarak kullandığından, onların degraded confidence'ı opportunity skoruna da
   yansır — ayrı bir düzeltme değil, üst akış kararlarına (Helius sağlayıcı, WS güvenilirliği) bağlı.
+
+## Backend Alt-proje 2 slice 2e-1 (Wallet Graph — Funding) — deferred
+
+Slice 2e-1 (`feat/backend-scoring-2e-1-wallet-graph-funding`, 2026-08-24) `/api/wallet-graph`'ı gerçeğe
+döndürdü: arka plan `funder`-çözümleme worker'ı (fon-cüzdanı → token-creator ilişkisi, `WALLET_GRAPH_*`/
+`FUNDER_RESOLVE_*` ile yapılandırılır), migration 0012 `wallet_funders`, küme sorgusu + derece-eşikli/CEX
+allowlist'li graph kurma (`internal/walletgraph`). Frontend `httpApi.getWalletGraph` artık gerçek endpoint'e
+bağlı (`LIVE_ENDPOINTS`'e eklendi); Wallet Graph ekranı UI'ı dokunulmadı — yalnız seam. Aşağıdakiler bilinçle
+bu dilime dahil edilmedi. Sessiz düşürme yok:
+
+- **2e-2 (trade/holder graph) → sonraki dilime bağlı.** `trader`/`smart_wallet` node tipleri, `bought`/`sold`
+  edge'leri ve `controls_authority` ilişkisi (mint/freeze authority adresini bir cüzdana bağlama, authority
+  adresi yakalama) bu dilimde yok — yalnızca funding ilişkisi (funder→creator) kuruldu.
+- **2e-3 (ileri kümeleme/Python, çok-hop funding, smart-money) → sonraki dilime bağlı.** Bu dilim tek-hop
+  funder ilişkisi kullanıyor; çok-hop funding zincirleri (aracı cüzdanlar üzerinden), gelişmiş kümeleme
+  (ör. Python/graph-ML) ve smart-money tespiti kapsam dışı.
+- **`balanceSol` (cüzdan bakiyesi) doldurulmuyor.** Graph node'larında bakiye alanı için `getBalance` RPC
+  çağrısı entegre edilmedi — şu an yalnız funding/kimlik alanları dolu.
+- **`shares_funder` explicit edge'i üretilmiyor (kasıtlı, Global Constraint).** İki token-creator'ın aynı
+  funder'ı paylaştığı durum için ayrı bir edge tipi eklenmedi; `BuildGraph` yalnızca funded/created edge'leri
+  kuruyor, iki creator'ı doğrudan birbirine bağlayan türetilmiş bir kenar yok.
+- **CEX allowlist genişletme + adres doğrulama.** `internal/walletgraph/cex.go`'daki `knownCEX` seti (5 adres)
+  web-araştırmasıyla dolduruldu, **canlı zincir üzerinde doğrulanmadı**; deploy'da gerçek transfer paternleriyle
+  teyit edilmeli, liste genişletilebilir.
+- **Funder limiter paylaşımı/rate config — 429 riski.** `funder`-resolve worker'ı ve `creatorfill` worker'ı
+  ikisi de `SOLANA_RPC_URL`'e tam hızda vuruyor (ayrı rate-limiter'lar); paylaşılan bir bütçe/limiter olmadan
+  ikisi birleşik 429 riskini artırabilir — deploy'da gözlemlenirse ortak bir limiter'a taşınabilir
+  (`fix/creatorfill-helius-rate-limit` retry-duplikasyonu notuyla aynı sınıf).
+- **Funder heuristiği rafine edilebilir (çok-hop/aracı-cüzdan).** Şu an tek-hop, ilk-transfer-kaynağı
+  heuristiği kullanılıyor; aracı cüzdan (intermediary) üzerinden çok-hop funding zincirlerini izleyen bir
+  rafine 2e-3'e ertelendi.
+- **Creator verisi seyrekliği (WS-dormant) grafiği de etkiler.** 🔴 aktif Helius-safety bulgusuyla aynı kök
+  neden — creator adresleri WS/creator-backfill'e bağlı olduğundan seyrek çözülüyorsa, wallet-graph'ın da
+  girdi havuzu (funded creator'lar) küçük kalabilir; ayrı bir düzeltme değil, üst akış Helius kararına bağlı.
