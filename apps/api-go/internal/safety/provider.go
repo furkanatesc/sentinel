@@ -1,6 +1,9 @@
 package safety
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // OnChainData, Scorer'ın on-chain girdisidir (Known bayrakları kısmi-veriyi taşır).
 // CreatorHoldingPct/Known, Scorer'a GİRMEZ — sadece 2c manipülasyon skoru için persist
@@ -44,12 +47,24 @@ func NewHeliusProvider(auth Authorities, holders Holders, holdersCap int) *Heliu
 
 func (p *HeliusProvider) FetchOnChain(ctx context.Context, mint, creator string) (OnChainData, error) {
 	var d OnChainData
+	var authErr, holderErr error
 	if mintA, freezeA, err := p.auth.MintAuthorities(ctx, mint); err == nil {
 		d.MintAuthorityActive, d.FreezeAuthorityActive, d.AuthoritiesKnown = mintA, freezeA, true
+	} else {
+		authErr = err
 	}
 	if count, top10, creatorPct, capped, err := p.holders.HolderDistribution(ctx, mint, creator, p.holdersCap); err == nil {
 		d.HolderCount, d.Top10Pct, d.HoldersKnown, d.HoldersCapped = count, top10, true, capped
 		d.CreatorHoldingPct, d.CreatorHoldingKnown = creatorPct, true
+	} else {
+		holderErr = err
+	}
+	// Kısmi başarı (biri çalıştı) → nil: mevcut degradation davranışı korunur, Known bayrağı
+	// eksik veriyi taşır. İki kaynak da başarısızsa → hiç veri yok → hard-fail (her iki nedeni
+	// de taşıyan sarmalı hata): worker skip eder (önceki gerçek skoru neutral ile ezmez) ve
+	// nedeni loglar (gözlemlenebilirlik — sessiz nötr-sıfır yerine 429 görünür).
+	if authErr != nil && holderErr != nil {
+		return d, fmt.Errorf("safety on-chain fetch failed: authorities: %w; holders: %v", authErr, holderErr)
 	}
 	return d, nil
 }
