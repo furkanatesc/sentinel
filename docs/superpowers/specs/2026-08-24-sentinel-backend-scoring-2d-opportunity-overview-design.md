@@ -87,12 +87,12 @@ opportunityConfidence  = W / Σ(wᵢ)      // = W / 1.00 (ağırlıklar toplamı
 `TokenRow.signal` (`"buy"|"watch"|"avoid"|null`), opportunity `value` + `confidence`'tan türer:
 
 ```
-if opportunityConfidence < SIGNAL_MIN_CONF (0.35):   signal = null    // yetersiz veri, dürüst
+if opportunityConfidence < SIGNAL_MIN_CONF (0.25):   signal = null    // yetersiz veri, dürüst
 else if value >= 70:                                  signal = "buy"
 else if value >= 45:                                  signal = "watch"
 else:                                                 signal = "avoid"
 ```
-- Eşikler kod-sabiti (kalibrasyon; ağırlıklar gibi). `SIGNAL_MIN_CONF` düşük-conf token'ı `null` yapar → "buy" ancak yeterli veriyle verilir (dürüst, agresif değil).
+- Eşikler kod-sabiti (kalibrasyon; ağırlıklar gibi). `SIGNAL_MIN_CONF` düşük-conf token'ı `null` yapar → "buy" ancak yeterli veriyle verilir (dürüst, agresif değil). **DÜZELTME 2026-08-24:** min-conf 0.35→**0.25** — en ağır tek-girdi ağırlığı (safety 0.30) altında olmalı, aksi hiçbir tek-girdi token'ı sinyal alamaz; 0.25 ≥ bir confident girdi (ör. manip-only conf 0.25) sinyal verebilir, null gerçekten seyrek/kısmi-conf token'lar için.
 - `last_signal` kolonu tokens'ta **YOKTU** (DÜZELTME 2026-08-24: 0002 tokens CREATE'inde yok; "last_signal" yalnız 0001'deki AYRI `strategies` tablosunda — farklı domain). → migration `0011` `tokens.last_signal TEXT NOT NULL DEFAULT ''` ekler; opportunity worker `last_signal`'ı yazar.
 
 ---

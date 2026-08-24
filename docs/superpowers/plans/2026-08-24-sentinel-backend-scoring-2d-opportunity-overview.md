@@ -15,7 +15,7 @@
 - **Saf-DB, sıfır RPC/dış-çağrı** — opportunity worker yalnız store'dan okur/yazar (Helius/GeckoTerminal YOK).
 - **Yeni env opsiyonel + default'lu** — `OPPORTUNITY_ENABLED`(true)/`OPPORTUNITY_INTERVAL_SEC`(60)/`OPPORTUNITY_LIMIT`(100). Yeni key/ücret YOK.
 - **Nötr = dürüst, sahte değil** — yetersiz veri (tüm girdi conf=0) → `value:0, confidence:0, breakdown:[]`; sahte skor asla.
-- **Ağırlıklar/eşikler kod-sabiti** (paket düzeyi const): safety 0.30, creator 0.25, manipülasyon-ters 0.25, momentum 0.20 (Σ=1.00); signal `buy`≥70, `watch`≥45, min-conf 0.35.
+- **Ağırlıklar/eşikler kod-sabiti** (paket düzeyi const): safety 0.30, creator 0.25, manipülasyon-ters 0.25, momentum 0.20 (Σ=1.00); signal `buy`≥70, `watch`≥45, min-conf **0.25** (DÜZELTME 2026-08-24: 0.35'ten düşürüldü — en ağır tek-girdi ağırlığı [safety 0.30] altında olmalı ki tek confident girdi sinyal verebilsin; aksi hiçbir tek-girdi token'ı buy/watch/avoid alamazdı).
 - **Fake/Postgres parity** — her yeni store metodu hem `postgresStore` hem fake'te aynı semantikle; parity testi.
 - **Frontend kontratı korunur** — `Kpi`/`RadarPoint`/`TokenRow.signal`/`ScoreDetail` JSON şekilleri `apps/web/lib/api/types.ts` ile birebir.
 - **Migration idempotent** — `ADD COLUMN IF NOT EXISTS`; goose up/down.
@@ -229,8 +229,8 @@ func TestScore_CompositeWeighted(t *testing.T) {
 	// num = 80*0.30 + 60*0.25 + 90*0.25 + 50*0.20 = 24+15+22.5+10 = 71.5
 	r := Score(Inputs{Safety: 80, SafetyConf: 1, Creator: 60, CreatorConf: 1,
 		Manipulation: 10, ManipulationConf: 1, Momentum: 50, Liquidity: 1000})
-	if !approx(r.Value, 71.5) {
-		t.Fatalf("value=%.2f want ~71.5", r.Value)
+	if r.Value != 72 { // round(71.5) = 72 (math.Round half-away-from-zero)
+		t.Fatalf("value=%.2f want 72 (round of 71.5)", r.Value)
 	}
 	if !approx(r.Confidence, 1.0) {
 		t.Fatalf("conf=%.2f want 1.0", r.Confidence)
@@ -279,8 +279,8 @@ func TestSignal_Thresholds(t *testing.T) {
 	if r.Signal != "watch" {
 		t.Fatalf("value=%.1f signal=%q want watch", r.Value, r.Signal)
 	}
-	// düşük conf → null (""): tek girdi conf0.2 (W=0.30*... aslında conf gelir). min-conf<0.35 kur:
-	r2 := Score(Inputs{Safety: 90, SafetyConf: 1, Momentum: 0, Liquidity: 0}) // conf=0.30<0.35
+	// düşük conf → null (""): kısmi-confidence tek girdi → overall conf < 0.25.
+	r2 := Score(Inputs{Safety: 90, SafetyConf: 0.5}) // conf = 0.30*0.5 = 0.15 < 0.25 → null
 	if r2.Signal != "" {
 		t.Fatalf("conf=%.2f signal=%q want '' (null)", r2.Confidence, r2.Signal)
 	}
@@ -317,7 +317,7 @@ const (
 
 	signalBuy     = 70.0
 	signalWatch   = 45.0
-	signalMinConf = 0.35
+	signalMinConf = 0.25 // en ağır tek-girdi ağırlığı (safety 0.30) altında: tek confident girdi sinyal verebilir
 )
 
 type Inputs struct {
