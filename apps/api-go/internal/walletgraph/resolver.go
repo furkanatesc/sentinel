@@ -53,6 +53,7 @@ func NewFunderResolver(rpcURL string, maxSigPages int, opts ...ResolverOption) *
 func (r *HeliusFunderResolver) ResolveFunder(ctx context.Context, wallet string) (string, bool, error) {
 	before := ""
 	oldest := ""
+	reachedEnd := false
 	for page := 0; page < r.maxSigPages; page++ {
 		if r.limiter != nil {
 			if err := r.limiter.Wait(ctx); err != nil {
@@ -64,13 +65,19 @@ func (r *HeliusFunderResolver) ResolveFunder(ctx context.Context, wallet string)
 			return "", false, err
 		}
 		if len(sigs) == 0 {
+			reachedEnd = true
 			break
 		}
 		oldest = sigs[len(sigs)-1] // newest-first → son = en eski
 		before = oldest
 		if len(sigs) < r.pageLimit {
+			reachedEnd = true
 			break
 		}
+	}
+	if !reachedEnd {
+		// cap'e takıldık → gerçek en-eski imza doğrulanamadı → dürüst not-found (yanlış funder atfetme).
+		return "", false, nil
 	}
 	if oldest == "" {
 		return "", false, nil
@@ -185,7 +192,10 @@ func scanTransfers(ixs []parsedIx, wallet string) (string, bool) {
 }
 
 func (h *httpSigTx) call(ctx context.Context, method string, params any, out any) error {
-	body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": "1", "method": method, "params": params})
+	body, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": "1", "method": method, "params": params})
+	if err != nil {
+		return err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.rpcURL, bytes.NewReader(body))
 	if err != nil {
 		return err

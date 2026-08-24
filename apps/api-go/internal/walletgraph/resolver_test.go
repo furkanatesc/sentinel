@@ -49,3 +49,26 @@ func TestResolveFunder_NoTransfer_NotFound(t *testing.T) {
 		t.Fatalf("not-found bekleniyordu, found=%v err=%v", found, err)
 	}
 }
+
+// alwaysFullSigTx, her çağrıda tam sayfa (len==pageLen) döndürür — asla kısa/boş sayfa yok,
+// böylece ResolveFunder'ın sayfalama döngüsü gerçek "en eski"ye ULAŞAMADAN maxSigPages cap'ine takılır.
+type alwaysFullSigTx struct{ pageLen int }
+
+func (f alwaysFullSigTx) listSignatures(_ context.Context, _, _ string, _ int) ([]string, error) {
+	s := make([]string, f.pageLen)
+	for i := range s {
+		s[i] = "sig"
+	}
+	return s, nil // her çağrıda tam sayfa → asla kısa/boş → cap tükenir
+}
+func (f alwaysFullSigTx) transferSource(_ context.Context, _, _ string) (string, bool, error) {
+	return "F1", true, nil // capped'de buraya HİÇ ulaşılmamalı
+}
+
+func TestResolveFunder_CapExhausted_NotFound(t *testing.T) {
+	r := &HeliusFunderResolver{rpc: alwaysFullSigTx{pageLen: 1}, maxSigPages: 2, pageLimit: 1}
+	_, found, err := r.ResolveFunder(context.Background(), "w")
+	if err != nil || found {
+		t.Fatalf("cap → not-found bekleniyordu, found=%v err=%v", found, err)
+	}
+}
