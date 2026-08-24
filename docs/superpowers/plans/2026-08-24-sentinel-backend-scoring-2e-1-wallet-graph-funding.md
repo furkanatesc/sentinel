@@ -301,6 +301,7 @@ func NewFunderResolver(rpcURL string, maxSigPages int, opts ...ResolverOption) *
 func (r *HeliusFunderResolver) ResolveFunder(ctx context.Context, wallet string) (string, bool, error) {
 	before := ""
 	oldest := ""
+	reachedEnd := false // DÜZELTME 2026-08-24 (Task 2 review Critical): cap→not-found guard.
 	for page := 0; page < r.maxSigPages; page++ {
 		if r.limiter != nil {
 			if err := r.limiter.Wait(ctx); err != nil {
@@ -312,13 +313,19 @@ func (r *HeliusFunderResolver) ResolveFunder(ctx context.Context, wallet string)
 			return "", false, err
 		}
 		if len(sigs) == 0 {
+			reachedEnd = true
 			break
 		}
 		oldest = sigs[len(sigs)-1] // newest-first → son = en eski
 		before = oldest
 		if len(sigs) < r.pageLimit {
+			reachedEnd = true
 			break
 		}
+	}
+	if !reachedEnd {
+		// cap'e takıldık → gerçek en-eski imza doğrulanamadı → dürüst not-found (yanlış funder atfetme).
+		return "", false, nil
 	}
 	if oldest == "" {
 		return "", false, nil
