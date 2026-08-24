@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math"
 	"time"
 )
 
@@ -127,6 +128,15 @@ type OutcomeUpdate struct {
 // KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
 type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
 
+// RadarPoint, Overview radar scatter noktası (frontend RadarPoint ile birebir). level: RiskLevel.
+type RadarPoint struct {
+	X    float64 `json:"x"` // creatorScore
+	Y    float64 `json:"y"` // momentum
+	Z    float64 `json:"z"` // liquidity
+	Name string  `json:"name"`
+	Level string `json:"level"`
+}
+
 // TokenStore, mint-PK token kaynağıdır (upsert; DIP).
 type TokenStore interface {
 	// firstSeenTs, TokenRow'da olmayan (frontend kontratında yok) first_seen_ts
@@ -161,6 +171,8 @@ type TokenStore interface {
 	UpdateOpportunity(ctx context.Context, u OpportunityUpdate) error
 	// 2d: Overview KPI kartları için 4 türetilebilir sayım (tek agrega).
 	Kpis(ctx context.Context) (KpiCounts, error)
+	// 2d: radar scatter noktaları (creatorScore/momentum/liquidity) + risk level (scoreToLevel parity).
+	Radar(ctx context.Context, limit int) ([]RadarPoint, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -462,6 +474,42 @@ func (p *postgresStore) Kpis(ctx context.Context) (KpiCounts, error) {
 	cutoff := time.Now().Add(-24 * time.Hour).Unix()
 	err := p.db.QueryRowContext(ctx, q, cutoff).Scan(&c.Detected, &c.HighConf, &c.Critical, &c.Signals)
 	return c, err
+}
+
+func (p *postgresStore) Radar(ctx context.Context, limit int) ([]RadarPoint, error) {
+	rows, err := p.RecentTokens(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	return radarFrom(rows), nil
+}
+
+// scoreToLevel, frontend format.ts scoreToLevel ile birebir (parity).
+func scoreToLevel(score float64) string {
+	switch {
+	case score <= 24:
+		return "critical"
+	case score <= 49:
+		return "high"
+	case score <= 69:
+		return "medium"
+	case score <= 84:
+		return "good"
+	default:
+		return "strong"
+	}
+}
+
+// radarFrom, TokenRow listesini radar noktalarına çevirir (mock radarFrom birebir).
+func radarFrom(rows []TokenRow) []RadarPoint {
+	out := make([]RadarPoint, 0, len(rows))
+	for _, t := range rows {
+		out = append(out, RadarPoint{
+			X: t.CreatorScore, Y: t.Momentum, Z: t.Liquidity, Name: t.Symbol,
+			Level: scoreToLevel(math.Round((t.CreatorScore + t.SafetyScore) / 2)),
+		})
+	}
+	return out
 }
 
 // parseSparkJSON, boş/bozuk JSON'da boş dilim döner (asla nil değil).

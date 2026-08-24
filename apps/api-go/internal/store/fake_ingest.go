@@ -585,3 +585,11 @@ func (f *fakeTokenStore) Kpis(_ context.Context) (KpiCounts, error) {
 	}
 	return c, nil
 }
+
+func (f *fakeTokenStore) Radar(ctx context.Context, limit int) ([]RadarPoint, error) {
+	rows, err := f.RecentTokens(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	return radarFrom(rows), nil
+}

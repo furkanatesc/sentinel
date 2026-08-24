@@ -18,7 +18,7 @@ func seedScoredToken(t *testing.T, ts TokenStore) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := ts.UpsertToken(ctx, TokenRow{ID: "m1", Mint: "m1"}, 1, ""); err != nil {
+	if err := ts.UpsertToken(ctx, TokenRow{ID: "m1", Mint: "m1", Symbol: "M1"}, 1, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := ts.UpdateSafety(ctx, SafetyUpdate{Mint: "m1", Score: 80, Confidence: 1, ScoredTs: 10}); err != nil {
@@ -118,5 +118,36 @@ func TestKpis_Counts_Fake(t *testing.T) {
 	}
 	if c.HighConf < 1 || c.Critical < 1 || c.Signals < 1 || c.Detected < 3 {
 		t.Fatalf("kpi sayımları yanlış: %+v", c)
+	}
+}
+
+func TestScoreToLevel_ParityWithFrontend(t *testing.T) {
+	cases := []struct {
+		s    float64
+		want string
+	}{{10, "critical"}, {24, "critical"}, {25, "high"}, {49, "high"},
+		{50, "medium"}, {69, "medium"}, {70, "good"}, {84, "good"}, {85, "strong"}, {100, "strong"}}
+	for _, c := range cases {
+		if got := scoreToLevel(c.s); got != c.want {
+			t.Fatalf("scoreToLevel(%.0f)=%q want %q", c.s, got, c.want)
+		}
+	}
+}
+
+func TestRadar_Projection_Fake(t *testing.T) {
+	ctx := context.Background()
+	fs := NewFakeTokenStore()
+	seedScoredToken(t, fs) // Task 1 yardımcısı (m1: creator/safety/momentum/liquidity dolu)
+	ts := fs.(TokenStore)
+	pts, err := ts.Radar(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pts) == 0 {
+		t.Fatal("radar noktası bekleniyordu")
+	}
+	// x=creatorScore, z=liquidity projeksiyonu (RecentTokens ile aynı kaynak).
+	if pts[0].Name == "" || pts[0].Level == "" {
+		t.Fatalf("radar noktası eksik: %+v", pts[0])
 	}
 }
