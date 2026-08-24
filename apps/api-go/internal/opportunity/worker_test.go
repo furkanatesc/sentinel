@@ -49,3 +49,14 @@ func TestWorker_ScoresAndPersists_IsolatesError(t *testing.T) {
 		t.Fatalf("scoredTs=%d want 1000", fs.updates[0].ScoredTs)
 	}
 }
+
+func TestWorker_ScoreOnce_CtxCancel(t *testing.T) {
+	fs := &fakeOppStore{targets: []store.OpportunityTarget{{Mint: "a", Safety: 80, SafetyConf: 1, Liquidity: 1000, Momentum: 60}}}
+	w := NewWorker(WorkerDeps{Store: fs, Limit: 10,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := w.scoreOnce(ctx); err == nil {
+		t.Fatalf("iptal edilmiş ctx'te hata beklenir")
+	}
+}

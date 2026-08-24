@@ -25,8 +25,17 @@ type WorkerDeps struct {
 type Worker struct{ d WorkerDeps }
 
 func NewWorker(d WorkerDeps) *Worker {
+	if d.Interval <= 0 {
+		d.Interval = 60 * time.Second
+	}
+	if d.Limit <= 0 {
+		d.Limit = 60
+	}
 	if d.Now == nil {
 		d.Now = time.Now
+	}
+	if d.Logger == nil {
+		d.Logger = slog.Default()
 	}
 	return &Worker{d: d}
 }
