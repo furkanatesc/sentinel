@@ -128,6 +128,13 @@ type OutcomeUpdate struct {
 // FunderTarget, funder'ı henüz çözülmemiş bir creator cüzdanıdır (2e-1).
 type FunderTarget struct{ Wallet string }
 
+// ClusterRow, bir bundler-küme kenarıdır: funder→creator→token + skorlar (2e-1).
+type ClusterRow struct {
+	Funder, Creator, Mint, Symbol string
+	SafetyScore, ReputationScore  float64
+	FirstSeenTs                   int64
+}
+
 // KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
 type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
 
@@ -179,6 +186,9 @@ type TokenStore interface {
 	// 2e-1: funder'ı çözülmemiş creator hedefleri / bulunan funder'ı persist eder.
 	FunderTargets(ctx context.Context, limit int) ([]FunderTarget, error)
 	SetFunder(ctx context.Context, wallet, funder string, resolvedTs int64) error
+	// 2e-1: bundler-küme agregası — degree [minCluster,maxDegree] aralığındaki funder'ların
+	// tüm (funder,creator,token) kenarlarını döndürür.
+	WalletGraphClusters(ctx context.Context, minCluster, maxDegree int) ([]ClusterRow, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -520,6 +530,39 @@ func (p *postgresStore) SetFunder(ctx context.Context, wallet, funder string, re
 		ON CONFLICT (wallet) DO UPDATE SET funder=EXCLUDED.funder, resolved_ts=EXCLUDED.resolved_ts`
 	_, err := p.db.ExecContext(ctx, q, wallet, funder, resolvedTs)
 	return err
+}
+
+func (p *postgresStore) WalletGraphClusters(ctx context.Context, minCluster, maxDegree int) ([]ClusterRow, error) {
+	const q = `
+	WITH qualifying AS (
+		SELECT wf.funder
+		FROM tokens t JOIN wallet_funders wf ON wf.wallet = t.creator
+		WHERE wf.funder <> '' AND t.creator <> ''
+		GROUP BY wf.funder
+		HAVING COUNT(DISTINCT t.creator) >= $1 AND COUNT(DISTINCT t.creator) <= $2
+	)
+	SELECT wf.funder, t.creator, t.mint, t.symbol, t.safety_score,
+		COALESCE(c.reputation_score,0), t.first_seen_ts
+	FROM tokens t
+	JOIN wallet_funders wf ON wf.wallet = t.creator
+	JOIN qualifying q ON q.funder = wf.funder
+	LEFT JOIN creators c ON c.address = t.creator
+	WHERE t.creator <> ''
+	ORDER BY wf.funder, t.first_seen_ts DESC`
+	rows, err := p.db.QueryContext(ctx, q, minCluster, maxDegree)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ClusterRow{}
+	for rows.Next() {
+		var r ClusterRow
+		if err := rows.Scan(&r.Funder, &r.Creator, &r.Mint, &r.Symbol, &r.SafetyScore, &r.ReputationScore, &r.FirstSeenTs); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // scoreToLevel, frontend format.ts scoreToLevel ile birebir (parity).

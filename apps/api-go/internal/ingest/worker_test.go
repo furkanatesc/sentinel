@@ -170,6 +170,9 @@ func (f *failingTokenStore) FunderTargets(context.Context, int) ([]store.FunderT
 	return nil, nil
 }
 func (f *failingTokenStore) SetFunder(context.Context, string, string, int64) error { return nil }
+func (f *failingTokenStore) WalletGraphClusters(context.Context, int, int) ([]store.ClusterRow, error) {
+	return nil, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -278,6 +281,9 @@ func (f *snapshotFailingTokenStore) FunderTargets(context.Context, int) ([]store
 }
 func (f *snapshotFailingTokenStore) SetFunder(context.Context, string, string, int64) error {
 	return nil
+}
+func (f *snapshotFailingTokenStore) WalletGraphClusters(context.Context, int, int) ([]store.ClusterRow, error) {
+	return nil, nil
 }
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {

@@ -645,3 +645,54 @@ func (f *fakeTokenStore) SetFunder(_ context.Context, wallet, funder string, res
 	}{funder: funder, resolvedTs: resolvedTs}
 	return nil
 }
+
+// WalletGraphClusters, postgresStore.WalletGraphClusters ile AYNI semantik: funder→creator
+// (wallet_funders) + creator→token (tokens.creator) üzerinden funder başına DISTINCT creator
+// sayısı (degree). minCluster<=degree<=maxDegree olan funder'ların TÜM (funder,creator,mint,
+// symbol,safety,reputation,firstSeen) kenarları döner (postgres CTE parity).
+func (f *fakeTokenStore) WalletGraphClusters(_ context.Context, minCluster, maxDegree int) ([]ClusterRow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	// funder → distinct creator set (degree hesabı).
+	creatorsByFunder := map[string]map[string]bool{}
+	for _, id := range f.order {
+		t := f.byID[id]
+		if t.creator == "" {
+			continue
+		}
+		wf, ok := f.walletFunders[t.creator]
+		if !ok || wf.funder == "" {
+			continue
+		}
+		set, ok := creatorsByFunder[wf.funder]
+		if !ok {
+			set = map[string]bool{}
+			creatorsByFunder[wf.funder] = set
+		}
+		set[t.creator] = true
+	}
+	qualifying := map[string]bool{}
+	for funder, set := range creatorsByFunder {
+		degree := len(set)
+		if degree >= minCluster && degree <= maxDegree {
+			qualifying[funder] = true
+		}
+	}
+	out := []ClusterRow{}
+	for _, id := range f.order {
+		t := f.byID[id]
+		if t.creator == "" {
+			continue
+		}
+		wf, ok := f.walletFunders[t.creator]
+		if !ok || wf.funder == "" || !qualifying[wf.funder] {
+			continue
+		}
+		out = append(out, ClusterRow{
+			Funder: wf.funder, Creator: t.creator, Mint: t.row.Mint, Symbol: t.row.Symbol,
+			SafetyScore: t.safetyScore, ReputationScore: f.reputationByAddr[t.creator].Score,
+			FirstSeenTs: t.firstSeen,
+		})
+	}
+	return out, nil
+}
