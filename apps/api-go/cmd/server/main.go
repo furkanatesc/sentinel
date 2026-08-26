@@ -23,6 +23,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/walletgraph"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
 )
 
@@ -163,11 +164,14 @@ func main() {
 	// alternatif genel sağlayıcıya yönlendirilir; boşsa Helius rpcURL'e düşer. WS + DAS
 	// holders Helius'ta kalır (safety authorities de SOLANA_RPC_URL'e yönlendirildi, bkz üstte).
 	creatorFillRPC := preferRPC(cfg.SolanaRPCURL, rpcURL)
+	// Paylaşılan hız sınırlayıcı: creatorfill + funder worker'ları AYNI creatorFillRPC
+	// (SOLANA_RPC_URL) uç noktasına vurur — iki ayrı tam-hızlı limiter toplam QPS'i
+	// ikiye katlar ve zaten 429'a yatkın sağlayıcıyı daha da zorlar. Tek instance ile
+	// ikisi arasında toplam SOLANA_RPC_URL baskısı sınırlanır (deploy-tunable
+	// CREATORFILL_RATE_PER_MIN/BURST).
+	sharedRPCLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
 	if cfg.CreatorFillEnabled && bundle.Tokens != nil && creatorFillRPC != "" {
-		// Paylaşılan hız sınırlayıcı: sağlayıcı 429 burst'ünü önler (deploy-tunable
-		// CREATORFILL_RATE_PER_MIN/BURST; her sağlayıcının kendi limiti olur, defansif).
-		cfLimiter := rate.NewLimiter(rate.Limit(float64(cfg.CreatorFillRatePerMin)/60.0), cfg.CreatorFillBurst)
-		resolver := ingest.NewCreatorResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, ingest.WithLimiter(cfLimiter))
+		resolver := ingest.NewCreatorResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, ingest.WithLimiter(sharedRPCLimiter))
 		cw := creatorfill.NewWorker(creatorfill.WorkerDeps{
 			Store: bundle.Tokens, Resolver: resolver,
 			Interval: time.Duration(cfg.CreatorFillIntervalSec) * time.Second, Limit: cfg.CreatorFillLimit, Logger: logger,
@@ -175,6 +179,18 @@ func main() {
 		go cw.Run(ctx)
 	} else if cfg.CreatorFillEnabled {
 		logger.Warn("CREATORFILL: RPC (Helius key veya SOLANA_RPC_URL) veya token store yok — backfill başlamayacak")
+	}
+
+	// funder resolver worker (2e-1) — arka plan; creator cüzdanlarının funder'ını yakalar (bundler tespiti).
+	// creatorfill ile AYNI RPC'yi (creatorFillRPC) VE aynı sharedRPCLimiter'ı kullanır
+	// (toplam QPS'i sınırlamak için — bkz üstteki sharedRPCLimiter yorumu).
+	if cfg.WalletGraphEnabled && bundle.Tokens != nil && creatorFillRPC != "" {
+		fres := walletgraph.NewFunderResolver(creatorFillRPC, cfg.CreatorFillMaxSigPages, walletgraph.WithLimiter(sharedRPCLimiter))
+		fw := walletgraph.NewWorker(walletgraph.WorkerDeps{
+			Store: bundle.Tokens, Resolver: fres,
+			Interval: time.Duration(cfg.FunderResolveIntervalSec) * time.Second, Limit: cfg.FunderResolveLimit, Logger: logger,
+		})
+		go fw.Run(ctx)
 	}
 
 	// creator reputation scorer (2b-2b) — arka plan; saf DB (RPC YOK)
@@ -221,10 +237,12 @@ func main() {
 		Handler: api.NewRouter(api.RouterDeps{
 			Strategies: bundle.Strategies, Events: bundle.Events, Tokens: bundle.Tokens,
 			Hub: hub, CORSOrigin: cfg.CORSOrigin, EventsWindow: cfg.EventsWindow,
-			TokenDetail:        detailSvc,
-			TokenDetailTimeout: time.Duration(cfg.TokenDetailTimeoutSec) * time.Second,
-			Creators:           bundle.Creators,
-			CreatorsLimit:      cfg.CreatorsListLimit,
+			TokenDetail:           detailSvc,
+			TokenDetailTimeout:    time.Duration(cfg.TokenDetailTimeoutSec) * time.Second,
+			Creators:              bundle.Creators,
+			CreatorsLimit:         cfg.CreatorsListLimit,
+			WalletGraphMinCluster: cfg.WalletGraphMinCluster,
+			WalletGraphMaxDegree:  cfg.WalletGraphMaxDegree,
 		}),
 	}
 	go func() {

@@ -155,3 +155,13 @@ func TestOpportunityDefaults(t *testing.T) {
 		t.Fatalf("opportunity default yanlış: %+v", cfg)
 	}
 }
+
+func TestWalletGraphDefaults(t *testing.T) {
+	cfg := Load()
+	if !cfg.WalletGraphEnabled || cfg.FunderResolveIntervalSec != 60 || cfg.FunderResolveLimit != 40 {
+		t.Fatalf("wallet graph worker defaults: %+v", cfg)
+	}
+	if cfg.WalletGraphMinCluster != 2 || cfg.WalletGraphMaxDegree != 50 {
+		t.Fatalf("wallet graph cluster/degree defaults: %+v", cfg)
+	}
+}

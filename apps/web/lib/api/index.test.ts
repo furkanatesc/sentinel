@@ -21,4 +21,5 @@ it("http modunda canlı endpoint httpApi'den, kalan mockApi'den", () => {
   expect(getApi().subscribeTokens).toBe(httpApi.subscribeTokens);
   expect(getApi().getKpis).toBe(httpApi.getKpis);
   expect(getApi().getRadar).toBe(httpApi.getRadar);
+  expect(getApi().getWalletGraph).toBe(httpApi.getWalletGraph);
 });

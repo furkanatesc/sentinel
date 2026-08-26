@@ -174,3 +174,18 @@ it("LIVE_ENDPOINTS getKpis ve getRadar içerir", () => {
   expect(LIVE_ENDPOINTS.has("getKpis")).toBe(true);
   expect(LIVE_ENDPOINTS.has("getRadar")).toBe(true);
 });
+
+const sampleWalletGraph = {
+  nodes: [{ id: "fund:F1", type: "funding_wallet", label: "F1", riskLevel: "high", firstSeen: "n", lastSeen: "n" }],
+  edges: [],
+};
+
+it("getWalletGraph gerçek API'den WalletGraph döndürür", async () => {
+  vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify(sampleWalletGraph)));
+  const r = await httpApi.getWalletGraph();
+  expect(r.nodes[0].id).toBe("fund:F1");
+});
+
+it("LIVE_ENDPOINTS getWalletGraph içerir", () => {
+  expect(LIVE_ENDPOINTS.has("getWalletGraph")).toBe(true);
+});

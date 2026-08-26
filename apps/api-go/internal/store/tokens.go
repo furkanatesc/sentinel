@@ -125,16 +125,48 @@ type OutcomeUpdate struct {
 	ScoredTs                       int64
 }
 
+// FunderTarget, funder'ı henüz çözülmemiş bir creator cüzdanıdır (2e-1).
+type FunderTarget struct{ Wallet string }
+
+// ClusterRow, bir bundler-küme kenarıdır: funder→creator→token + skorlar (2e-1).
+type ClusterRow struct {
+	Funder, Creator, Mint, Symbol string
+	SafetyScore, ReputationScore  float64
+	FirstSeenTs                   int64
+}
+
 // KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
 type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
 
 // RadarPoint, Overview radar scatter noktası (frontend RadarPoint ile birebir). level: RiskLevel.
 type RadarPoint struct {
-	X    float64 `json:"x"` // creatorScore
-	Y    float64 `json:"y"` // momentum
-	Z    float64 `json:"z"` // liquidity
-	Name string  `json:"name"`
-	Level string `json:"level"`
+	X     float64 `json:"x"` // creatorScore
+	Y     float64 `json:"y"` // momentum
+	Z     float64 `json:"z"` // liquidity
+	Name  string  `json:"name"`
+	Level string  `json:"level"`
+}
+
+// GraphNode/GraphEdge/WalletGraphResult, frontend WalletGraph (types.ts) ile birebir JSON şekilleridir.
+// balanceSol alanı 2e-1'de üretilmez → struct'a KONMAZ (frontend'de opsiyonel).
+type GraphNode struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Label     string `json:"label"`
+	Address   string `json:"address,omitempty"`
+	RiskLevel string `json:"riskLevel"`
+	FirstSeen string `json:"firstSeen"`
+	LastSeen  string `json:"lastSeen"`
+}
+type GraphEdge struct {
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+	Type   string `json:"type"`
+}
+type WalletGraphResult struct {
+	Nodes []GraphNode `json:"nodes"`
+	Edges []GraphEdge `json:"edges"`
 }
 
 // TokenStore, mint-PK token kaynağıdır (upsert; DIP).
@@ -173,6 +205,12 @@ type TokenStore interface {
 	Kpis(ctx context.Context) (KpiCounts, error)
 	// 2d: radar scatter noktaları (creatorScore/momentum/liquidity) + risk level (scoreToLevel parity).
 	Radar(ctx context.Context, limit int) ([]RadarPoint, error)
+	// 2e-1: funder'ı çözülmemiş creator hedefleri / bulunan funder'ı persist eder.
+	FunderTargets(ctx context.Context, limit int) ([]FunderTarget, error)
+	SetFunder(ctx context.Context, wallet, funder string, resolvedTs int64) error
+	// 2e-1: bundler-küme agregası — degree [minCluster,maxDegree] aralığındaki funder'ların
+	// tüm (funder,creator,token) kenarlarını döndürür.
+	WalletGraphClusters(ctx context.Context, minCluster, maxDegree int) ([]ClusterRow, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -488,8 +526,70 @@ func (p *postgresStore) Radar(ctx context.Context, limit int) ([]RadarPoint, err
 	return radarFrom(rows), nil
 }
 
-// scoreToLevel, frontend format.ts scoreToLevel ile birebir (parity).
-func scoreToLevel(score float64) string {
+func (p *postgresStore) FunderTargets(ctx context.Context, limit int) ([]FunderTarget, error) {
+	const q = `SELECT DISTINCT t.creator FROM tokens t
+		WHERE t.creator <> ''
+		  AND t.creator NOT IN (SELECT wallet FROM wallet_funders WHERE resolved_ts > 0)
+		ORDER BY t.creator LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]FunderTarget, 0, limit)
+	for rows.Next() {
+		var f FunderTarget
+		if err := rows.Scan(&f.Wallet); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+func (p *postgresStore) SetFunder(ctx context.Context, wallet, funder string, resolvedTs int64) error {
+	const q = `INSERT INTO wallet_funders (wallet, funder, resolved_ts) VALUES ($1,$2,$3)
+		ON CONFLICT (wallet) DO UPDATE SET funder=EXCLUDED.funder, resolved_ts=EXCLUDED.resolved_ts`
+	_, err := p.db.ExecContext(ctx, q, wallet, funder, resolvedTs)
+	return err
+}
+
+func (p *postgresStore) WalletGraphClusters(ctx context.Context, minCluster, maxDegree int) ([]ClusterRow, error) {
+	const q = `
+	WITH qualifying AS (
+		SELECT wf.funder
+		FROM tokens t JOIN wallet_funders wf ON wf.wallet = t.creator
+		WHERE wf.funder <> '' AND t.creator <> ''
+		GROUP BY wf.funder
+		HAVING COUNT(DISTINCT t.creator) >= $1 AND COUNT(DISTINCT t.creator) <= $2
+	)
+	SELECT wf.funder, t.creator, t.mint, t.symbol, t.safety_score,
+		COALESCE(c.reputation_score,0), t.first_seen_ts
+	FROM tokens t
+	JOIN wallet_funders wf ON wf.wallet = t.creator
+	JOIN qualifying q ON q.funder = wf.funder
+	LEFT JOIN creators c ON c.address = t.creator
+	WHERE t.creator <> ''
+	ORDER BY wf.funder, t.first_seen_ts DESC`
+	rows, err := p.db.QueryContext(ctx, q, minCluster, maxDegree)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ClusterRow{}
+	for rows.Next() {
+		var r ClusterRow
+		if err := rows.Scan(&r.Funder, &r.Creator, &r.Mint, &r.Symbol, &r.SafetyScore, &r.ReputationScore, &r.FirstSeenTs); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ScoreToLevel, frontend format.ts scoreToLevel ile birebir (parity). Export edilmiştir
+// (2e-1 walletgraph paketi de kullanır — tek eşik kaynağı, tekrarlanmaz).
+func ScoreToLevel(score float64) string {
 	switch {
 	case score <= 24:
 		return "critical"
@@ -510,7 +610,7 @@ func radarFrom(rows []TokenRow) []RadarPoint {
 	for _, t := range rows {
 		out = append(out, RadarPoint{
 			X: t.CreatorScore, Y: t.Momentum, Z: t.Liquidity, Name: t.Symbol,
-			Level: scoreToLevel(math.Round((t.CreatorScore + t.SafetyScore) / 2)),
+			Level: ScoreToLevel(math.Round((t.CreatorScore + t.SafetyScore) / 2)),
 		})
 	}
 	return out

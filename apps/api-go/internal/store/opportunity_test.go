@@ -128,8 +128,8 @@ func TestScoreToLevel_ParityWithFrontend(t *testing.T) {
 	}{{10, "critical"}, {24, "critical"}, {25, "high"}, {49, "high"},
 		{50, "medium"}, {69, "medium"}, {70, "good"}, {84, "good"}, {85, "strong"}, {100, "strong"}}
 	for _, c := range cases {
-		if got := scoreToLevel(c.s); got != c.want {
-			t.Fatalf("scoreToLevel(%.0f)=%q want %q", c.s, got, c.want)
+		if got := ScoreToLevel(c.s); got != c.want {
+			t.Fatalf("ScoreToLevel(%.0f)=%q want %q", c.s, got, c.want)
 		}
 	}
 }
@@ -146,9 +146,9 @@ func TestRadar_Projection_Fake(t *testing.T) {
 	if len(pts) == 0 {
 		t.Fatal("radar noktası bekleniyordu")
 	}
-	// x=creatorScore, y=momentum, z=liquidity projeksiyonu; Level=scoreToLevel(round((creatorScore+safety)/2)).
+	// x=creatorScore, y=momentum, z=liquidity projeksiyonu; Level=ScoreToLevel(round((creatorScore+safety)/2)).
 	// Seeded token: creatorScore=0, momentum=60, liquidity=1000, safety=80, symbol="M1".
-	// Expected: X=0, Y=60, Z=1000, Name="M1", Level=scoreToLevel(round(40))="high".
+	// Expected: X=0, Y=60, Z=1000, Name="M1", Level=ScoreToLevel(round(40))="high".
 	var radarPt *RadarPoint
 	for i := range pts {
 		if pts[i].Name == "M1" {
