@@ -52,6 +52,7 @@ func NewRouter(d RouterDeps) http.Handler {
 			md = 50
 		}
 		r.Get("/api/wallet-graph", walletGraphHandler(d.Tokens, mc, md))
+		r.Get("/api/authority-graph", authorityGraphHandler(d.Tokens, mc, md))
 	}
 	if d.TokenDetail != nil {
 		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail, d.TokenDetailTimeout))
