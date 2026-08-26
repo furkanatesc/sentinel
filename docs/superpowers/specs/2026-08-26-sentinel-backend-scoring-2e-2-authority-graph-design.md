@@ -66,7 +66,7 @@ MintAuthorities(ctx context.Context, mint string) (mintAuthority, freezeAuthorit
 ```
 - `ingest/authorities.go`: satır 66 `return info.MintAuthority != nil, ...` → `return info.MintAuthority, info.FreezeAuthority, nil` (pubkey'i atmayı bırak; `*string`, nil = iptal).
 - **Safety scorer/provider mantığı korunur:** `active := (mintAuthority != nil)` türetilir → mevcut `OnChainData.MintAuthorityActive/FreezeAuthorityActive` aynen dolar, safety skoru+testleri değişmez.
-- **Persist (karar):** ayrı store metodu `SetAuthorities(ctx, mint, mintAuth, freezeAuth string) error`; safety worker skorlama sonrası çağırır (2e-1 `SetFunder` deseni — SRP + parity-test hedefi net). Ek DB round-trip ihmal edilebilir (safety worker RPC-throttle'lı; token başına bir ucuz UPDATE önemsiz). nil pubkey → `''` (dürüst: iptal edilmiş = boş).
+- **Persist (karar — kod okunduktan sonra netleşti):** ayrı `SetAuthorities` metodu DEĞİL; `OnChainData`'ya `MintAuthorityAddr/FreezeAuthorityAddr string` + `SafetyUpdate`'e `MintAuthority/FreezeAuthority string` + `AuthoritiesKnown bool` eklenir, mevcut `UpdateSafety` yazımıyla persist edilir. Bu, kod tabanındaki **`CreatorHoldingPct` piggyback desenini birebir** taklit eder (provider.go:8-10 / worker.go:91: "Scorer'a girmez, sadece persist edilir") → tek round-trip, tek metod, mevcut desen. `AuthoritiesKnown=false` (RPC fail) → mevcut değer EZİLMEZ (`CreatorHoldingKnown` guard'ı); nil pubkey (iptal) → `''`.
 
 **Not:** yakalama safety worker'a bağlı → `WALLET_GRAPH_ENABLED` bunu gate ETMEZ (safety her zaman çalışır). Bu bilinçli: toplama bedava olduğundan her zaman açık; gating yalnız okuma/endpoint katmanında gerekirse (§6.4).
 
@@ -133,14 +133,14 @@ ALTER TABLE tokens DROP COLUMN IF EXISTS mint_authority;
 - `authority_exclude.go` — `knownProgramAuthority map[string]string` + `IsProgramAuthority(addr) bool` (cex.go deseni; web-doğrulanmış program adresleri).
 
 ### 6.2 Store (migration 0013 + metotlar)
-- `SetAuthorities(ctx, mint, mintAuth, freezeAuth string) error` — `tokens` iki kolon upsert/update (safety worker çağırır; §3 kararı).
+- **Persist:** ayrı metod yok — `SafetyUpdate` genişletilir (`MintAuthority/FreezeAuthority/AuthoritiesKnown`), mevcut `UpdateSafety` (fake+pg) iki kolonu koşullu yazar (`CASE WHEN AuthoritiesKnown`; §3 kararı, CreatorHolding deseni).
 - `AuthorityGraphClusters(ctx, minCluster, maxDegree int) ([]AuthorityRow, error)` — §5.1.
 - `AuthorityRow` tipi: `{Authority, Mint, Symbol, Role string; SafetyScore float64; FirstSeenTs int64}`.
 - Fake + Postgres parity (2a/2b/2e-1 deseni).
 
 ### 6.3 safety (arayüz + worker)
 - `Authorities.MintAuthorities` → pubkey döndürür (§3); `ingest/authorities.go` + fake/testler güncellenir.
-- Safety worker: skorlarken `SetAuthorities` çağırır (piggyback). Kısmi-hata izole.
+- Safety worker: `FetchOnChain` dönen authority pubkey'lerini `UpdateSafety(SafetyUpdate{... MintAuthority, FreezeAuthority, AuthoritiesKnown})` ile persist eder (piggyback; ek çağrı yok). Kısmi-hata izole.
 
 ### 6.4 API
 - `GET /api/authority-graph` → `store.AuthorityGraphClusters` → `BuildAuthorityGraph` → `WalletGraphResult{nodes,edges}` (nil-guard, err→502, boş→`{nodes:[],edges:[]}`). Her zaman kayıtlı (wallet-graph deseni). `WalletGraphMinCluster/MaxDegree` reuse — **yeni config YOK**. RouterDeps/main wiring.
