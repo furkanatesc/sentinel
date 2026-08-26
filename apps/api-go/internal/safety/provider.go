@@ -10,6 +10,7 @@ import (
 // edilir (aynı holder-fetch'ten, sıfır ek RPC; Safety Scorer'ı bu alanlar etkilemez).
 type OnChainData struct {
 	MintAuthorityActive, FreezeAuthorityActive bool
+	MintAuthorityAddr, FreezeAuthorityAddr     string // 2e-2: authority pubkey (piggyback; "" = iptal/bilinmiyor). Scorer'a GİRMEZ.
 	AuthoritiesKnown                           bool
 	HolderCount                                int
 	Top10Pct                                   float64
@@ -26,8 +27,11 @@ type DataProvider interface {
 
 // Authorities/Holders, HeliusProvider'ın bağımlı olduğu dar arayüzlerdir (DIP/ISP;
 // ingest.HeliusAuthorities / ingest.HeliusHolders karşılar).
+//
+// Authorities, mint/freeze authority pubkey'ini döndürür (nil = iptal edilmiş/aktif değil). 2e-2:
+// pubkey (bool değil) döner → safety active'i türetir + authority-graph pubkey'i persist eder.
 type Authorities interface {
-	MintAuthorities(ctx context.Context, mint string) (mintActive, freezeActive bool, err error)
+	MintAuthorities(ctx context.Context, mint string) (mintAuthority, freezeAuthority *string, err error)
 }
 type Holders interface {
 	HolderDistribution(ctx context.Context, mint, creator string, cap int) (count int, top10Pct, creatorPct float64, capped bool, err error)
@@ -48,8 +52,14 @@ func NewHeliusProvider(auth Authorities, holders Holders, holdersCap int) *Heliu
 func (p *HeliusProvider) FetchOnChain(ctx context.Context, mint, creator string) (OnChainData, error) {
 	var d OnChainData
 	var authErr, holderErr error
-	if mintA, freezeA, err := p.auth.MintAuthorities(ctx, mint); err == nil {
-		d.MintAuthorityActive, d.FreezeAuthorityActive, d.AuthoritiesKnown = mintA, freezeA, true
+	if mintPk, freezePk, err := p.auth.MintAuthorities(ctx, mint); err == nil {
+		d.MintAuthorityActive, d.FreezeAuthorityActive, d.AuthoritiesKnown = mintPk != nil, freezePk != nil, true
+		if mintPk != nil {
+			d.MintAuthorityAddr = *mintPk
+		}
+		if freezePk != nil {
+			d.FreezeAuthorityAddr = *freezePk
+		}
 	} else {
 		authErr = err
 	}
