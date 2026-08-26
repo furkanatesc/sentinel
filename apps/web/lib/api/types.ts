@@ -123,7 +123,7 @@ export interface CreatorProfile {
 }
 
 export type GraphNodeType =
-  | "creator_wallet" | "funding_wallet" | "token" | "liquidity_pool"
+  | "creator_wallet" | "funding_wallet" | "authority_wallet" | "token" | "liquidity_pool"
   | "trader_wallet" | "smart_wallet" | "suspicious_wallet" | "exchange_wallet";
 export type GraphEdgeType =
   | "funded" | "created" | "bought" | "sold" | "transferred"
@@ -133,7 +133,7 @@ export interface GraphNode {
   id: string; type: GraphNodeType; label: string;
   address?: string; riskLevel: RiskLevel; balanceSol?: number; firstSeen: string; lastSeen: string;
 }
-export interface GraphEdge { id: string; source: string; target: string; type: GraphEdgeType; }
+export interface GraphEdge { id: string; source: string; target: string; type: GraphEdgeType; role?: "mint" | "freeze" | "both"; }
 export interface WalletGraph { nodes: GraphNode[]; edges: GraphEdge[]; }
 export interface GraphFilters { relationships: GraphEdgeType[]; risks: RiskLevel[]; }
 export const EMPTY_GRAPH_FILTERS: GraphFilters = { relationships: [], risks: [] };

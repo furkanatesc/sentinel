@@ -26,6 +26,7 @@ export const httpApi: SentinelApi = {
   getToken: (mint: string) => getJson<TokenDetail>(`/api/token/${encodeURIComponent(mint)}`),
   getEvents: () => getJson<FeedEvent[]>("/api/events"),
   getWalletGraph: () => getJson<WalletGraph>("/api/wallet-graph"),
+  getAuthorityGraph: () => getJson<WalletGraph>("/api/authority-graph"),
   getCreators: () => getJson<CreatorRow[]>("/api/creators"),
   getCreator: (address: string) => getJson<CreatorProfile>(`/api/creator/${encodeURIComponent(address)}`),
   getStrategies: () => getJson<StrategyRow[]>("/api/strategies"),

@@ -13,4 +13,5 @@ export const LIVE_ENDPOINTS = new Set<keyof SentinelApi>([
   "getKpis",
   "getRadar",
   "getWalletGraph",
+  "getAuthorityGraph",
 ]);

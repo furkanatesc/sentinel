@@ -8,6 +8,7 @@ export interface SentinelApi {
   getToken(idOrMint: string): Promise<TokenDetail>;
   getEvents(): Promise<FeedEvent[]>;
   getWalletGraph(): Promise<WalletGraph>;
+  getAuthorityGraph(): Promise<WalletGraph>;
   getCreators(): Promise<CreatorRow[]>;
   getCreator(address: string): Promise<CreatorProfile>;
   getStrategies(): Promise<StrategyRow[]>;

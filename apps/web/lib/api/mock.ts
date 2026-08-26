@@ -548,6 +548,7 @@ export const mockApi: SentinelApi = {
   getRadar: () => delay(radarFrom(tokens)),
   getEvents: () => delay(feedEvents),
   getWalletGraph: () => delay(walletGraph),
+  getAuthorityGraph: () => delay({ nodes: [], edges: [] }),
   getCreators: () => delay(creators),
   getCreator: (address) => delay(buildCreator(address)),
   getStrategies: () => delay(strategyRows),
