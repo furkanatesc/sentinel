@@ -63,6 +63,8 @@ type fakeTok struct {
 	opportunityScore, opportunityConf float64
 	opportunityBreakdown              []ScoreBreakdownItem
 	opportunityScoredTs               int64
+	// 2e-2 authority pubkey (piggyback)
+	mintAuthority, freezeAuthority string
 }
 
 type fakeTokenStore struct {
@@ -313,6 +315,9 @@ func (f *fakeTokenStore) UpdateSafety(_ context.Context, s SafetyUpdate) error {
 	cur.safetyBreakdown, cur.safetyRisks, cur.safetyScoredTs = s.Breakdown, s.Risks, s.ScoredTs
 	if s.CreatorHoldingKnown {
 		cur.creatorHoldingPct = s.CreatorHoldingPct
+	}
+	if s.AuthoritiesKnown {
+		cur.mintAuthority, cur.freezeAuthority = s.MintAuthority, s.FreezeAuthority
 	}
 	f.byID[s.Mint] = cur
 	return nil

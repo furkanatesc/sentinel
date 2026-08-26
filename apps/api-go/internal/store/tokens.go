@@ -65,6 +65,10 @@ type SafetyUpdate struct {
 	ScoredTs            int64
 	CreatorHoldingPct   float64
 	CreatorHoldingKnown bool
+	// 2e-2: authority pubkey (piggyback; AuthoritiesKnown=false → mevcut değer EZİLMEZ).
+	MintAuthority    string
+	FreezeAuthority  string
+	AuthoritiesKnown bool
 }
 
 // SafetyTarget, skorlanacak token için gereken minimum bilgidir.
@@ -163,6 +167,7 @@ type GraphEdge struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
 	Type   string `json:"type"`
+	Role   string `json:"role,omitempty"` // 2e-2: controls_authority için "mint"/"freeze"/"both" (diğer edge'lerde boş → omit).
 }
 type WalletGraphResult struct {
 	Nodes []GraphNode `json:"nodes"`
@@ -360,10 +365,13 @@ func (p *postgresStore) UpdateSafety(ctx context.Context, s SafetyUpdate) error 
 	}
 	const q = `UPDATE tokens SET safety_score=$2, safety_confidence=$3, top10_holder_pct=$4,
 		safety_breakdown=$5, safety_risks=$6, safety_scored_ts=$7,
-		creator_holding_pct = CASE WHEN $8 THEN $9 ELSE creator_holding_pct END
+		creator_holding_pct = CASE WHEN $8 THEN $9 ELSE creator_holding_pct END,
+		mint_authority       = CASE WHEN $10 THEN $11 ELSE mint_authority   END,
+		freeze_authority     = CASE WHEN $10 THEN $12 ELSE freeze_authority END
 		WHERE mint=$1`
 	_, err = p.db.ExecContext(ctx, q, s.Mint, s.Score, s.Confidence, s.Top10Pct,
-		string(bdJSON), string(rkJSON), s.ScoredTs, s.CreatorHoldingKnown, s.CreatorHoldingPct)
+		string(bdJSON), string(rkJSON), s.ScoredTs, s.CreatorHoldingKnown, s.CreatorHoldingPct,
+		s.AuthoritiesKnown, s.MintAuthority, s.FreezeAuthority)
 	return err
 }
 
