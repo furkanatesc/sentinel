@@ -139,6 +139,13 @@ type ClusterRow struct {
 	FirstSeenTs                   int64
 }
 
+// AuthorityRow, bir controls_authority kenarıdır: authority→token + rol + skorlar (2e-2).
+type AuthorityRow struct {
+	Authority, Mint, Symbol, Role string
+	SafetyScore                   float64
+	FirstSeenTs                   int64
+}
+
 // KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
 type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
 
@@ -216,6 +223,9 @@ type TokenStore interface {
 	// 2e-1: bundler-küme agregası — degree [minCluster,maxDegree] aralığındaki funder'ların
 	// tüm (funder,creator,token) kenarlarını döndürür.
 	WalletGraphClusters(ctx context.Context, minCluster, maxDegree int) ([]ClusterRow, error)
+	// 2e-2: controls_authority agregası — mint+freeze authority unpivot; degree [minCluster,maxDegree]
+	// aralığındaki authority'lerin tüm (authority,token,role) kenarlarını döndürür.
+	AuthorityGraphClusters(ctx context.Context, minCluster, maxDegree int) ([]AuthorityRow, error)
 }
 
 func (p *postgresStore) UpsertToken(ctx context.Context, t TokenRow, firstSeenTs int64, creator string) error {
@@ -588,6 +598,43 @@ func (p *postgresStore) WalletGraphClusters(ctx context.Context, minCluster, max
 	for rows.Next() {
 		var r ClusterRow
 		if err := rows.Scan(&r.Funder, &r.Creator, &r.Mint, &r.Symbol, &r.SafetyScore, &r.ReputationScore, &r.FirstSeenTs); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// AuthorityGraphClusters, mint+freeze authority'lerini (authority,mint,role) satırlarına unpivot
+// eder (boş authority → satır yok) ve degree [minCluster,maxDegree] aralığındaki authority'lerin
+// TÜM ham (mint/freeze ayrı) kenarlarını döndürür. Rol birleştirme (mint+freeze aynı authority-
+// token → "both") burada YAPILMAZ — BuildAuthorityGraph'ta yapılır (Task 5, tek yerde, saf Go);
+// bu metot fake ile parite için ham satırları döner.
+func (p *postgresStore) AuthorityGraphClusters(ctx context.Context, minCluster, maxDegree int) ([]AuthorityRow, error) {
+	const q = `
+	WITH auth AS (
+		SELECT mint_authority   AS authority, mint, symbol, safety_score, first_seen_ts, 'mint'   AS role
+			FROM tokens WHERE mint_authority   <> ''
+		UNION ALL
+		SELECT freeze_authority AS authority, mint, symbol, safety_score, first_seen_ts, 'freeze' AS role
+			FROM tokens WHERE freeze_authority <> ''
+	), qualifying AS (
+		SELECT authority FROM auth
+		GROUP BY authority
+		HAVING COUNT(DISTINCT mint) >= $1 AND COUNT(DISTINCT mint) <= $2
+	)
+	SELECT a.authority, a.mint, a.symbol, a.role, a.safety_score, a.first_seen_ts
+	FROM auth a JOIN qualifying q ON q.authority = a.authority
+	ORDER BY a.authority, a.first_seen_ts DESC, a.mint`
+	rows, err := p.db.QueryContext(ctx, q, minCluster, maxDegree)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AuthorityRow{}
+	for rows.Next() {
+		var r AuthorityRow
+		if err := rows.Scan(&r.Authority, &r.Mint, &r.Symbol, &r.Role, &r.SafetyScore, &r.FirstSeenTs); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
