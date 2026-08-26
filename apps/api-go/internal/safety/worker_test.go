@@ -109,6 +109,26 @@ func TestScoreOnceHealthyCycleSummaryInfo(t *testing.T) {
 	}
 }
 
+func TestWorker_PersistsAuthorityAddrs(t *testing.T) {
+	// Worker, provider'ın döndürdüğü authority pubkey'ini UpdateSafety'ye taşımalı (piggyback).
+	st := &fakeSafetyStore{targets: []store.SafetyTarget{{Mint: "M1", Liquidity: 5000}}}
+	prov := stubProvider{d: OnChainData{
+		MintAuthorityActive: true, AuthoritiesKnown: true,
+		MintAuthorityAddr: "MA", FreezeAuthorityAddr: "FA",
+	}}
+	w := NewWorker(WorkerDeps{Store: st, Provider: prov, Limit: 10, Now: func() int64 { return 1 }})
+	if err := w.scoreOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(st.updates) != 1 {
+		t.Fatalf("1 update beklenir: %d", len(st.updates))
+	}
+	last := st.updates[0]
+	if !last.AuthoritiesKnown || last.MintAuthority != "MA" || last.FreezeAuthority != "FA" {
+		t.Fatalf("authority piggyback taşınmalı, got known=%v mint=%q freeze=%q", last.AuthoritiesKnown, last.MintAuthority, last.FreezeAuthority)
+	}
+}
+
 func TestScoreOnceLiquidityLaunchpadFromTarget(t *testing.T) {
 	// Aktif mint authority + pump.fun → cezasız (launchpad target'tan gelmeli).
 	st := &fakeSafetyStore{targets: []store.SafetyTarget{{Mint: "M1", Liquidity: 5000, Launchpad: "Pump.fun"}}}
