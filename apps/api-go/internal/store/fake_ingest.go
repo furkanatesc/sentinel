@@ -63,6 +63,8 @@ type fakeTok struct {
 	opportunityScore, opportunityConf float64
 	opportunityBreakdown              []ScoreBreakdownItem
 	opportunityScoredTs               int64
+	// 2e-2 authority pubkey (piggyback)
+	mintAuthority, freezeAuthority string
 }
 
 type fakeTokenStore struct {
@@ -313,6 +315,9 @@ func (f *fakeTokenStore) UpdateSafety(_ context.Context, s SafetyUpdate) error {
 	cur.safetyBreakdown, cur.safetyRisks, cur.safetyScoredTs = s.Breakdown, s.Risks, s.ScoredTs
 	if s.CreatorHoldingKnown {
 		cur.creatorHoldingPct = s.CreatorHoldingPct
+	}
+	if s.AuthoritiesKnown {
+		cur.mintAuthority, cur.freezeAuthority = s.MintAuthority, s.FreezeAuthority
 	}
 	f.byID[s.Mint] = cur
 	return nil
@@ -693,6 +698,46 @@ func (f *fakeTokenStore) WalletGraphClusters(_ context.Context, minCluster, maxD
 			SafetyScore: t.safetyScore, ReputationScore: f.reputationByAddr[t.creator].Score,
 			FirstSeenTs: t.firstSeen,
 		})
+	}
+	return out, nil
+}
+
+// AuthorityGraphClusters, postgresStore.AuthorityGraphClusters ile AYNI semantik: mint+freeze
+// authority'lerini (authority,mint,role) satırlarına unpivot eder, authority başına DISTINCT mint
+// sayar (degree). minCluster<=degree<=maxDegree olan authority'lerin TÜM ham (mint/freeze ayrı,
+// "both" birleştirmesi YOK — Task 5'te) kenarları döner (postgres CTE parity).
+func (f *fakeTokenStore) AuthorityGraphClusters(_ context.Context, minCluster, maxDegree int) ([]AuthorityRow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	// (authority, role) → token satırları topla + authority başına distinct mint say.
+	type ar struct {
+		authority, mint, symbol, role string
+		safety                        float64
+		firstSeen                     int64
+	}
+	var all []ar
+	mints := map[string]map[string]bool{}
+	add := func(authority, role string, t fakeTok) {
+		if authority == "" {
+			return
+		}
+		all = append(all, ar{authority, t.row.Mint, t.row.Symbol, role, t.safetyScore, t.firstSeen})
+		if mints[authority] == nil {
+			mints[authority] = map[string]bool{}
+		}
+		mints[authority][t.row.Mint] = true
+	}
+	for _, id := range f.order {
+		t := f.byID[id]
+		add(t.mintAuthority, "mint", t)
+		add(t.freezeAuthority, "freeze", t)
+	}
+	out := []AuthorityRow{}
+	for _, a := range all {
+		deg := len(mints[a.authority])
+		if deg >= minCluster && deg <= maxDegree {
+			out = append(out, AuthorityRow{Authority: a.authority, Mint: a.mint, Symbol: a.symbol, Role: a.role, SafetyScore: a.safety, FirstSeenTs: a.firstSeen})
+		}
 	}
 	return out, nil
 }

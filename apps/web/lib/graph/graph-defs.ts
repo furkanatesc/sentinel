@@ -4,6 +4,7 @@ export interface NodeTypeDef { key: GraphNodeType; label: string; color: string;
 export const NODE_TYPE_DEFS: NodeTypeDef[] = [
   { key: "creator_wallet", label: "Creator Cüzdanı", color: "#7C5CFF", shape: "ellipse" },
   { key: "funding_wallet", label: "Fon Cüzdanı", color: "#3E9BFF", shape: "ellipse" },
+  { key: "authority_wallet", label: "Yetki Cüzdanı", color: "#3E9BFF", shape: "ellipse" },
   { key: "token", label: "Token", color: "#2FD98B", shape: "round-rectangle" },
   { key: "liquidity_pool", label: "Likidite Havuzu", color: "#FFB020", shape: "diamond" },
   { key: "trader_wallet", label: "Trader Cüzdanı", color: "#8A94A6", shape: "ellipse" },

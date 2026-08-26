@@ -184,3 +184,18 @@ func TestFakeUpdateSafetyCreatorHoldingConditional(t *testing.T) {
 		t.Fatalf("known=false → mevcut 55 EZİLMEMELİ, gelen %.1f", tg[0].CreatorHoldingPct)
 	}
 }
+
+func TestFakeUpdateSafetyAuthorityConditional(t *testing.T) {
+	f := NewFakeTokenStore()
+	ctx := context.Background()
+	f.UpsertDiscovered(ctx, DiscoveredToken{Mint: "m", Symbol: "S", PoolAddr: "p", FirstSeenTs: 1})
+	// known=true → yazılır.
+	f.UpdateSafety(ctx, SafetyUpdate{Mint: "m", AuthoritiesKnown: true, MintAuthority: "MA", FreezeAuthority: "FA"})
+	// known=false → EZİLMEZ (mevcut "MA"/"FA" korunur).
+	f.UpdateSafety(ctx, SafetyUpdate{Mint: "m", AuthoritiesKnown: false, MintAuthority: "", FreezeAuthority: ""})
+	fs := f.(*fakeTokenStore)
+	got := fs.byID["m"]
+	if got.mintAuthority != "MA" || got.freezeAuthority != "FA" {
+		t.Fatalf("known=false authority'yi ezmemeli, got mint=%q freeze=%q", got.mintAuthority, got.freezeAuthority)
+	}
+}

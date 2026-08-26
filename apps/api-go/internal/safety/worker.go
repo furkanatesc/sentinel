@@ -98,6 +98,7 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 			Mint: tg.Mint, Score: res.Score, Confidence: res.Confidence, Top10Pct: res.Top10Pct,
 			Breakdown: res.Breakdown, Risks: res.Risks, ScoredTs: now,
 			CreatorHoldingPct: data.CreatorHoldingPct, CreatorHoldingKnown: data.CreatorHoldingKnown,
+			MintAuthority: data.MintAuthorityAddr, FreezeAuthority: data.FreezeAuthorityAddr, AuthoritiesKnown: data.AuthoritiesKnown,
 		}); err != nil {
 			w.d.Logger.Warn("update safety", "mint", tg.Mint, "err", err)
 			continue

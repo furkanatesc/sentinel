@@ -20,24 +20,25 @@ func NewHeliusAuthorities(rpcURL string) *HeliusAuthorities {
 	return &HeliusAuthorities{rpcURL: rpcURL, http: &http.Client{Timeout: 8 * time.Second}}
 }
 
-// MintAuthorities, mint ve freeze authority'nin aktif (dolu) olup olmadığını döndürür.
-func (h *HeliusAuthorities) MintAuthorities(ctx context.Context, mint string) (mintActive, freezeActive bool, err error) {
+// MintAuthorities, mint ve freeze authority pubkey'ini döndürür (nil = iptal edilmiş/aktif değil).
+// 2e-2: pubkey döner (bool değil) — safety active'i türetir, authority-graph pubkey'i persist eder.
+func (h *HeliusAuthorities) MintAuthorities(ctx context.Context, mint string) (mintAuthority, freezeAuthority *string, err error) {
 	reqBody, _ := json.Marshal(map[string]any{
 		"jsonrpc": "2.0", "id": "1", "method": "getAccountInfo",
 		"params": []any{mint, map[string]any{"encoding": "jsonParsed"}},
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.rpcURL, bytes.NewReader(reqBody))
 	if err != nil {
-		return false, false, err
+		return nil, nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	res, err := h.http.Do(req)
 	if err != nil {
-		return false, false, err
+		return nil, nil, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return false, false, fmt.Errorf("helius getAccountInfo: status %d", res.StatusCode)
+		return nil, nil, fmt.Errorf("helius getAccountInfo: status %d", res.StatusCode)
 	}
 	var r struct {
 		Result struct {
@@ -57,11 +58,11 @@ func (h *HeliusAuthorities) MintAuthorities(ctx context.Context, mint string) (m
 		} `json:"error"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-		return false, false, err
+		return nil, nil, err
 	}
 	if r.Error != nil {
-		return false, false, fmt.Errorf("helius getAccountInfo error: %s", r.Error.Message)
+		return nil, nil, fmt.Errorf("helius getAccountInfo error: %s", r.Error.Message)
 	}
 	info := r.Result.Value.Data.Parsed.Info
-	return info.MintAuthority != nil, info.FreezeAuthority != nil, nil
+	return info.MintAuthority, info.FreezeAuthority, nil
 }

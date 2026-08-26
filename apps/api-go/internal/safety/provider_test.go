@@ -7,16 +7,17 @@ import (
 	"testing"
 )
 
-type fakeAuth struct {
-	mint, freeze bool
+// authStub, safety.Authorities'in test-yerel sahtesi: pubkey döner (2e-2 — bool değil).
+type authStub struct {
+	mint, freeze *string
 	err          error
 }
 
-func (f fakeAuth) MintAuthorities(context.Context, string) (bool, bool, error) {
-	return f.mint, f.freeze, f.err
+func (a authStub) MintAuthorities(context.Context, string) (*string, *string, error) {
+	return a.mint, a.freeze, a.err
 }
 
-type fakeHolders struct {
+type holdersStub struct {
 	count      int
 	top10      float64
 	creatorPct float64
@@ -24,12 +25,13 @@ type fakeHolders struct {
 	err        error
 }
 
-func (f fakeHolders) HolderDistribution(context.Context, string, string, int) (int, float64, float64, bool, error) {
-	return f.count, f.top10, f.creatorPct, f.capped, f.err
+func (h holdersStub) HolderDistribution(context.Context, string, string, int) (int, float64, float64, bool, error) {
+	return h.count, h.top10, h.creatorPct, h.capped, h.err
 }
 
 func TestFetchOnChainBothOK(t *testing.T) {
-	p := NewHeliusProvider(fakeAuth{mint: true, freeze: false}, fakeHolders{count: 300, top10: 42}, 5000)
+	mintPk := "Mint111"
+	p := NewHeliusProvider(authStub{mint: &mintPk, freeze: nil}, holdersStub{count: 300, top10: 42}, 5000)
 	d, err := p.FetchOnChain(context.Background(), "M", "")
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +43,8 @@ func TestFetchOnChainBothOK(t *testing.T) {
 
 func TestFetchOnChainHoldersCappedPropagates(t *testing.T) {
 	// Holders cap'e takılırsa (capped=true) OnChainData.HoldersCapped=true olmalı (confidence düşsün diye).
-	p := NewHeliusProvider(fakeAuth{mint: true, freeze: false}, fakeHolders{count: 5000, top10: 60, capped: true}, 5000)
+	mintPk := "Mint111"
+	p := NewHeliusProvider(authStub{mint: &mintPk, freeze: nil}, holdersStub{count: 5000, top10: 60, capped: true}, 5000)
 	d, err := p.FetchOnChain(context.Background(), "M", "")
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +59,7 @@ func TestFetchOnChainHoldersCappedPropagates(t *testing.T) {
 
 func TestFetchOnChainPartialFailureIsolated(t *testing.T) {
 	// Authority hata verir, holders başarılı → AuthoritiesKnown=false, HoldersKnown=true, hard-fail YOK.
-	p := NewHeliusProvider(fakeAuth{err: errors.New("boom")}, fakeHolders{count: 300, top10: 42}, 5000)
+	p := NewHeliusProvider(authStub{err: errors.New("boom")}, holdersStub{count: 300, top10: 42}, 5000)
 	d, err := p.FetchOnChain(context.Background(), "M", "")
 	if err != nil {
 		t.Fatalf("kısmi hata hard-fail olmamalı: %v", err)
@@ -72,7 +75,7 @@ func TestFetchOnChainPartialFailureIsolated(t *testing.T) {
 func TestFetchOnChainBothFailHardErrors(t *testing.T) {
 	// İki kaynak da hata verirse hiç veri yok → hard-fail (worker skip + önceki skoru koru).
 	// Hata mesajı iki kaynağın nedenini de taşımalı (gözlemlenebilirlik — 429 görünsün).
-	p := NewHeliusProvider(fakeAuth{err: errors.New("auth 429")}, fakeHolders{err: errors.New("holders 429")}, 5000)
+	p := NewHeliusProvider(authStub{err: errors.New("auth 429")}, holdersStub{err: errors.New("holders 429")}, 5000)
 	d, err := p.FetchOnChain(context.Background(), "M", "")
 	if err == nil {
 		t.Fatal("iki kaynak da başarısızsa hard-fail beklenir")
@@ -82,5 +85,31 @@ func TestFetchOnChainBothFailHardErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "auth 429") || !strings.Contains(err.Error(), "holders 429") {
 		t.Fatalf("hata iki kaynağın nedenini de taşımalı: %v", err)
+	}
+}
+
+// FetchOnChain, authority pubkey'lerini OnChainData'ya taşımalı + bool'u türetmeli.
+func TestFetchOnChain_CapturesAuthorityAddrs(t *testing.T) {
+	mintPk, freezePk := "MintAuth111", "FreezeAuth222"
+	p := NewHeliusProvider(
+		authStub{mint: &mintPk, freeze: &freezePk},
+		holdersStub{count: 100, top10: 30},
+		5000,
+	)
+	d, err := p.FetchOnChain(context.Background(), "mintX", "creatorX")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.MintAuthorityAddr != "MintAuth111" || d.FreezeAuthorityAddr != "FreezeAuth222" {
+		t.Fatalf("authority addr taşınmalı, got mint=%q freeze=%q", d.MintAuthorityAddr, d.FreezeAuthorityAddr)
+	}
+	if !d.MintAuthorityActive || !d.FreezeAuthorityActive || !d.AuthoritiesKnown {
+		t.Fatalf("pubkey!=nil → active+known türetilmeli")
+	}
+	// null authority → boş addr + active=false.
+	p2 := NewHeliusProvider(authStub{mint: nil, freeze: nil}, holdersStub{count: 1}, 5000)
+	d2, _ := p2.FetchOnChain(context.Background(), "m2", "c2")
+	if d2.MintAuthorityAddr != "" || d2.MintAuthorityActive {
+		t.Fatalf("null authority → boş addr + active=false, got addr=%q active=%v", d2.MintAuthorityAddr, d2.MintAuthorityActive)
 	}
 }
