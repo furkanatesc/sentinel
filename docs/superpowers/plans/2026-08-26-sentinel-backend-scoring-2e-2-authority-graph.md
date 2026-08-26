@@ -391,25 +391,29 @@ func TestAuthorityGraphClusters_DegreeThreshold(t *testing.T) {
 		f.UpdateSafety(ctx, SafetyUpdate{Mint: mint, AuthoritiesKnown: true, MintAuthority: mintA, FreezeAuthority: freezeA})
 	}
 	up("mA", "A", "F1", "")   // F1 mint
-	up("mB", "B", "F1", "F1") // F1 mint+freeze → mB'de rol "both"
+	up("mB", "B", "F1", "F1") // F1 mint+freeze → mB'de İKİ ham satır (mint + freeze); "both" birleştirme Task 5'te
 	up("mC", "C", "F2", "")   // F2 tek token → küme değil
 	rows, err := f.AuthorityGraphClusters(ctx, 2, 50)
 	if err != nil {
 		t.Fatal(err)
 	}
 	byAuth := map[string]int{}
-	roleBoth := false
+	mbMint, mbFreeze := false, false
 	for _, r := range rows {
 		byAuth[r.Authority]++
-		if r.Authority == "F1" && r.Mint == "mB" && r.Role == "both" {
-			roleBoth = true
+		if r.Authority == "F1" && r.Mint == "mB" && r.Role == "mint" {
+			mbMint = true
+		}
+		if r.Authority == "F1" && r.Mint == "mB" && r.Role == "freeze" {
+			mbFreeze = true
 		}
 	}
 	if byAuth["F1"] == 0 || byAuth["F2"] != 0 {
 		t.Fatalf("F1 küme olmalı, F2 dışarıda, got %+v", byAuth)
 	}
-	if !roleBoth {
-		t.Fatalf("mB'de F1 hem mint hem freeze → rol 'both' beklenir")
+	// Store HAM satır döndürür: mB için F1 hem mint hem freeze satırı (birleştirme YOK — Task 5 mergeRole).
+	if !mbMint || !mbFreeze {
+		t.Fatalf("mB'de F1 için ayrı mint+freeze ham satırları beklenir, got mint=%v freeze=%v", mbMint, mbFreeze)
 	}
 }
 
