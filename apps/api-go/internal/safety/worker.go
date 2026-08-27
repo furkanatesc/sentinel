@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/health"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
@@ -21,6 +22,7 @@ type WorkerDeps struct {
 	Limit    int
 	Now      func() int64
 	Logger   *slog.Logger
+	Health   health.Reporter
 }
 
 // Worker, periyodik olarak skorlanacak token'ları çekip skorlayıp DB'ye yazar (Enricher deseni).
@@ -45,18 +47,26 @@ func NewWorker(d WorkerDeps) *Worker {
 func (w *Worker) Run(ctx context.Context) {
 	t := time.NewTicker(w.d.Interval)
 	defer t.Stop()
-	if err := w.scoreOnce(ctx); err != nil && ctx.Err() == nil {
-		w.d.Logger.Warn("safety score", "err", err)
-	}
+	w.cycle(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := w.scoreOnce(ctx); err != nil && ctx.Err() == nil {
-				w.d.Logger.Warn("safety score", "err", err)
-			}
+			w.cycle(ctx)
 		}
+	}
+}
+
+// cycle, tek scoreOnce + health Report (best-effort). scored/sampleErr'i Report'a taşımak için
+// scoreOnce'ın döndürdüğü err yeterli: ok=(err==nil). itemsProcessed v1'de 0 (state+lastErr yeterli).
+func (w *Worker) cycle(ctx context.Context) {
+	err := w.scoreOnce(ctx)
+	if err != nil && ctx.Err() == nil {
+		w.d.Logger.Warn("safety score", "err", err)
+	}
+	if w.d.Health != nil {
+		w.d.Health.Report(health.WorkerSafety, err == nil, err, 0)
 	}
 }
 

@@ -145,6 +145,7 @@ func main() {
 		sw := safety.NewWorker(safety.WorkerDeps{
 			Store: bundle.Tokens, Provider: provider,
 			Interval: time.Duration(cfg.SafetyIntervalSec) * time.Second, Limit: cfg.SafetyLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go sw.Run(ctx)
 	} else if cfg.SafetyEnabled {
