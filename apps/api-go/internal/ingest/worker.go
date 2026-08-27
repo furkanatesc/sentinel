@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/health"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
@@ -24,7 +25,8 @@ type WorkerDeps struct {
 	WSURL        string          // canlı abonelik; testte boş
 	Now          func() int64    // enjekte edilebilir saat (test determinizmi)
 	Logger       *slog.Logger
-	TokensWindow int // "tokens" broadcast'i için snapshot penceresi (RecentTokens limit)
+	TokensWindow int            // "tokens" broadcast'i için snapshot penceresi (RecentTokens limit)
+	Health       health.Reporter // System Health (Task 6); nil-güvenli
 }
 
 type Worker struct {
@@ -124,6 +126,9 @@ func (w *Worker) Run(ctx context.Context) {
 				return
 			case <-stats.C:
 				w.d.Logger.Info("ingest heartbeat", "alınan_30s", received, "işlenen_30s", processed)
+				if w.d.Health != nil {
+					w.d.Health.Report(health.WorkerIngestWS, true, nil, int(processed))
+				}
 				received, processed = 0, 0
 			case n := <-ch:
 				received++
@@ -134,6 +139,9 @@ func (w *Worker) Run(ctx context.Context) {
 				backoff = time.Second // sağlıklı trafik → backoff sıfırla
 			case err := <-done:
 				w.d.Logger.Warn("ws bağlantısı koptu, reconnect", "err", err, "backoff", backoff.String())
+				if w.d.Health != nil {
+					w.d.Health.Report(health.WorkerIngestWS, false, err, 0)
+				}
 				connected = false
 			}
 		}

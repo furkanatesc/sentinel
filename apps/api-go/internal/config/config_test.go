@@ -165,3 +165,10 @@ func TestWalletGraphDefaults(t *testing.T) {
 		t.Fatalf("wallet graph cluster/degree defaults: %+v", cfg)
 	}
 }
+
+func TestVersionDefaultsToDev(t *testing.T) {
+	t.Setenv("RAILWAY_GIT_COMMIT_SHA", "")
+	if got := Load().Version; got != "dev" {
+		t.Fatalf("Version = %q, want dev", got)
+	}
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/api"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/config"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/creatorfill"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/health"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ingest"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/manipulation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/market"
@@ -64,12 +65,18 @@ func main() {
 			Events:     store.NewFakeEventStore(),
 			Tokens:     fakeTokens,
 			Creators:   fakeTokens.(store.CreatorStore),
+			Pinger:     fakeTokens.(store.Pinger),
 		}
 	}
 	defer cleanup()
 
 	hub := ws.NewHub()
 	go hub.Run(ctx)
+
+	// health registry (System Health, Task 4) — "reg" ismi zaten ingest.NewRegistry() için
+	// kullanılıyor (aşağıda), bu yüzden ayrı isim: healthReg.
+	healthReg := health.NewRegistry()
+	startedAt := time.Now()
 
 	// ingestion worker (Helius key varsa)
 	reg := ingest.NewRegistry()
@@ -85,6 +92,7 @@ func main() {
 		Registry: reg, Events: bundle.Events, Tokens: bundle.Tokens, Broadcast: hub,
 		Tx: ingest.NewHeliusTx(rpcURL), Meta: ingest.NewHeliusMetadata(rpcURL),
 		WSURL: wsURL, Logger: logger, TokensWindow: cfg.EventsWindow,
+		Health: healthReg,
 	})
 	go worker.Run(ctx)
 
@@ -98,10 +106,12 @@ func main() {
 		disc := market.NewDiscoverer(market.DiscovererDeps{
 			Provider: gt, Tokens: bundle.Tokens, Events: bundle.Events, Broadcast: hub,
 			Interval: time.Duration(cfg.DiscoverInterval) * time.Second, SnapshotLimit: cfg.EventsWindow, Logger: logger,
+			Health: healthReg,
 		})
 		enr := market.NewEnricher(market.EnricherDeps{
 			Provider: gt, Tokens: bundle.Tokens, Broadcast: hub,
 			Interval: time.Duration(cfg.EnrichInterval) * time.Second, Limit: cfg.EnrichLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go disc.Run(ctx)
 		go enr.Run(ctx)
@@ -138,6 +148,7 @@ func main() {
 		sw := safety.NewWorker(safety.WorkerDeps{
 			Store: bundle.Tokens, Provider: provider,
 			Interval: time.Duration(cfg.SafetyIntervalSec) * time.Second, Limit: cfg.SafetyLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go sw.Run(ctx)
 	} else if cfg.SafetyEnabled {
@@ -154,6 +165,7 @@ func main() {
 				MinLiqFloor: cfg.OutcomeMinLiqFloor, DeadAgeSec: int64(cfg.OutcomeDeadAgeSec),
 			},
 			Interval: time.Duration(cfg.OutcomeIntervalSec) * time.Second, Limit: cfg.OutcomeLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go ow.Run(ctx)
 	}
@@ -164,6 +176,31 @@ func main() {
 	// alternatif genel sağlayıcıya yönlendirilir; boşsa Helius rpcURL'e düşer. WS + DAS
 	// holders Helius'ta kalır (safety authorities de SOLANA_RPC_URL'e yönlendirildi, bkz üstte).
 	creatorFillRPC := preferRPC(cfg.SolanaRPCURL, rpcURL)
+
+	// health kayıtları (System Health, Task 4) — her worker'ın enabled/interval'ı burada
+	// tek yerde toplanır; tüm referans değişkenler (rpcURL, creatorFillRPC) bu noktada mevcut.
+	healthReg.Register(health.WorkerIngestWS, cfg.HeliusAPIKey != "", 0) // event-driven
+	healthReg.Register(health.WorkerMarketDisc, cfg.MarketEnabled, time.Duration(cfg.DiscoverInterval)*time.Second)
+	healthReg.Register(health.WorkerMarketEnrich, cfg.MarketEnabled, time.Duration(cfg.EnrichInterval)*time.Second)
+	healthReg.Register(health.WorkerSafety, cfg.SafetyEnabled && rpcURL != "", time.Duration(cfg.SafetyIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerOutcome, cfg.OutcomeEnabled, time.Duration(cfg.OutcomeIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerCreatorFill, cfg.CreatorFillEnabled && creatorFillRPC != "", time.Duration(cfg.CreatorFillIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerFunder, cfg.WalletGraphEnabled && creatorFillRPC != "", time.Duration(cfg.FunderResolveIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerReputation, cfg.ReputationEnabled, time.Duration(cfg.ReputationIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerManipulation, cfg.ManipulationEnabled, time.Duration(cfg.ManipulationIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerOpportunity, cfg.OpportunityEnabled, time.Duration(cfg.OpportunityIntervalSec)*time.Second)
+
+	gates := map[string]bool{
+		"MARKET_ENABLED":       cfg.MarketEnabled,
+		"SAFETY_ENABLED":       cfg.SafetyEnabled,
+		"OUTCOME_ENABLED":      cfg.OutcomeEnabled,
+		"CREATORFILL_ENABLED":  cfg.CreatorFillEnabled,
+		"WALLET_GRAPH_ENABLED": cfg.WalletGraphEnabled,
+		"REPUTATION_ENABLED":   cfg.ReputationEnabled,
+		"MANIPULATION_ENABLED": cfg.ManipulationEnabled,
+		"OPPORTUNITY_ENABLED":  cfg.OpportunityEnabled,
+	}
+
 	// Paylaşılan hız sınırlayıcı: creatorfill + funder worker'ları AYNI creatorFillRPC
 	// (SOLANA_RPC_URL) uç noktasına vurur — iki ayrı tam-hızlı limiter toplam QPS'i
 	// ikiye katlar ve zaten 429'a yatkın sağlayıcıyı daha da zorlar. Tek instance ile
@@ -175,6 +212,7 @@ func main() {
 		cw := creatorfill.NewWorker(creatorfill.WorkerDeps{
 			Store: bundle.Tokens, Resolver: resolver,
 			Interval: time.Duration(cfg.CreatorFillIntervalSec) * time.Second, Limit: cfg.CreatorFillLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go cw.Run(ctx)
 	} else if cfg.CreatorFillEnabled {
@@ -189,6 +227,7 @@ func main() {
 		fw := walletgraph.NewWorker(walletgraph.WorkerDeps{
 			Store: bundle.Tokens, Resolver: fres,
 			Interval: time.Duration(cfg.FunderResolveIntervalSec) * time.Second, Limit: cfg.FunderResolveLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go fw.Run(ctx)
 	}
@@ -202,6 +241,7 @@ func main() {
 				WRug:        cfg.ReputationWRug, WFail: cfg.ReputationWFail, WGrad: cfg.ReputationWGrad,
 			},
 			Interval: time.Duration(cfg.ReputationIntervalSec) * time.Second, Limit: cfg.ReputationLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go rw.Run(ctx)
 	}
@@ -218,6 +258,7 @@ func main() {
 				VolMin: cfg.ManipulationVolMin, VolMax: cfg.ManipulationVolMax,
 			},
 			Interval: time.Duration(cfg.ManipulationIntervalSec) * time.Second, Limit: cfg.ManipulationLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go mw.Run(ctx)
 	}
@@ -228,6 +269,7 @@ func main() {
 			Store:    bundle.Tokens,
 			Interval: time.Duration(cfg.OpportunityIntervalSec) * time.Second,
 			Limit:    cfg.OpportunityLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go ow.Run(ctx)
 	}
@@ -243,6 +285,12 @@ func main() {
 			CreatorsLimit:         cfg.CreatorsListLimit,
 			WalletGraphMinCluster: cfg.WalletGraphMinCluster,
 			WalletGraphMaxDegree:  cfg.WalletGraphMaxDegree,
+			Health:                healthReg,
+			Pinger:                bundle.Pinger,
+			Gates:                 gates,
+			Version:               cfg.Version,
+			StartedAt:             startedAt,
+			WSClientCount:         hub.ClientCount,
 		}),
 	}
 	go func() {

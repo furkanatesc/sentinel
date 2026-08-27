@@ -251,3 +251,26 @@ export interface BacktestResult {
   priceSeries: EquityPoint[];
   trades: BacktestTrade[];
 }
+
+// --- System Health ---
+export type WorkerState = "off" | "starting" | "ok" | "degraded" | "stalled";
+
+export interface WorkerStatus {
+  name: string;
+  state: WorkerState;
+  lastRunAt: string; // RFC3339 or ""
+  lastErr: string;
+  cyclesRun: number;
+  itemsProcessed: number;
+  intervalSec: number;
+}
+
+export interface SystemHealth {
+  uptimeSec: number;
+  version: string;
+  dbOk: boolean;
+  dbLatencyMs: number;
+  wsClients: number;
+  workers: WorkerStatus[];
+  gates: Record<string, boolean>;
+}

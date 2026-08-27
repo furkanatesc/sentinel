@@ -66,3 +66,11 @@ export function useBacktest(params: BacktestParams | null) {
     enabled: !!params,
   });
 }
+
+export function useSystemHealth() {
+  return useQuery({
+    queryKey: qk.systemHealth,
+    queryFn: () => getApi().getSystemHealth(),
+    refetchInterval: 10_000,
+  });
+}

@@ -3,7 +3,7 @@ import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd, riskMeta } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
-import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position, Candle, MarketData, Order, OrderStatus, Txn, TradeLog, BacktestParams, BacktestResult, BacktestMetrics, DrawdownPoint, BacktestTrade } from "./types";
+import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position, Candle, MarketData, Order, OrderStatus, Txn, TradeLog, BacktestParams, BacktestResult, BacktestMetrics, DrawdownPoint, BacktestTrade, SystemHealth } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
 
@@ -561,6 +561,20 @@ export const mockApi: SentinelApi = {
   getTransactions: () => delay(transactions),
   getTradeLogs: () => delay(tradeLogs),
   runBacktest: (params) => delay(runBacktestResult(params)),
+  getSystemHealth: () =>
+    delay<SystemHealth>({
+      uptimeSec: 3600,
+      version: "dev",
+      dbOk: true,
+      dbLatencyMs: 4,
+      wsClients: 1,
+      workers: [
+        { name: "ingest-ws", state: "ok", lastRunAt: new Date().toISOString(), lastErr: "", cyclesRun: 12, itemsProcessed: 340, intervalSec: 0 },
+        { name: "safety", state: "degraded", lastRunAt: new Date().toISOString(), lastErr: "getTokenAccounts: status 429", cyclesRun: 42, itemsProcessed: 0, intervalSec: 60 },
+        { name: "funder", state: "off", lastRunAt: "", lastErr: "", cyclesRun: 0, itemsProcessed: 0, intervalSec: 60 },
+      ],
+      gates: { MARKET_ENABLED: true, SAFETY_ENABLED: true, WALLET_GRAPH_ENABLED: false },
+    }),
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();

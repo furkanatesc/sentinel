@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/health"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
@@ -20,6 +21,7 @@ type WorkerDeps struct {
 	Limit    int
 	Logger   *slog.Logger
 	Now      func() time.Time
+	Health   health.Reporter
 }
 
 type Worker struct{ d WorkerDeps }
@@ -44,14 +46,23 @@ func (w *Worker) Run(ctx context.Context) {
 	t := time.NewTicker(w.d.Interval)
 	defer t.Stop()
 	for {
-		if err := w.scoreOnce(ctx); err != nil && ctx.Err() == nil {
-			w.d.Logger.Warn("opportunity cycle", "err", err)
-		}
+		w.cycle(ctx)
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 		}
+	}
+}
+
+// cycle, tek scoreOnce + health Report (best-effort).
+func (w *Worker) cycle(ctx context.Context) {
+	err := w.scoreOnce(ctx)
+	if err != nil && ctx.Err() == nil {
+		w.d.Logger.Warn("opportunity cycle", "err", err)
+	}
+	if w.d.Health != nil {
+		w.d.Health.Report(health.WorkerOpportunity, err == nil, err, 0)
 	}
 }
 
