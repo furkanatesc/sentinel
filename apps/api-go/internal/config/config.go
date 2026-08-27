@@ -83,6 +83,8 @@ type Config struct {
 	FunderResolveLimit       int
 	WalletGraphMinCluster    int
 	WalletGraphMaxDegree     int
+
+	Version string
 }
 
 func Load() Config {
@@ -163,6 +165,8 @@ func Load() Config {
 		FunderResolveLimit:       getenvInt("FUNDER_RESOLVE_LIMIT", 40),
 		WalletGraphMinCluster:    getenvInt("WALLET_GRAPH_MIN_CLUSTER", 2),
 		WalletGraphMaxDegree:     getenvInt("WALLET_GRAPH_MAX_DEGREE", 50),
+
+		Version: getenv("RAILWAY_GIT_COMMIT_SHA", "dev"),
 	}
 }
 
