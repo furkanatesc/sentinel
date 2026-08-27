@@ -92,6 +92,7 @@ func main() {
 		Registry: reg, Events: bundle.Events, Tokens: bundle.Tokens, Broadcast: hub,
 		Tx: ingest.NewHeliusTx(rpcURL), Meta: ingest.NewHeliusMetadata(rpcURL),
 		WSURL: wsURL, Logger: logger, TokensWindow: cfg.EventsWindow,
+		Health: healthReg,
 	})
 	go worker.Run(ctx)
 
