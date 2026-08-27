@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/health"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
@@ -26,6 +27,7 @@ type WorkerDeps struct {
 	Limit    int
 	Now      func() int64
 	Logger   *slog.Logger
+	Health   health.Reporter
 }
 
 // Worker, creator'sız pump.fun token'ları için create tx'ten creator'ı REST ile getirir (Enricher deseni).
@@ -50,18 +52,25 @@ func NewWorker(d WorkerDeps) *Worker {
 func (w *Worker) Run(ctx context.Context) {
 	t := time.NewTicker(w.d.Interval)
 	defer t.Stop()
-	if err := w.fillOnce(ctx); err != nil && ctx.Err() == nil {
-		w.d.Logger.Warn("creator backfill", "err", err)
-	}
+	w.cycle(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := w.fillOnce(ctx); err != nil && ctx.Err() == nil {
-				w.d.Logger.Warn("creator backfill", "err", err)
-			}
+			w.cycle(ctx)
 		}
+	}
+}
+
+// cycle, tek fillOnce + health Report (best-effort).
+func (w *Worker) cycle(ctx context.Context) {
+	err := w.fillOnce(ctx)
+	if err != nil && ctx.Err() == nil {
+		w.d.Logger.Warn("creator backfill", "err", err)
+	}
+	if w.d.Health != nil {
+		w.d.Health.Report(health.WorkerCreatorFill, err == nil, err, 0)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/health"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
@@ -19,6 +20,7 @@ type DiscovererDeps struct {
 	SnapshotLimit int
 	Now           func() int64
 	Logger        *slog.Logger
+	Health        health.Reporter
 }
 
 // Discoverer, GeckoTerminal new_pools'u periyodik tarayıp yeni token'ları keşfeder (SRP).
@@ -46,14 +48,23 @@ func (x *Discoverer) Run(ctx context.Context) {
 	t := time.NewTicker(x.d.Interval)
 	defer t.Stop()
 	for {
-		if err := x.tick(ctx); err != nil {
-			x.d.Logger.Warn("discoverer tick", "err", err)
-		}
+		x.cycle(ctx)
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 		}
+	}
+}
+
+// cycle, tek tick + health Report (best-effort).
+func (x *Discoverer) cycle(ctx context.Context) {
+	err := x.tick(ctx)
+	if err != nil {
+		x.d.Logger.Warn("discoverer tick", "err", err)
+	}
+	if x.d.Health != nil {
+		x.d.Health.Report(health.WorkerMarketDisc, err == nil, err, 0)
 	}
 }
 

@@ -106,10 +106,12 @@ func main() {
 		disc := market.NewDiscoverer(market.DiscovererDeps{
 			Provider: gt, Tokens: bundle.Tokens, Events: bundle.Events, Broadcast: hub,
 			Interval: time.Duration(cfg.DiscoverInterval) * time.Second, SnapshotLimit: cfg.EventsWindow, Logger: logger,
+			Health: healthReg,
 		})
 		enr := market.NewEnricher(market.EnricherDeps{
 			Provider: gt, Tokens: bundle.Tokens, Broadcast: hub,
 			Interval: time.Duration(cfg.EnrichInterval) * time.Second, Limit: cfg.EnrichLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go disc.Run(ctx)
 		go enr.Run(ctx)
@@ -163,6 +165,7 @@ func main() {
 				MinLiqFloor: cfg.OutcomeMinLiqFloor, DeadAgeSec: int64(cfg.OutcomeDeadAgeSec),
 			},
 			Interval: time.Duration(cfg.OutcomeIntervalSec) * time.Second, Limit: cfg.OutcomeLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go ow.Run(ctx)
 	}
@@ -209,6 +212,7 @@ func main() {
 		cw := creatorfill.NewWorker(creatorfill.WorkerDeps{
 			Store: bundle.Tokens, Resolver: resolver,
 			Interval: time.Duration(cfg.CreatorFillIntervalSec) * time.Second, Limit: cfg.CreatorFillLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go cw.Run(ctx)
 	} else if cfg.CreatorFillEnabled {
@@ -223,6 +227,7 @@ func main() {
 		fw := walletgraph.NewWorker(walletgraph.WorkerDeps{
 			Store: bundle.Tokens, Resolver: fres,
 			Interval: time.Duration(cfg.FunderResolveIntervalSec) * time.Second, Limit: cfg.FunderResolveLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go fw.Run(ctx)
 	}
@@ -236,6 +241,7 @@ func main() {
 				WRug:        cfg.ReputationWRug, WFail: cfg.ReputationWFail, WGrad: cfg.ReputationWGrad,
 			},
 			Interval: time.Duration(cfg.ReputationIntervalSec) * time.Second, Limit: cfg.ReputationLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go rw.Run(ctx)
 	}
@@ -252,6 +258,7 @@ func main() {
 				VolMin: cfg.ManipulationVolMin, VolMax: cfg.ManipulationVolMax,
 			},
 			Interval: time.Duration(cfg.ManipulationIntervalSec) * time.Second, Limit: cfg.ManipulationLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go mw.Run(ctx)
 	}
@@ -262,6 +269,7 @@ func main() {
 			Store:    bundle.Tokens,
 			Interval: time.Duration(cfg.OpportunityIntervalSec) * time.Second,
 			Limit:    cfg.OpportunityLimit, Logger: logger,
+			Health: healthReg,
 		})
 		go ow.Run(ctx)
 	}

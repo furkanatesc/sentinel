@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/health"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
@@ -21,6 +22,7 @@ type WorkerDeps struct {
 	Limit      int
 	Now        func() int64
 	Logger     *slog.Logger
+	Health     health.Reporter
 }
 
 // Worker, periyodik olarak token'ları çekip manipülasyon skorunu hesaplayıp yazar (RPC YOK, saf DB).
@@ -45,18 +47,25 @@ func NewWorker(d WorkerDeps) *Worker {
 func (w *Worker) Run(ctx context.Context) {
 	t := time.NewTicker(w.d.Interval)
 	defer t.Stop()
-	if err := w.scoreOnce(ctx); err != nil && ctx.Err() == nil {
-		w.d.Logger.Warn("manipulation", "err", err)
-	}
+	w.cycle(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := w.scoreOnce(ctx); err != nil && ctx.Err() == nil {
-				w.d.Logger.Warn("manipulation", "err", err)
-			}
+			w.cycle(ctx)
 		}
+	}
+}
+
+// cycle, tek scoreOnce + health Report (best-effort).
+func (w *Worker) cycle(ctx context.Context) {
+	err := w.scoreOnce(ctx)
+	if err != nil && ctx.Err() == nil {
+		w.d.Logger.Warn("manipulation", "err", err)
+	}
+	if w.d.Health != nil {
+		w.d.Health.Report(health.WorkerManipulation, err == nil, err, 0)
 	}
 }
 
