@@ -26,6 +26,12 @@ type RouterDeps struct {
 	CreatorsLimit         int
 	WalletGraphMinCluster int
 	WalletGraphMaxDegree  int
+	Health                healthSnapshotter
+	Pinger                store.Pinger
+	Gates                 map[string]bool
+	Version               string
+	StartedAt             time.Time
+	WSClientCount         func() int
 }
 
 // NewRouter, HTTP yönlendiricisini kurar.
@@ -34,6 +40,7 @@ func NewRouter(d RouterDeps) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware(d.CORSOrigin))
 	r.Get("/healthz", healthHandler)
+	r.Get("/api/system-health", systemHealthHandler(d.Health, d.Pinger, d.Gates, d.Version, d.StartedAt, d.WSClientCount))
 	if d.Strategies != nil {
 		r.Get("/api/strategies", strategiesHandler(d.Strategies))
 	}
