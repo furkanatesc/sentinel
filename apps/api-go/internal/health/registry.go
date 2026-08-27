@@ -148,11 +148,25 @@ func deriveState(rec *record, now time.Time) State {
 // apiKeyRe, hata mesajlarındaki `api-key=...` değerini kırpar (public endpoint — secret sızmaz).
 var apiKeyRe = regexp.MustCompile(`(?i)(api-key=)[^&\s]+`)
 
+// userinfoRe, gömülü URL'nin userinfo bölümünü (user:pass@) kırpar — `scheme://REDACTED@host`.
+var userinfoRe = regexp.MustCompile(`(https?://)[^\s/@]+:[^\s/@]+@`)
+
+// urlPathRe, gömülü URL'nin path bölümünü atar (token-in-path deseni: QuickNode/Alchemy —
+// `.../TOKEN/...` ya da `.../v2/KEY`). scheme+host (+query, varsa apiKeyRe'ye devredilir) korunur.
+var urlPathRe = regexp.MustCompile(`(https?://[^/\s?#"]+)/[^\s?#"]*`)
+
+// sanitizeErr, hata mesajındaki olası sırları defense-in-depth ile kırpar (saf string fonksiyonu):
+// userinfo → REDACTED, URL path → atılır, sonra api-key=... değeri REDACTED. Teşhis metni
+// (host, status/message) korunur — public endpoint sızıntı yapmasın, ama mesaj yine faydalı kalsın.
 func sanitizeErr(err error) string {
 	if err == nil {
 		return ""
 	}
-	return apiKeyRe.ReplaceAllString(err.Error(), "${1}REDACTED")
+	s := err.Error()
+	s = userinfoRe.ReplaceAllString(s, "${1}REDACTED@")
+	s = urlPathRe.ReplaceAllString(s, "${1}")
+	s = apiKeyRe.ReplaceAllString(s, "${1}REDACTED")
+	return s
 }
 
 var _ Reporter = (*Registry)(nil)

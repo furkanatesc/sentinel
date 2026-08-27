@@ -103,6 +103,74 @@ func TestLastErrSanitizesAPIKey(t *testing.T) {
 	}
 }
 
+func TestLastErrSanitizesHeliusAPIKeyQuery(t *testing.T) {
+	r := NewRegistry()
+	r.Register("w", true, 30*time.Second)
+	r.Report("w", false, errors.New("https://mainnet.helius-rpc.com/?api-key=SECRET123 failed"), 0)
+	ws := findWorker(t, r.Snapshot(time.Now()), "w")
+	if contains(ws.LastErr, "SECRET123") {
+		t.Fatalf("lastErr leaked secret: %q", ws.LastErr)
+	}
+	if !contains(ws.LastErr, "mainnet.helius-rpc.com") {
+		t.Fatalf("lastErr lost host: %q", ws.LastErr)
+	}
+	if !contains(ws.LastErr, "failed") {
+		t.Fatalf("lastErr lost diagnostic tail: %q", ws.LastErr)
+	}
+}
+
+func TestLastErrSanitizesQuickNodeTokenPath(t *testing.T) {
+	r := NewRegistry()
+	r.Register("w", true, 30*time.Second)
+	r.Report("w", false, errors.New(`Get "https://x.solana-mainnet.quiknode.pro/TOKENSECRET/": dial tcp: i/o timeout`), 0)
+	ws := findWorker(t, r.Snapshot(time.Now()), "w")
+	if contains(ws.LastErr, "TOKENSECRET") {
+		t.Fatalf("lastErr leaked secret: %q", ws.LastErr)
+	}
+	if !contains(ws.LastErr, "quiknode.pro") {
+		t.Fatalf("lastErr lost host: %q", ws.LastErr)
+	}
+	if !contains(ws.LastErr, "timeout") {
+		t.Fatalf("lastErr lost diagnostic tail: %q", ws.LastErr)
+	}
+}
+
+func TestLastErrSanitizesUserinfoAndPath(t *testing.T) {
+	r := NewRegistry()
+	r.Register("w", true, 30*time.Second)
+	r.Report("w", false, errors.New("https://user:PASSSECRET@rpc.example.com/v2/KEYSECRET getTokenAccounts: status 429"), 0)
+	ws := findWorker(t, r.Snapshot(time.Now()), "w")
+	if contains(ws.LastErr, "PASSSECRET") {
+		t.Fatalf("lastErr leaked userinfo secret: %q", ws.LastErr)
+	}
+	if contains(ws.LastErr, "KEYSECRET") {
+		t.Fatalf("lastErr leaked path secret: %q", ws.LastErr)
+	}
+	if !contains(ws.LastErr, "rpc.example.com") {
+		t.Fatalf("lastErr lost host: %q", ws.LastErr)
+	}
+	if !contains(ws.LastErr, "status 429") {
+		t.Fatalf("lastErr lost diagnostic tail: %q", ws.LastErr)
+	}
+}
+
+func TestDeriveStateGraceBoundaryExact(t *testing.T) {
+	base := time.Date(2026, 8, 27, 10, 0, 0, 0, time.UTC)
+	r := NewRegistry()
+	r.now = func() time.Time { return base }
+	r.Register("w", true, 30*time.Second)
+	// exactly 3×interval (90s) → still starting (code uses <=)
+	got := stateOf(t, r, "w", base.Add(90*time.Second))
+	if got != StateStarting {
+		t.Fatalf("state at exactly 3×interval = %q, want starting", got)
+	}
+	// 1s past the boundary → stalled
+	got = stateOf(t, r, "w", base.Add(91*time.Second))
+	if got != StateStalled {
+		t.Fatalf("state at 3×interval+1s = %q, want stalled", got)
+	}
+}
+
 func TestSnapshotPreservesRegistrationOrderAndCounts(t *testing.T) {
 	r := NewRegistry()
 	r.Register("a", true, time.Second)
