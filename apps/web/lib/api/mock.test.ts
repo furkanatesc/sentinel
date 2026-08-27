@@ -18,3 +18,11 @@ test("subscribeTokens emits and returns an unsubscribe fn", async () => {
     setTimeout(() => reject(new Error("no emit")), 4000);
   });
 });
+
+test("getSystemHealth returns workers + gates", async () => {
+  const h = await mockApi.getSystemHealth();
+  expect(Array.isArray(h.workers)).toBe(true);
+  expect(h.workers.length).toBeGreaterThan(0);
+  expect(typeof h.dbOk).toBe("boolean");
+  expect(h.gates).toHaveProperty("SAFETY_ENABLED");
+});

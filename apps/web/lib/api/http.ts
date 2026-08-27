@@ -1,5 +1,5 @@
 import type { SentinelApi } from "./contract";
-import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph } from "./types";
+import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph, SystemHealth } from "./types";
 import { wsSubscribe } from "./ws";
 
 // TODO(backend): AWS REST + WebSocket implementasyonu. Endpoint aileleri
@@ -39,6 +39,7 @@ export const httpApi: SentinelApi = {
   getTransactions: notReady,
   getTradeLogs: notReady,
   runBacktest: notReady,
+  getSystemHealth: () => getJson<SystemHealth>("/api/system-health"),
   // subscribeTokens SentinelApi'de tam TokenRow[] snapshot'ı ile çağrılır (bkz contract.ts);
   // subscribeEvents ise tekil FeedEvent ile. WS "tokens" topic payload'ı da bu yüzden dizi.
   subscribeTokens: (cb) => wsSubscribe<TokenRow[]>("tokens", cb),
