@@ -84,6 +84,9 @@ type fakeTokenStore struct {
 	}
 }
 
+// Ping, fake store için her zaman sağlıklı (in-memory; dürüst).
+func (s *fakeTokenStore) Ping(ctx context.Context) error { return nil }
+
 // NewFakeTokenStore, testler ve DB'siz mod için in-memory TokenStore döndürür. opts (ör.
 // WithHighDrawdownThreshold) postgresStore ile aynı creatorStoreConfig'i paylaşır (parite);
 // verilmezse paket varsayılanları geçerli olur — mevcut sıfır-argümanlı çağrılar kırılmaz.

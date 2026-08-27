@@ -21,6 +21,16 @@ type Bundle struct {
 	Events     EventStore
 	Tokens     TokenStore
 	Creators   CreatorStore
+	Pinger     Pinger
+}
+
+// Pinger, DB erişilebilirlik probu (health endpoint için). DIP: postgres + fake karşılar.
+type Pinger interface {
+	Ping(ctx context.Context) error
+}
+
+func (p *postgresStore) Ping(ctx context.Context) error {
+	return p.db.PingContext(ctx)
 }
 
 // OpenPostgres, bağlantı açar, migration'ları çalıştırır, strateji seed'ini uygular
@@ -45,7 +55,7 @@ func OpenPostgres(ctx context.Context, dsn string, opts ...CreatorStoreOption) (
 	}
 	cfg := applyCreatorStoreOptions(opts)
 	ps := &postgresStore{db: db, highDrawdownThreshold: cfg.highDrawdownThreshold}
-	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps}, db.Close, nil
+	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps, Pinger: ps}, db.Close, nil
 }
 
 func seedStrategies(ctx context.Context, db *sql.DB) error {
