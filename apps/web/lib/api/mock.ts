@@ -6,6 +6,7 @@ import type { RiskSeverity } from "@/lib/format";
 import type { ScoreDetail, RiskItem, RiskGroups, SeriesPoint, TokenDetail, EventType, FeedEvent, GraphNode, GraphEdge, WalletGraph, CreatorRow, CreatorProfile, CreatorTokenHistoryItem, CreatorOutcome, LiquidityStatus, StrategyRow, StrategyDetail, StrategyCondition, EquityPoint, StrategyStatus, PortfolioSummary, PortfolioOverview, StrategyPnl, AllocationSlice, WinLossBucket, Position, Candle, MarketData, Order, OrderStatus, Txn, TradeLog, BacktestParams, BacktestResult, BacktestMetrics, DrawdownPoint, BacktestTrade, SystemHealth } from "./types";
 import { EVENT_SEVERITY } from "@/lib/feed/event-defs";
 import { LAUNCHPADS, DEXES } from "@/lib/feed/sources";
+import { pickAnswer, RESEARCH_SUGGESTIONS } from "@/lib/research/match";
 
 function spark(seed: number, len = 16): number[] {
   const out: number[] = [];
@@ -575,6 +576,26 @@ export const mockApi: SentinelApi = {
       ],
       gates: { MARKET_ENABLED: true, SAFETY_ENABLED: true, WALLET_GRAPH_ENABLED: false },
     }),
+
+  getResearchSuggestions() {
+    return delay(RESEARCH_SUGGESTIONS);
+  },
+
+  streamResearchAnswer(question, onChunk, onDone) {
+    const answer = pickAnswer(question);
+    const words = answer.text.split(" ");
+    let i = 0;
+    const id = setInterval(() => {
+      if (i < words.length) {
+        onChunk((i === 0 ? "" : " ") + words[i]);
+        i++;
+      } else {
+        clearInterval(id);
+        onDone({ text: answer.text, sources: answer.sources });
+      }
+    }, 35);
+    return () => clearInterval(id);
+  },
 
   getToken(idOrMint) {
     const q = idOrMint.toLowerCase();
