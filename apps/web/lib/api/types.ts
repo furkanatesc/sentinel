@@ -274,3 +274,24 @@ export interface SystemHealth {
   workers: WorkerStatus[];
   gates: Record<string, boolean>;
 }
+
+// --- Research Assistant (Increment 10) ---
+export type ResearchSourceKind =
+  | "token" | "creator" | "wallet" | "tx" | "risk-rule" | "strategy" | "timestamp";
+
+export interface ResearchSource {
+  id: string;
+  kind: ResearchSourceKind;
+  label: string;   // display label, e.g. "AERO", "6Rt4…9kQ", "rug-pull-rule"
+  ref?: string;    // target id (mint | address | tx sig | strategy id); href built in presentation
+}
+
+export interface ResearchAnswer {
+  text: string;
+  sources: ResearchSource[];
+}
+
+export interface ResearchSuggestion {
+  id: string;
+  text: string;
+}

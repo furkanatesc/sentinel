@@ -40,6 +40,8 @@ export const httpApi: SentinelApi = {
   getTradeLogs: notReady,
   runBacktest: notReady,
   getSystemHealth: () => getJson<SystemHealth>("/api/system-health"),
+  getResearchSuggestions: notReady,
+  streamResearchAnswer: () => { throw new Error("httpApi not implemented — backend not connected yet"); },
   // subscribeTokens SentinelApi'de tam TokenRow[] snapshot'ı ile çağrılır (bkz contract.ts);
   // subscribeEvents ise tekil FeedEvent ile. WS "tokens" topic payload'ı da bu yüzden dizi.
   subscribeTokens: (cb) => wsSubscribe<TokenRow[]>("tokens", cb),
