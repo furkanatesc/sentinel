@@ -1,7 +1,5 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
-import { getApi } from "@/lib/api";
-import { qk } from "@/lib/get-query-client";
+import { useResearchSuggestions } from "@/lib/hooks/queries";
 import { useResearch } from "./use-research";
 import { ChatThread } from "./ChatThread";
 import { ChatComposer } from "./ChatComposer";
@@ -9,10 +7,7 @@ import { InfoDisclaimerBanner } from "./InfoDisclaimerBanner";
 
 export function ResearchContent() {
   const { messages, isStreaming, send, stop } = useResearch();
-  const { data: suggestions = [] } = useQuery({
-    queryKey: qk.researchSuggestions,
-    queryFn: () => getApi().getResearchSuggestions(),
-  });
+  const { data: suggestions = [] } = useResearchSuggestions();
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col gap-3">

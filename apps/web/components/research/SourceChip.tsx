@@ -13,7 +13,7 @@ export function SourceChip({ source }: { source: ResearchSource }) {
   );
   const inner = (
     <>
-      <Icon className="h-3 w-3" />
+      <Icon className="h-3 w-3" aria-hidden="true" />
       <span className="opacity-70">{def.label}:</span>
       <span className="font-medium text-foreground/90">{source.label}</span>
     </>

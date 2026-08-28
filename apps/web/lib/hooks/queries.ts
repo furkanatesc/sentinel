@@ -74,3 +74,7 @@ export function useSystemHealth() {
     refetchInterval: 10_000,
   });
 }
+
+export function useResearchSuggestions() {
+  return useQuery({ queryKey: qk.researchSuggestions, queryFn: () => getApi().getResearchSuggestions() });
+}

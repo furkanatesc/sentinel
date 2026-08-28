@@ -28,11 +28,11 @@ export function ChatComposer({
       />
       {isStreaming ? (
         <Button variant="outline" size="sm" onClick={onStop} className="gap-1">
-          <Square className="h-3.5 w-3.5" /> Durdur
+          <Square className="h-3.5 w-3.5" aria-hidden="true" /> Durdur
         </Button>
       ) : (
         <Button size="sm" onClick={submit} disabled={!value.trim()} className="gap-1">
-          <Send className="h-3.5 w-3.5" /> Gönder
+          <Send className="h-3.5 w-3.5" aria-hidden="true" /> Gönder
         </Button>
       )}
     </div>
