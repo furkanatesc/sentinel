@@ -397,8 +397,29 @@ canlı doğrulanır (Live Feed gerçek Solana akışı). `getKpis`/`getRadar`/`g
 enrichment). Sonra: Slice 1b → Alt-proje 2/3 → 4 → 5.
 
 **Frontend Increment 10 (Alerts/Telegram):** frontend-mock olarak DURAKLATILDI; Alerts/Telegram yeteneği
-(frontend + gerçek Telegram delivery) Backend Alt-proje 3'te teslim edilecek. Increment 11 (Research) / 12
-(System Health) frontend-mock ekranlarının sırası backend ilerledikçe netleşecek.
+(frontend + gerçek Telegram delivery) Backend Alt-proje 3'te teslim edilecek. Increment 12 (System Health)
+frontend-mock ekranının sırası backend ilerledikçe netleşecek.
+
+**Frontend Increment 11 (Research Assistant) TAMAM — branch `feat/research-assistant`, merge onayı bekliyor**
+(2026-08-28, 233/233 test, `npm run build` başarılı `/research` prerender). SDD ile 9 task (fresh subagent +
+task-review döngüsü; Task 2/3/6 birer fix round, hepsi temiz kapandı) + whole-branch review (opus,
+**"Ready to merge: Yes"**, 0 Critical/Important) + tek fix wave (`useResearchSuggestions` hook extraction +
+aria-hidden) + scoped re-review temiz. Tasarım Ekran 11: `/research` çok-turlu **sohbet** paneli.
+**Kararlar (kullanıcı onaylı):** çok-turlu sohbet · simüle streaming (kelime-kelime, ~35ms) · oturum-boyu
+Zustand · tıklanabilir kaynaklar. **Mimari:** bileşenler `useResearch()` hook → `getApi()` seam; **saf**
+Zustand store (`lib/store/research.ts`, I/O import YOK → DIP); streaming mevcut `subscribe*(cb)=>cancel`
+desenini taklit eder; `SOURCE_KIND_DEFS` + `pickAnswer` OCP registry'leri (`lib/research/`). Seam +2 metot
+(`getResearchSuggestions`, `streamResearchAnswer`) — ikisi de mock (LIVE_ENDPOINTS'e EKLENMEDİ, http→notReady).
+Kaynaklar gerçek mock varlıklarına çözülür (token symbol / creator addr / wallet node / strategy id).
+`components/research/`: ResearchContent · ChatThread (bounded scroll + auto-scroll) · ChatComposer
+(Enter=gönder / Shift+Enter=satır / streaming'de Durdur) · ChatMessageBubble (streaming imleç) ·
+SourceChip/List (tıklanabilir Link) · SuggestionChips · InfoDisclaimerBanner ("informational analysis"
+etiketi). Streaming yaşam döngüsü normal/stop/**unmount** üçünde de doğru (unmount mid-stream store'u
+finalize eder — singleton stuck-streaming bug'ı fix'lendi). **Kapsam dışı (bilinçli):** gerçek LLM backend,
+cross-session persist, varlık-context binding, çoklu konuşma geçmişi, markdown render, kopyala/export/feedback.
+Deferred minor (final review triage, bloke değil): SuggestionChips `disabled` prop kompozisyonda ölü-kod
+(zararsız); auto-scroll ~35ms cadence (spec-kabul). **Görsel doğrulama:** merge öncesi `npm run dev` +
+`/research` (kullanıcı adımı).
 
 **Backtesting devamı (ertelendi):** **Event Replay** — look-ahead bias'sız timeline oynatma (playback
 state'li oynatıcı + look-ahead engelleme), kaçırılan-fırsat/rug-timeline grafikleri, parametre preset
