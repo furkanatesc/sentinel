@@ -9,10 +9,18 @@ export function useResearch() {
   const cancelRef = useRef<(() => void) | null>(null);
   const activeIdRef = useRef<string | null>(null);
 
+  const finalize = () => {
+    cancelRef.current?.();
+    cancelRef.current = null;
+    const id = activeIdRef.current;
+    if (id) useResearchStore.getState().finishAnswer(id, []);
+    activeIdRef.current = null;
+  };
+
   const send = (question: string) => {
     const q = question.trim();
-    if (!q || useResearchStore.getState().isStreaming) return;
     const store = useResearchStore.getState();
+    if (!q || store.isStreaming) return;
     const assistantId = store.addUserMessage(q);
     activeIdRef.current = assistantId;
     cancelRef.current = getApi().streamResearchAnswer(
@@ -26,15 +34,9 @@ export function useResearch() {
     );
   };
 
-  const stop = () => {
-    cancelRef.current?.();
-    cancelRef.current = null;
-    const id = activeIdRef.current;
-    if (id) useResearchStore.getState().finishAnswer(id, []);
-    activeIdRef.current = null;
-  };
+  const stop = finalize;
 
-  useEffect(() => () => { cancelRef.current?.(); }, []); // cancel on unmount
+  useEffect(() => finalize, []); // cancel AND finalize on unmount
 
   return { messages, isStreaming, send, stop };
 }

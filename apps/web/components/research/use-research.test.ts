@@ -35,4 +35,13 @@ describe("useResearch", () => {
     expect(result.current.isStreaming).toBe(false);
     expect(result.current.messages.at(-1)!.status).toBe("done");
   });
+
+  it("unmount mid-stream finalizes the store (not left streaming)", () => {
+    const { result, unmount } = renderHook(() => useResearch());
+    act(() => result.current.send("GFROG neden riskli?"));
+    act(() => vi.advanceTimersByTime(35)); // partial
+    act(() => unmount());
+    expect(useResearchStore.getState().isStreaming).toBe(false);
+    expect(useResearchStore.getState().messages.at(-1)!.status).toBe("done");
+  });
 });
