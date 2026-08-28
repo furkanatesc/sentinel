@@ -1,10 +1,11 @@
-import type { ResearchSource, ResearchSuggestion } from "@/lib/api/types";
+import type { ResearchSource, ResearchSuggestion, ResearchAnswer } from "@/lib/api/types";
 
-export interface CannedAnswer { text: string; sources: ResearchSource[]; }
+export type CannedAnswer = ResearchAnswer;
 
 interface Rule { keywords: string[]; answer: CannedAnswer; }
 
-// mock token/wallet refs kept consistent with mock.ts data (GFROG rug, LMN whale, 6Rt4 wallet)
+// source refs resolve to real mock.ts entities: token symbols (GFROG/HLS/PULSE/ZAP),
+// creator addrs (CREATOR_ADDRS), wallet-graph node addrs, strategy ids (STRATEGY_DEFS).
 const RULES: Rule[] = [
   {
     keywords: ["riskli", "risk", "neden riskli", "tehlike"],
@@ -13,7 +14,7 @@ const RULES: Rule[] = [
       sources: [
         { id: "r1", kind: "token", label: "GFROG", ref: "GFROG" },
         { id: "r2", kind: "risk-rule", label: "likidite-cekildi" },
-        { id: "r3", kind: "wallet", label: "7mLp…1Qw8", ref: "7mLp2c1Qw8" },
+        { id: "r3", kind: "wallet", label: "Şüpheli-1", ref: "Sus1dd" },
       ],
     },
   },
@@ -22,7 +23,7 @@ const RULES: Rule[] = [
     answer: {
       text: "Bu üreticinin 6 önceki tokenından 4'ü rug ile sonuçlandı, 1'i graduate oldu. Ortalama likidite ömrü 3 saat. Üretici itibar skoru 29/100.",
       sources: [
-        { id: "c1", kind: "creator", label: "6Rt4…9kQ", ref: "6Rt4abc9kQ" },
+        { id: "c1", kind: "creator", label: "Creator-C", ref: "CreCqw" },
         { id: "c2", kind: "token", label: "ZAP", ref: "ZAP" },
         { id: "c3", kind: "timestamp", label: "3 saat" },
       ],
@@ -33,14 +34,14 @@ const RULES: Rule[] = [
     answer: {
       text: "Wallet grafiği, 5 cüzdanın aynı funder tarafından beslendiğini ve GFROG'da eşzamanlı alım yaptığını gösteriyor. Bu koordineli davranış manipülasyon işareti.",
       sources: [
-        { id: "w1", kind: "wallet", label: "6Rt4…9kQ", ref: "6Rt4abc9kQ" },
+        { id: "w1", kind: "wallet", label: "Funder-1", ref: "Fnd1Qk" },
         { id: "w2", kind: "tx", label: "5xAr…t9Kp" },
         { id: "w3", kind: "token", label: "GFROG", ref: "GFROG" },
       ],
     },
   },
   {
-    keywords: ["benzer", "performans", "benzer skor"],
+    keywords: ["benzer", "performans"],
     answer: {
       text: "Benzer güven skoruna (80+) sahip son 20 tokenın %65'i ilk saatte pozitif getiri sağladı; medyan tepe getiri +48%. HLS ve PULSE bu kohortta.",
       sources: [
@@ -52,9 +53,9 @@ const RULES: Rule[] = [
   {
     keywords: ["sinyal", "neden üretildi", "neden uretildi", "signal"],
     answer: {
-      text: "Sinyal, momentum 88'e çıkıp güvenlik skoru 78'in üstünde kalınca 'buy-momentum-v2' stratejisi tarafından üretildi. Tetikleyici: 5dk hacim > $40K.",
+      text: "Sinyal, momentum 88'e çıkıp güvenlik skoru 78'in üstünde kalınca 'Momentum Scalp' stratejisi tarafından üretildi. Tetikleyici: 5dk hacim > $40K.",
       sources: [
-        { id: "s1", kind: "strategy", label: "buy-momentum-v2", ref: "buy-momentum-v2" },
+        { id: "s1", kind: "strategy", label: "Momentum Scalp", ref: "momentum-scalp" },
         { id: "s2", kind: "token", label: "PULSE", ref: "PULSE" },
         { id: "s3", kind: "timestamp", label: "az önce" },
       ],
