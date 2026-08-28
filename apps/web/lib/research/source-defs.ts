@@ -2,14 +2,14 @@ import { Coins, UserSearch, Share2, Hash, ShieldAlert, Layers, Clock, type Lucid
 import type { ResearchSource, ResearchSourceKind } from "@/lib/api/types";
 
 export interface SourceKindDef {
-  label: string;                                   // human label for the kind
+  label: string;                                        // human label for the kind
   icon: LucideIcon;
-  buildHref?: (src: ResearchSource) => string;     // absent → non-clickable chip
+  buildHref?: (src: ResearchSource) => string | undefined; // absent → non-clickable chip; may return undefined if ref missing
 }
 
 export const SOURCE_KIND_DEFS: Record<ResearchSourceKind, SourceKindDef> = {
-  token:       { label: "Token",     icon: Coins,      buildHref: (s) => `/tokens/${s.ref}` },
-  creator:     { label: "Üretici",   icon: UserSearch, buildHref: (s) => `/creators/${s.ref}` },
+  token:       { label: "Token",     icon: Coins,      buildHref: (s) => (s.ref ? `/tokens/${s.ref}` : undefined) },
+  creator:     { label: "Üretici",   icon: UserSearch, buildHref: (s) => (s.ref ? `/creators/${s.ref}` : undefined) },
   wallet:      { label: "Cüzdan",    icon: Share2,     buildHref: () => `/wallet-graph` },
   tx:          { label: "İşlem",     icon: Hash },
   "risk-rule": { label: "Risk Kuralı", icon: ShieldAlert },
@@ -18,6 +18,5 @@ export const SOURCE_KIND_DEFS: Record<ResearchSourceKind, SourceKindDef> = {
 };
 
 export function hrefForSource(src: ResearchSource): string | undefined {
-  const def = SOURCE_KIND_DEFS[src.kind];
-  return def.buildHref && src.ref !== undefined ? def.buildHref(src) : def.buildHref?.(src);
+  return SOURCE_KIND_DEFS[src.kind].buildHref?.(src);
 }

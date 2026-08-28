@@ -22,4 +22,8 @@ describe("SOURCE_KIND_DEFS / hrefForSource", () => {
       expect(SOURCE_KIND_DEFS[k].icon).toBeTruthy();
     });
   });
+  it("token/creator without ref have no href", () => {
+    expect(hrefForSource({ id: "s7", kind: "token", label: "AERO" })).toBeUndefined();
+    expect(hrefForSource({ id: "s8", kind: "creator", label: "6Rt4" })).toBeUndefined();
+  });
 });
