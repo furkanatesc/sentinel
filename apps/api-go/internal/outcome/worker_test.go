@@ -35,8 +35,12 @@ func TestWorkerClassifiesAndPersists(t *testing.T) {
 		Thresholds: Thresholds{RugLiqRatio: 0.10, GraduationMcap: 69000, DumpedDrawdown: 80, DeadVol: 100, MinLiqFloor: 500, DeadAgeSec: 86400},
 		Now:        func() int64 { return 1000 },
 	})
-	if err := w.classifyOnce(context.Background()); err != nil {
+	n, err := w.classifyOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("processed = %d, want 2", n)
 	}
 	if len(fs.updates) != 2 {
 		t.Fatalf("update sayısı = %d, want 2", len(fs.updates))
@@ -75,10 +79,14 @@ func TestWorkerPartialErrorIsolation(t *testing.T) {
 		Thresholds: Thresholds{RugLiqRatio: 0.10, GraduationMcap: 69000, DumpedDrawdown: 80, DeadVol: 100, MinLiqFloor: 500, DeadAgeSec: 86400},
 		Now:        func() int64 { return 1000 },
 	})
-	if err := w.classifyOnce(context.Background()); err != nil {
+	n, err := w.classifyOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
 	}
 	// Only "succeeds" should be in updates; "fails" is not appended due to error
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (fails mint persist edilmedi)", n)
+	}
 	if len(fs.updates) != 1 {
 		t.Fatalf("update count = %d, want 1 (fails mint should not be persisted)", len(fs.updates))
 	}
@@ -104,9 +112,12 @@ func TestWorkerContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := w.classifyOnce(ctx)
+	n, err := w.classifyOnce(ctx)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("processed = %d, want 0 (iptal → persist yok)", n)
 	}
 	// classifyOnce should have short-circuited mid-loop, producing zero updates
 	if len(fs.updates) != 0 {

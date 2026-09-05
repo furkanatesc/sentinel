@@ -60,25 +60,27 @@ func (w *Worker) Run(ctx context.Context) {
 
 // cycle, tek scoreOnce + health Report (best-effort).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.scoreOnce(ctx)
+	n, err := w.scoreOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("reputation", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerReputation, err == nil, err, 0)
+		w.d.Health.Report(health.WorkerReputation, err == nil, err, n)
 	}
 }
 
 // scoreOnce, bir döngü: agregaları çek → her birini skorla → persist (kısmi hata izole).
-func (w *Worker) scoreOnce(ctx context.Context) error {
+// Dönüş: o cycle'da başarıyla persist edilen creator sayısı (health itemsProcessed).
+func (w *Worker) scoreOnce(ctx context.Context) (int, error) {
 	aggs, err := w.d.Store.CreatorAggregates(ctx, w.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := w.d.Now()
+	var persisted int
 	for _, agg := range aggs {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return persisted, ctx.Err()
 		}
 		r := Score(agg, w.d.Thresholds)
 		if err := w.d.Store.UpsertReputation(ctx, store.CreatorReputation{
@@ -88,7 +90,9 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 			AvgPeakMarketCap: agg.AvgPeakMarketCap, AvgLifetimeHours: agg.AvgLifetimeHours, ScoredTs: now,
 		}); err != nil {
 			w.d.Logger.Warn("upsert reputation", "address", agg.Address, "err", err)
+			continue
 		}
+		persisted++
 	}
-	return nil
+	return persisted, nil
 }

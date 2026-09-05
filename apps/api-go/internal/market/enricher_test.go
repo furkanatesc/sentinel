@@ -18,8 +18,12 @@ func TestEnricherUpdatesMarketAndAppendsSpark(t *testing.T) {
 	bc := &capBC{}
 	e := NewEnricher(EnricherDeps{Provider: fp, Tokens: ts, Broadcast: bc, Limit: 50})
 
-	if err := e.tick(ctx); err != nil {
+	n, err := e.tick(ctx)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (bir token enrich edildi)", n)
 	}
 	toks, _ := ts.RecentTokens(ctx, 10)
 	if len(toks) != 1 {
@@ -48,8 +52,12 @@ func TestEnricherNoTargetsNoBroadcast(t *testing.T) {
 	fp := &fakeProvider{}
 	bc := &capBC{}
 	e := NewEnricher(EnricherDeps{Provider: fp, Tokens: ts, Broadcast: bc, Limit: 50})
-	if err := e.tick(context.Background()); err != nil {
+	n, err := e.tick(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("processed = %d, want 0 (hedef yok)", n)
 	}
 	if len(bc.topics) != 0 {
 		t.Fatalf("hedef yokken broadcast olmamalı: %v", bc.topics)

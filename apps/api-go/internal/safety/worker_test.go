@@ -40,8 +40,12 @@ func TestScoreOncePersistsResult(t *testing.T) {
 	st := &fakeSafetyStore{targets: []store.SafetyTarget{{Mint: "M1", Liquidity: 5000, Launchpad: "Raydium"}}}
 	prov := stubProvider{d: OnChainData{AuthoritiesKnown: true, HoldersKnown: true, HolderCount: 500, Top10Pct: 30}}
 	w := NewWorker(WorkerDeps{Store: st, Provider: prov, Limit: 10, Now: func() int64 { return 999 }})
-	if err := w.scoreOnce(context.Background()); err != nil {
+	n, err := w.scoreOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (1 persist)", n)
 	}
 	if len(st.updates) != 1 {
 		t.Fatalf("1 update beklenir: %d", len(st.updates))
@@ -60,8 +64,12 @@ func TestScoreOnceSkipsPersistOnTotalFailure(t *testing.T) {
 	// önceki gerçek skoru neutral 0 ile ezmemek için (geçici 429 skoru silmesin).
 	st := &fakeSafetyStore{targets: []store.SafetyTarget{{Mint: "M1", Liquidity: 5000}}}
 	w := NewWorker(WorkerDeps{Store: st, Provider: errProvider{err: errors.New("429")}, Limit: 10, Now: func() int64 { return 1 }})
-	if err := w.scoreOnce(context.Background()); err != nil {
+	n, err := w.scoreOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("processed = %d, want 0 (total failure → persist yok)", n)
 	}
 	if len(st.updates) != 0 {
 		t.Fatalf("total-failure'da persist atlanmalı: %d update", len(st.updates))
@@ -117,7 +125,7 @@ func TestWorker_PersistsAuthorityAddrs(t *testing.T) {
 		MintAuthorityAddr: "MA", FreezeAuthorityAddr: "FA",
 	}}
 	w := NewWorker(WorkerDeps{Store: st, Provider: prov, Limit: 10, Now: func() int64 { return 1 }})
-	if err := w.scoreOnce(context.Background()); err != nil {
+	if _, err := w.scoreOnce(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if len(st.updates) != 1 {

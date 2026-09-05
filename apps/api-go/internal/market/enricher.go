@@ -53,23 +53,24 @@ func (x *Enricher) Run(ctx context.Context) {
 
 // cycle, tek tick + health Report (best-effort).
 func (x *Enricher) cycle(ctx context.Context) {
-	err := x.tick(ctx)
+	n, err := x.tick(ctx)
 	if err != nil {
 		x.d.Logger.Warn("enricher tick", "err", err)
 	}
 	if x.d.Health != nil {
-		x.d.Health.Report(health.WorkerMarketEnrich, err == nil, err, 0)
+		x.d.Health.Report(health.WorkerMarketEnrich, err == nil, err, n)
 	}
 }
 
 // tick, hedefleri okur, havuz verisini batch çeker, piyasa alanlarını + spark'ı günceller, snapshot yayınlar.
-func (x *Enricher) tick(ctx context.Context) error {
+// Dönüş: o cycle'da başarıyla piyasa-güncellemesi yapılan token sayısı (health itemsProcessed).
+func (x *Enricher) tick(ctx context.Context) (int, error) {
 	targets, err := x.d.Tokens.EnrichTargets(ctx, x.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if len(targets) == 0 {
-		return nil
+		return 0, nil
 	}
 	byPool := map[string]store.EnrichTarget{}
 	addrs := make([]string, 0, len(targets))
@@ -77,7 +78,7 @@ func (x *Enricher) tick(ctx context.Context) error {
 		byPool[t.PoolAddr] = t
 		addrs = append(addrs, t.PoolAddr)
 	}
-	var updated bool
+	var updated int
 	for _, batch := range chunk(addrs, maxPoolBatch) {
 		pools, err := x.d.Provider.PoolsByAddresses(ctx, batch)
 		if err != nil {
@@ -98,17 +99,17 @@ func (x *Enricher) tick(ctx context.Context) error {
 				x.d.Logger.Warn("update market", "mint", t.Mint, "err", err)
 				continue
 			}
-			updated = true
+			updated++
 		}
 	}
-	if updated {
+	if updated > 0 {
 		snapshot, err := x.d.Tokens.RecentTokens(ctx, x.d.Limit)
 		if err != nil {
-			return err
+			return updated, err
 		}
 		x.d.Broadcast.Broadcast("tokens", snapshot)
 	}
-	return nil
+	return updated, nil
 }
 
 // chunk, dilimi en fazla size'lık parçalara böler.

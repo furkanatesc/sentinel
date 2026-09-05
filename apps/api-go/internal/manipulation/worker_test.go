@@ -31,8 +31,12 @@ func TestWorkerScoreOncePartialErrorIsolated(t *testing.T) {
 		{Mint: "good", Buys: 100, Sells: 0, Buyers: 1, Liquidity: 1000},
 	}}
 	w := NewWorker(WorkerDeps{Store: st, Thresholds: defTh(), Now: func() int64 { return 7 }})
-	if err := w.scoreOnce(context.Background()); err != nil {
+	n, err := w.scoreOnce(context.Background())
+	if err != nil {
 		t.Fatalf("scoreOnce err: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (bad izole, yalnız good persist)", n)
 	}
 	if len(st.updated) != 1 || st.updated[0].Mint != "good" {
 		t.Fatalf("yalnız good yazılmalı (bad izole), gelen %+v", st.updated)
@@ -47,7 +51,7 @@ func TestWorkerScoreOnceCtxCancel(t *testing.T) {
 	w := NewWorker(WorkerDeps{Store: st, Thresholds: defTh()})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := w.scoreOnce(ctx); err == nil {
+	if _, err := w.scoreOnce(ctx); err == nil {
 		t.Fatalf("iptal edilmiş ctx'te hata beklenir")
 	}
 }

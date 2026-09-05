@@ -60,25 +60,27 @@ func (w *Worker) Run(ctx context.Context) {
 
 // cycle, tek scoreOnce + health Report (best-effort).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.scoreOnce(ctx)
+	n, err := w.scoreOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("manipulation", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerManipulation, err == nil, err, 0)
+		w.d.Health.Report(health.WorkerManipulation, err == nil, err, n)
 	}
 }
 
 // scoreOnce, bir döngü: hedefleri çek → her birini skorla → persist (kısmi hata izole).
-func (w *Worker) scoreOnce(ctx context.Context) error {
+// Dönüş: o cycle'da başarıyla persist edilen token sayısı (health itemsProcessed).
+func (w *Worker) scoreOnce(ctx context.Context) (int, error) {
 	targets, err := w.d.Store.ManipulationTargets(ctx, w.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := w.d.Now()
+	var persisted int
 	for _, tg := range targets {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return persisted, ctx.Err()
 		}
 		r := Score(Inputs{
 			Buys: tg.Buys, Sells: tg.Sells, Buyers: tg.Buyers,
@@ -88,7 +90,9 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 			Mint: tg.Mint, Score: r.Value, Confidence: r.Confidence, Breakdown: r.Breakdown, ScoredTs: now,
 		}); err != nil {
 			w.d.Logger.Warn("update manipulation", "mint", tg.Mint, "err", err)
+			continue
 		}
+		persisted++
 	}
-	return nil
+	return persisted, nil
 }

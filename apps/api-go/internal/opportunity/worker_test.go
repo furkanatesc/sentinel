@@ -39,8 +39,12 @@ func TestWorker_ScoresAndPersists_IsolatesError(t *testing.T) {
 	w := NewWorker(WorkerDeps{Store: fs, Limit: 10,
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Now:    func() time.Time { return time.Unix(1000, 0) }})
-	if err := w.scoreOnce(context.Background()); err != nil {
+	n, err := w.scoreOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (bad izole, yalnız ok persist)", n)
 	}
 	if len(fs.updates) != 1 || fs.updates[0].Mint != "ok" {
 		t.Fatalf("yalnız 'ok' persist edilmeli, got %+v", fs.updates)
@@ -56,7 +60,7 @@ func TestWorker_ScoreOnce_CtxCancel(t *testing.T) {
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := w.scoreOnce(ctx); err == nil {
+	if _, err := w.scoreOnce(ctx); err == nil {
 		t.Fatalf("iptal edilmiş ctx'te hata beklenir")
 	}
 }

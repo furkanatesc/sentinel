@@ -58,24 +58,26 @@ func (w *Worker) Run(ctx context.Context) {
 
 // cycle, tek resolveOnce + health Report (best-effort).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.resolveOnce(ctx)
+	n, err := w.resolveOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("funder resolve", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerFunder, err == nil, err, 0)
+		w.d.Health.Report(health.WorkerFunder, err == nil, err, n)
 	}
 }
 
-func (w *Worker) resolveOnce(ctx context.Context) error {
+// resolveOnce, o cycle'da başarıyla damgalanan cüzdan sayısını (health itemsProcessed) döndürür.
+func (w *Worker) resolveOnce(ctx context.Context) (int, error) {
 	targets, err := w.d.Store.FunderTargets(ctx, w.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := w.d.Now()
+	var resolved int
 	for _, tg := range targets {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return resolved, ctx.Err()
 		}
 		funder, _, err := w.d.Resolver.ResolveFunder(ctx, tg.Wallet)
 		if err != nil {
@@ -85,7 +87,9 @@ func (w *Worker) resolveOnce(ctx context.Context) error {
 		// bulundu ya da bulunamadı: damgala (sonsuz retry yok; boş funder de "çözüldü").
 		if err := w.d.Store.SetFunder(ctx, tg.Wallet, funder, now); err != nil {
 			w.d.Logger.Warn("set funder", "wallet", tg.Wallet, "err", err)
+			continue
 		}
+		resolved++
 	}
-	return nil
+	return resolved, nil
 }

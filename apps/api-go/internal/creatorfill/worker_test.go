@@ -44,8 +44,12 @@ func TestWorkerFillsAndStamps(t *testing.T) {
 	fs := &fakeStore{targets: []store.CreatorFillTarget{{Mint: "a"}, {Mint: "b"}}}
 	fr := &fakeResolver{byMint: map[string]string{"a": "CREATOR_A", "b": ""}} // b bulunamadı
 	w := NewWorker(WorkerDeps{Store: fs, Resolver: fr, Now: func() int64 { return 100 }})
-	if err := w.fillOnce(context.Background()); err != nil {
+	n, err := w.fillOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("processed = %d, want 2 (ikisi de damgalandı)", n)
 	}
 	// İkisi de damgalanmalı (a creator ile, b boş ile → sonsuz retry yok).
 	if len(fs.sets) != 2 {
@@ -67,8 +71,12 @@ func TestWorkerResolverErrorIsolated(t *testing.T) {
 	fs := &fakeStore{targets: []store.CreatorFillTarget{{Mint: "boom"}, {Mint: "ok"}}}
 	fr := &fakeResolver{byMint: map[string]string{"ok": "C"}, fail: "boom"}
 	w := NewWorker(WorkerDeps{Store: fs, Resolver: fr, Now: func() int64 { return 1 }})
-	if err := w.fillOnce(context.Background()); err != nil {
+	n, err := w.fillOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (boom atlandı, yalnız ok)", n)
 	}
 	// boom resolve hatası → atlanır (SetCreatorBackfill çağrılmaz); ok işlenir.
 	if len(fs.sets) != 1 || fs.sets[0].mint != "ok" {

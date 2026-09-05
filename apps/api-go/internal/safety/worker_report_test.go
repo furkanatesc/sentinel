@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
 // recReporter, health.Reporter'ın test spy'ıdır (brief'ten).
@@ -45,6 +47,25 @@ func TestSafetyWorkerReportsCycle(t *testing.T) {
 		t.Fatalf("0-target cycle should report ok=true err=nil, got ok=%v err=%v", rr.ok, rr.err)
 	}
 	if rr.processed != 0 {
-		t.Fatalf("processed = %d, want 0 (v1 itemsProcessed placeholder)", rr.processed)
+		t.Fatalf("processed = %d, want 0 (0 hedef → persist yok)", rr.processed)
+	}
+}
+
+// TestSafetyWorkerReportsProcessedCount, dolu bir cycle'da Report'a gerçek itemsProcessed
+// (persist edilen token sayısı) taşındığını doğrular — sabit 0 placeholder değil.
+func TestSafetyWorkerReportsProcessedCount(t *testing.T) {
+	rr := &recReporter{}
+	st := &fakeSafetyStore{targets: []store.SafetyTarget{
+		{Mint: "M1", Liquidity: 5000, Launchpad: "Raydium"},
+		{Mint: "M2", Liquidity: 3000, Launchpad: "Raydium"},
+	}}
+	prov := stubProvider{d: OnChainData{AuthoritiesKnown: true, HoldersKnown: true, HolderCount: 500, Top10Pct: 30}}
+	w := NewWorker(WorkerDeps{Store: st, Provider: prov, Limit: 10, Health: rr, Now: func() int64 { return 1 }})
+	w.cycle(context.Background())
+	if rr.processed != 2 {
+		t.Fatalf("processed = %d, want 2 (iki token persist edildi)", rr.processed)
+	}
+	if !rr.ok || rr.err != nil {
+		t.Fatalf("sağlıklı cycle ok=true err=nil beklenir, got ok=%v err=%v", rr.ok, rr.err)
 	}
 }
