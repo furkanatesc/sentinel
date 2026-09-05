@@ -139,6 +139,10 @@ func (w *Worker) Run(ctx context.Context) {
 			case <-stats.C:
 				w.d.Logger.Info("ingest heartbeat", "alınan_30s", received, "işlenen_30s", processed)
 				if w.d.Health != nil {
+					// NOT: ingest-ws için itemsProcessed = decode-EDİLEBİLİR bildirim sayısı
+					// (Process/dedup'tan ÖNCE, decoder'ı olan program). Ticker worker'ların
+					// "başarıyla persist edilen hedef" semantiğinden farklı — event-driven bir
+					// worker'da "teslim alınan iş" doğal ölçü; panel tüketicisi bu farkı bilmeli.
 					w.d.Health.Report(health.WorkerIngestWS, true, nil, int(processed))
 				}
 				received, processed = 0, 0

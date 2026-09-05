@@ -97,32 +97,31 @@ func TestRunReportsHeartbeatWithProcessedCount(t *testing.T) {
 	defer cancel()
 	go w.Run(ctx)
 
-	// İlk heartbeat'i (processed==3) bekle. Bildirimler ~µs'de tüketilir, ilk tick 20ms'de.
+	// Kümülatif işlenen == 3 bekle. Her bildirim, tick sıfırlamasından bağımsız olarak tam bir
+	// heartbeat'te bir kez sayılır → tick araya girse de ok-heartbeat processed toplamı 3'e ulaşır.
+	// (Tek bir tick'in tam 3 görmesine bel bağlamak yüklü CI'da kırılgan olurdu.)
 	deadline := time.After(2 * time.Second)
 	for {
-		hb, ok := findHeartbeat(rr.snapshot(), 3)
-		if ok {
-			if !hb.ok {
-				t.Fatalf("heartbeat ok=false, want true")
-			}
+		if sumHeartbeatProcessed(rr.snapshot()) == 3 {
 			break
 		}
 		select {
 		case <-deadline:
-			t.Fatalf("processed=3 heartbeat gelmedi: %+v", rr.snapshot())
+			t.Fatalf("kümülatif processed=3 heartbeat gelmedi: %+v", rr.snapshot())
 		case <-time.After(2 * time.Millisecond):
 		}
 	}
 }
 
-// findHeartbeat, ok=true + verilen processed değerine sahip bir ingest-ws Report'u arar.
-func findHeartbeat(calls []call, processed int) (call, bool) {
+// sumHeartbeatProcessed, ok=true ingest-ws heartbeat'lerinin processed toplamını verir.
+func sumHeartbeatProcessed(calls []call) int {
+	total := 0
 	for _, c := range calls {
-		if c.name == health.WorkerIngestWS && c.ok && c.processed == processed {
-			return c, true
+		if c.name == health.WorkerIngestWS && c.ok {
+			total += c.processed
 		}
 	}
-	return call{}, false
+	return total
 }
 
 // TestRunReportsDisconnect, Subscribe hata dönünce Run'ın Report(ingest-ws, ok=false, ..., 0)

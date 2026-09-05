@@ -51,7 +51,11 @@ func TestWorkerScoreOnceCtxCancel(t *testing.T) {
 	w := NewWorker(WorkerDeps{Store: st, Thresholds: defTh()})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := w.scoreOnce(ctx); err == nil {
+	n, err := w.scoreOnce(ctx)
+	if err == nil {
 		t.Fatalf("iptal edilmiş ctx'te hata beklenir")
+	}
+	if n != 0 {
+		t.Fatalf("processed = %d, want 0 (iptal → persist yok)", n)
 	}
 }
