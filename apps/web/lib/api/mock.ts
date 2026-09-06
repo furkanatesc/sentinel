@@ -1,5 +1,5 @@
 import type { SentinelApi } from "./contract";
-import type { Kpi, TokenRow, AlertEvent, RadarPoint } from "./types";
+import type { Kpi, TokenRow, AlertEvent, AlertRule, NotificationConfig, RadarPoint } from "./types";
 import { scoreToLevel, formatUsd, riskMeta } from "@/lib/format";
 import type { ScoreKey } from "@/lib/token/score-defs";
 import type { RiskSeverity } from "@/lib/format";
@@ -50,6 +50,25 @@ const alerts: AlertEvent[] = [
   { id: "a7", type: "Yeni Mint", token: "MCAT", detail: "Pump.fun'da token oluşturuldu", severity: "info", time: "4dk önce" },
   { id: "a8", type: "Şüpheli Küme", token: "GFROG", detail: "5 bağlantılı cüzdan tespit edildi", severity: "critical", time: "5dk önce" },
 ];
+
+const alertRules: AlertRule[] = [
+  { id: "r1", name: "Balina alımı — tüm tokenlar", trigger: "whale_activity", scope: "Tüm tokenlar", minLiquidity: 50000, minCreatorScore: 0, maxRisk: "high", channels: ["web", "slack"], enabled: true },
+  { id: "r2", name: "Likidite çekilişi — kritik", trigger: "liquidity_removed", scope: "Tüm tokenlar", minLiquidity: 0, minCreatorScore: 0, maxRisk: "critical", channels: ["web", "slack", "email"], enabled: true },
+  { id: "r3", name: "Yüksek skorlu yeni mint", trigger: "new_mint", scope: "Pump.fun", minLiquidity: 10000, minCreatorScore: 70, maxRisk: "medium", channels: ["slack"], enabled: false },
+  { id: "r4", name: "Üretici satışı uyarısı", trigger: "creator_sale", scope: "Tüm tokenlar", minLiquidity: 0, minCreatorScore: 0, maxRisk: "high", channels: ["web"], enabled: true },
+];
+
+const notificationConfig: NotificationConfig = {
+  slackState: "connected", channel: "#alerts", workspace: "Sentinel HQ",
+  minSeverity: "warning",
+  quietHours: { start: "23:00", end: "07:00", enabled: false },
+  templates: [
+    { trigger: "liquidity_removed", template: "🚨 {{token}}: likidite çekildi — {{detail}}" },
+    { trigger: "whale_activity", template: "🐋 {{token}}: balina hareketi — {{detail}}" },
+    { trigger: "new_mint", template: "✨ Yeni mint: {{token}} — {{detail}}" },
+  ],
+  tradeApproval: true,
+};
 
 function radarFrom(list: TokenRow[]): RadarPoint[] {
   return list.map((t) => ({
@@ -546,6 +565,8 @@ export const mockApi: SentinelApi = {
   getKpis: () => delay(kpis),
   getTokens: () => delay(tokens),
   getAlerts: () => delay(alerts),
+  getAlertRules: () => delay(alertRules),
+  getNotificationConfig: () => delay(notificationConfig),
   getRadar: () => delay(radarFrom(tokens)),
   getEvents: () => delay(feedEvents),
   getWalletGraph: () => delay(walletGraph),

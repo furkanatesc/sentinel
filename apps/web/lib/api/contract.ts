@@ -1,9 +1,11 @@
-import type { Kpi, TokenRow, AlertEvent, RadarPoint, TokenDetail, FeedEvent, WalletGraph, CreatorRow, CreatorProfile, StrategyRow, StrategyDetail, PortfolioOverview, Position, Candle, MarketData, Order, Txn, TradeLog, BacktestParams, BacktestResult, SystemHealth, ResearchSuggestion, ResearchAnswer, ResearchSource } from "./types";
+import type { Kpi, TokenRow, AlertEvent, AlertRule, NotificationConfig, RadarPoint, TokenDetail, FeedEvent, WalletGraph, CreatorRow, CreatorProfile, StrategyRow, StrategyDetail, PortfolioOverview, Position, Candle, MarketData, Order, Txn, TradeLog, BacktestParams, BacktestResult, SystemHealth, ResearchSuggestion, ResearchAnswer, ResearchSource } from "./types";
 
 export interface SentinelApi {
   getKpis(): Promise<Kpi[]>;
   getTokens(): Promise<TokenRow[]>;
   getAlerts(): Promise<AlertEvent[]>;
+  getAlertRules(): Promise<AlertRule[]>;
+  getNotificationConfig(): Promise<NotificationConfig>;
   getRadar(): Promise<RadarPoint[]>;
   getToken(idOrMint: string): Promise<TokenDetail>;
   getEvents(): Promise<FeedEvent[]>;

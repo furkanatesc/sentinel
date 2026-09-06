@@ -13,6 +13,12 @@ export function useTokens() {
 export function useAlerts() {
   return useQuery({ queryKey: qk.alerts, queryFn: () => getApi().getAlerts() });
 }
+export function useAlertRules() {
+  return useQuery({ queryKey: qk.alertRules, queryFn: () => getApi().getAlertRules() });
+}
+export function useNotificationConfig() {
+  return useQuery({ queryKey: qk.notificationConfig, queryFn: () => getApi().getNotificationConfig() });
+}
 export function useRadar() {
   return useQuery({ queryKey: qk.radar, queryFn: () => getApi().getRadar() });
 }

@@ -22,6 +22,10 @@ export const httpApi: SentinelApi = {
   getKpis: () => getJson<Kpi[]>("/api/kpis"),
   getTokens: () => getJson<TokenRow[]>("/api/tokens"),
   getAlerts: notReady,
+  // Alert kuralları + bildirim config'i backend Alt-proje 3'e bağlı; LIVE_ENDPOINTS'te
+  // olmadıkları için hibrit adapter mock'a route eder — httpApi tarafı notReady kalır.
+  getAlertRules: notReady,
+  getNotificationConfig: notReady,
   getRadar: () => getJson<RadarPoint[]>("/api/radar"),
   getToken: (mint: string) => getJson<TokenDetail>(`/api/token/${encodeURIComponent(mint)}`),
   getEvents: () => getJson<FeedEvent[]>("/api/events"),
