@@ -65,25 +65,27 @@ func (w *Worker) Run(ctx context.Context) {
 
 // cycle, tek fillOnce + health Report (best-effort).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.fillOnce(ctx)
+	n, err := w.fillOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("creator backfill", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerCreatorFill, err == nil, err, 0)
+		w.d.Health.Report(health.WorkerCreatorFill, err == nil, err, n)
 	}
 }
 
 // fillOnce, bir döngü: hedefleri çek → her mint için creator resolve → persist + damga (kısmi hata izole).
-func (w *Worker) fillOnce(ctx context.Context) error {
+// Dönüş: o cycle'da başarıyla damgalanan token sayısı (health itemsProcessed).
+func (w *Worker) fillOnce(ctx context.Context) (int, error) {
 	targets, err := w.d.Store.CreatorFillTargets(ctx, w.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := w.d.Now()
+	var filled int
 	for _, tg := range targets {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return filled, ctx.Err()
 		}
 		creator, _, err := w.d.Resolver.ResolveCreator(ctx, tg.Mint)
 		if err != nil {
@@ -93,7 +95,9 @@ func (w *Worker) fillOnce(ctx context.Context) error {
 		// bulundu ya da bulunamadı: her iki durumda damgala (sonsuz retry yok); boş creator gerçek'i ezmez.
 		if err := w.d.Store.SetCreatorBackfill(ctx, tg.Mint, creator, now); err != nil {
 			w.d.Logger.Warn("set creator backfill", "mint", tg.Mint, "err", err)
+			continue
 		}
+		filled++
 	}
-	return nil
+	return filled, nil
 }

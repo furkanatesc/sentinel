@@ -60,25 +60,27 @@ func (w *Worker) Run(ctx context.Context) {
 
 // cycle, tek classifyOnce + health Report (best-effort).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.classifyOnce(ctx)
+	n, err := w.classifyOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("outcome classify", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerOutcome, err == nil, err, 0)
+		w.d.Health.Report(health.WorkerOutcome, err == nil, err, n)
 	}
 }
 
 // classifyOnce, bir döngü: hedefleri çek → her birini sınıfla → persist (kısmi hata izole).
-func (w *Worker) classifyOnce(ctx context.Context) error {
+// Dönüş: o cycle'da başarıyla persist edilen token sayısı (health itemsProcessed).
+func (w *Worker) classifyOnce(ctx context.Context) (int, error) {
 	targets, err := w.d.Store.OutcomeTargets(ctx, w.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := w.d.Now()
+	var persisted int
 	for _, tg := range targets {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return persisted, ctx.Err()
 		}
 		res := Classify(Input{
 			CurMarketCap: tg.CurMarketCap, CurLiquidity: tg.CurLiquidity,
@@ -90,7 +92,9 @@ func (w *Worker) classifyOnce(ctx context.Context) error {
 			MaxDrawdownPct: res.MaxDrawdownPct, ScoredTs: now,
 		}); err != nil {
 			w.d.Logger.Warn("update outcome", "mint", tg.Mint, "err", err)
+			continue
 		}
+		persisted++
 	}
-	return nil
+	return persisted, nil
 }

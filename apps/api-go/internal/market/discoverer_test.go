@@ -45,8 +45,12 @@ func TestDiscovererWritesTokenEventAndSnapshot(t *testing.T) {
 		Price: 2, LiquidityUSD: 1000, Vol5m: 50, PriceChangeH1: 20, CreatedAtUnix: 900,
 	}}}
 	d, ts, es, bc := newDiscoverer(fp)
-	if err := d.tick(context.Background()); err != nil {
+	n, err := d.tick(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (bir yeni token keşfedildi)", n)
 	}
 	toks, _ := ts.RecentTokens(context.Background(), 10)
 	if len(toks) != 1 || toks[0].Symbol != "ONE" || toks[0].Price != 2 || toks[0].Momentum == 0 {
@@ -74,7 +78,9 @@ func TestDiscovererDedupSecondTickNoNewEvent(t *testing.T) {
 	fp := &fakeProvider{newPools: []Pool{{PoolAddr: "P1", Mint: "M1", Symbol: "ONE", Dex: "pumpfun", CreatedAtUnix: 900}}}
 	d, _, es, _ := newDiscoverer(fp)
 	d.tick(context.Background())
-	d.tick(context.Background()) // aynı havuz → yeni olay YOK
+	if n, _ := d.tick(context.Background()); n != 0 { // aynı havuz → yeni keşif YOK
+		t.Fatalf("ikinci tick processed = %d, want 0 (dedup)", n)
+	}
 	evs, _ := es.RecentEvents(context.Background(), 10)
 	if len(evs) != 1 {
 		t.Fatalf("olaylar=%d, want 1 (dedup: yalnız ilk keşifte olay)", len(evs))
@@ -91,7 +97,7 @@ func TestDiscovererDoesNotReenrichOnSecondTick(t *testing.T) {
 	}}}
 	d, ts, _, _ := newDiscoverer(fp)
 	ctx := context.Background()
-	if err := d.tick(ctx); err != nil {
+	if _, err := d.tick(ctx); err != nil {
 		t.Fatal(err)
 	}
 	// Enricher, ilk keşiften sonra bağımsız olarak spark geçmişini büyütür (simülasyon).
@@ -103,7 +109,7 @@ func TestDiscovererDoesNotReenrichOnSecondTick(t *testing.T) {
 	}
 	// İkinci tick: havuz zaten biliniyor (inserted=false) → discoverer UpdateMarket'i
 	// TEKRAR çalıştırmamalı; aksi halde Enricher'ın spark geçmişi tek örneğe düşer (clobber).
-	if err := d.tick(ctx); err != nil {
+	if _, err := d.tick(ctx); err != nil {
 		t.Fatal(err)
 	}
 	toks, _ := ts.RecentTokens(ctx, 10)

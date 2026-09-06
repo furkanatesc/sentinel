@@ -57,25 +57,26 @@ func (w *Worker) Run(ctx context.Context) {
 
 // cycle, tek scoreOnce + health Report (best-effort).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.scoreOnce(ctx)
+	n, err := w.scoreOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("opportunity cycle", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerOpportunity, err == nil, err, 0)
+		w.d.Health.Report(health.WorkerOpportunity, err == nil, err, n)
 	}
 }
 
-func (w *Worker) scoreOnce(ctx context.Context) error {
+// scoreOnce, o cycle'da başarıyla persist edilen token sayısını (health itemsProcessed) döndürür.
+func (w *Worker) scoreOnce(ctx context.Context) (int, error) {
 	targets, err := w.d.Store.OpportunityScoreTargets(ctx, w.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := w.d.Now().Unix()
 	var scored int
 	for _, tg := range targets {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return scored, ctx.Err()
 		}
 		res := Score(Inputs{
 			Safety: tg.Safety, SafetyConf: tg.SafetyConf,
@@ -95,5 +96,5 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 	if len(targets) > 0 {
 		w.d.Logger.Info("opportunity cycle", "targets", len(targets), "scored", scored)
 	}
-	return nil
+	return scored, nil
 }

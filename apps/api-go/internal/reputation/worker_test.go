@@ -32,8 +32,12 @@ func TestWorkerScoresAndPersistsAll(t *testing.T) {
 		{Address: "B", Total: 5, Graduated: 5},
 	}}
 	w := NewWorker(WorkerDeps{Store: fs, Thresholds: th, Now: func() int64 { return 99 }})
-	if err := w.scoreOnce(context.Background()); err != nil {
+	n, err := w.scoreOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("processed = %d, want 2", n)
 	}
 	if len(fs.upserts) != 2 {
 		t.Fatalf("upsert sayısı=%d, want 2", len(fs.upserts))
@@ -52,8 +56,12 @@ func TestWorkerIsolatesUpsertError(t *testing.T) {
 		{Address: "B", Total: 5, Graduated: 5},
 	}}
 	w := NewWorker(WorkerDeps{Store: fs, Thresholds: th, Now: func() int64 { return 1 }})
-	if err := w.scoreOnce(context.Background()); err != nil {
+	n, err := w.scoreOnce(context.Background())
+	if err != nil {
 		t.Fatalf("kısmi hata döngüyü kırmamalı: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("processed = %d, want 1 (A izole, yalnız B persist)", n)
 	}
 	if len(fs.upserts) != 1 || fs.upserts[0].Address != "B" {
 		t.Fatalf("B yine de persist edilmeli: %+v", fs.upserts)
@@ -63,7 +71,7 @@ func TestWorkerIsolatesUpsertError(t *testing.T) {
 func TestWorkerReturnsAggError(t *testing.T) {
 	fs := &fakeRepStore{aggErr: errors.New("db down")}
 	w := NewWorker(WorkerDeps{Store: fs, Thresholds: th})
-	if err := w.scoreOnce(context.Background()); err == nil {
+	if _, err := w.scoreOnce(context.Background()); err == nil {
 		t.Fatal("agg hatası dönmeli")
 	}
 }

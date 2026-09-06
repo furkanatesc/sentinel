@@ -365,6 +365,23 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   Slice 1c teslim" paragrafı. Whole-branch review + master'a merge + deploy henüz yapılmadı (Task 8'in Step
   4'ü — ayrı, controller tarafından yürütülür).
 
+- 2026-09-05 — **System Health D-artığı fast-follow tamamlandı (branch `feat/system-health-items-processed`).**
+  System Health planında (`docs/superpowers/plans/2026-08-27-sentinel-system-health.md`) bilinçle ertelenen
+  iki madde kapatıldı: **(1) itemsProcessed gerçek sayaç** — 8 ticker worker'ın (safety/market-disc/
+  market-enrich/outcome/creatorfill/funder/reputation/manipulation/opportunity) `cycle`'ı `health.Report`'a
+  sabit `0` yerine o cycle'da BAŞARIYLA persist edilen hedef sayısını taşıyor; her `<once>` fonksiyonu
+  `(int, error)` döndürüyor, sayaç yalnız başarılı Update/Upsert/Set/keşif sonrası artıyor (kısmi hata izole →
+  sayılmaz). ingest-ws heartbeat zaten gerçek decode sayısını raporluyordu. **(2) ingest-ws canlı-WS testi** —
+  Task 6'da yalnız derleme+kod-incelemesiyle doğrulanan heartbeat/disconnect Report yolu artık deterministik
+  birim testle kapsanıyor; `ingest.WorkerDeps`'e dar DIP seam eklendi (`Subscribe SubscribeFunc` nil→canlı
+  `SubscribeLogs`, `StatsInterval` 0→30s) → fake Subscribe ile heartbeat (ok=true, processed=N) ve disconnect
+  (ok=false) test edildi. Her worker'ın mevcut testine sayım assertion'ı eklendi. `go build`/`go vet`/
+  `go test ./... -race` yeşil. Commit'ler: `8766ed5` (Parça 1), `15c94c3` (Parça 2), `ca0ef3a` (review
+  minor'ları). Whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important, 3 Minor — hepsi
+  giderildi: ingest-ws `processed` semantiği yorumu [decode-edilebilir bildirim ≠ ticker'ların persist-sayımı],
+  manipulation/opportunity ctx-cancel `n==0` assertion, heartbeat testi kümülatif-toplam ==3). **DURUM:
+  master'a merge + push kullanıcı onayı bekliyor.**
+
 ## Açık takip maddeleri
 
 Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkanlar:

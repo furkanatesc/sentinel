@@ -59,23 +59,24 @@ func (x *Discoverer) Run(ctx context.Context) {
 
 // cycle, tek tick + health Report (best-effort).
 func (x *Discoverer) cycle(ctx context.Context) {
-	err := x.tick(ctx)
+	n, err := x.tick(ctx)
 	if err != nil {
 		x.d.Logger.Warn("discoverer tick", "err", err)
 	}
 	if x.d.Health != nil {
-		x.d.Health.Report(health.WorkerMarketDisc, err == nil, err, 0)
+		x.d.Health.Report(health.WorkerMarketDisc, err == nil, err, n)
 	}
 }
 
 // tick, tek tarama: yeni havuzları keşfet, yeni token'lar için kimlik+ilk enrichment+olay yaz, snapshot yayınla.
-func (x *Discoverer) tick(ctx context.Context) error {
+// Dönüş: o cycle'da yeni keşfedilen (ilk kez eklenen) token sayısı (health itemsProcessed).
+func (x *Discoverer) tick(ctx context.Context) (int, error) {
 	pools, err := x.d.Provider.NewPools(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := x.d.Now()
-	var wrote bool
+	var discovered int
 	for _, p := range pools {
 		launchpad, ok := DexToLaunchpad(p.Dex)
 		if !ok {
@@ -101,7 +102,7 @@ func (x *Discoverer) tick(ctx context.Context) error {
 			}); err != nil {
 				x.d.Logger.Warn("initial market", "mint", p.Mint, "err", err)
 			}
-			wrote = true
+			discovered++
 			ev := store.EventRow{
 				ID: p.PoolAddr + "|pool_created", Type: "pool_created", Symbol: p.Symbol, Mint: p.Mint,
 				Launchpad: launchpad, DEX: launchpad, Liquidity: p.LiquidityUSD, RiskLevel: "medium",
@@ -115,12 +116,12 @@ func (x *Discoverer) tick(ctx context.Context) error {
 			}
 		}
 	}
-	if wrote {
+	if discovered > 0 {
 		snapshot, err := x.d.Tokens.RecentTokens(ctx, x.d.SnapshotLimit)
 		if err != nil {
-			return err
+			return discovered, err
 		}
 		x.d.Broadcast.Broadcast("tokens", snapshot)
 	}
-	return nil
+	return discovered, nil
 }

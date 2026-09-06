@@ -58,32 +58,33 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 }
 
-// cycle, tek scoreOnce + health Report (best-effort). scored/sampleErr'i Report'a taşımak için
-// scoreOnce'ın döndürdüğü err yeterli: ok=(err==nil). itemsProcessed v1'de 0 (state+lastErr yeterli).
+// cycle, tek scoreOnce + health Report (best-effort). scoreOnce, o cycle'da başarıyla
+// persist edilen token sayısını (itemsProcessed) döndürür; ok=(err==nil).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.scoreOnce(ctx)
+	n, err := w.scoreOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("safety score", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerSafety, err == nil, err, 0)
+		w.d.Health.Report(health.WorkerSafety, err == nil, err, n)
 	}
 }
 
 // scoreOnce, bir döngü: hedefleri çek → her birini skorla → persist (kısmi hata izole).
 // Döngü sonunda tik başına TEK özet log basar (gözlemlenebilirlik): hiçbir token
 // skorlanamazsa (ör. Helius 429 → sessiz nötr-sıfır) WARN + örnek neden ile alarm verir.
-func (w *Worker) scoreOnce(ctx context.Context) error {
+// Dönüş: o cycle'da başarıyla persist edilen token sayısı (health itemsProcessed).
+func (w *Worker) scoreOnce(ctx context.Context) (int, error) {
 	targets, err := w.d.Store.SafetyScoreTargets(ctx, w.d.Limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	now := w.d.Now()
-	var scored, totalFail, authUnknown, holdersUnknown int
+	var scored, persisted, totalFail, authUnknown, holdersUnknown int
 	var sampleErr error
 	for _, tg := range targets {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return persisted, ctx.Err()
 		}
 		data, err := w.d.Provider.FetchOnChain(ctx, tg.Mint, tg.Creator)
 		if err != nil {
@@ -113,6 +114,7 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 			w.d.Logger.Warn("update safety", "mint", tg.Mint, "err", err)
 			continue
 		}
+		persisted++
 		if res.Confidence > 0 {
 			scored++
 		}
@@ -120,7 +122,7 @@ func (w *Worker) scoreOnce(ctx context.Context) error {
 	if len(targets) > 0 {
 		w.logCycle(ctx, len(targets), scored, totalFail, authUnknown, holdersUnknown, sampleErr)
 	}
-	return nil
+	return persisted, nil
 }
 
 // logCycle, tik özetini basar: hiç skorlama olmadıysa WARN (alarm), aksi hâlde INFO.

@@ -41,8 +41,12 @@ func TestWorker_ResolvesAndStamps_IsolatesError(t *testing.T) {
 	res := stubResolver{m: map[string]string{"cA": "F1", "cB": ""}, fail: "cErr"}
 	w := NewWorker(WorkerDeps{Store: fs, Resolver: res, Limit: 10,
 		Now: func() int64 { return 1000 }, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
-	if err := w.resolveOnce(context.Background()); err != nil {
+	n, err := w.resolveOnce(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("processed = %d, want 2 (cA+cB damgalandı, cErr değil)", n)
 	}
 	// cA → F1 (bulundu), cB → "" (not-found ama damgalanır), cErr → RPC hata → damgalanmaz.
 	if fs.set["cA"] != "F1" {

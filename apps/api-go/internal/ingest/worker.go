@@ -15,18 +15,24 @@ type Broadcaster interface {
 	Broadcast(topic string, payload any)
 }
 
+// SubscribeFunc, WS log aboneliğidir (DIP): canlıda SubscribeLogs, testte fake — Run'ın
+// heartbeat/disconnect health Report yolunu canlı WS olmadan deterministik test etmeyi sağlar.
+type SubscribeFunc func(ctx context.Context, wsURL string, programIDs []string, out chan<- LogNotification) error
+
 type WorkerDeps struct {
-	Registry     *Registry
-	Events       store.EventStore
-	Tokens       store.TokenStore
-	Broadcast    Broadcaster
-	Tx           TxFetcher       // canlıda Helius; testte nil/fake
-	Meta         MetadataFetcher // canlıda Helius; testte nil/fake
-	WSURL        string          // canlı abonelik; testte boş
-	Now          func() int64    // enjekte edilebilir saat (test determinizmi)
-	Logger       *slog.Logger
-	TokensWindow int            // "tokens" broadcast'i için snapshot penceresi (RecentTokens limit)
-	Health       health.Reporter // System Health (Task 6); nil-güvenli
+	Registry      *Registry
+	Events        store.EventStore
+	Tokens        store.TokenStore
+	Broadcast     Broadcaster
+	Tx            TxFetcher       // canlıda Helius; testte nil/fake
+	Meta          MetadataFetcher // canlıda Helius; testte nil/fake
+	WSURL         string          // canlı abonelik; testte boş
+	Now           func() int64    // enjekte edilebilir saat (test determinizmi)
+	Logger        *slog.Logger
+	TokensWindow  int             // "tokens" broadcast'i için snapshot penceresi (RecentTokens limit)
+	Health        health.Reporter // System Health (Task 6); nil-güvenli
+	Subscribe     SubscribeFunc   // nil → SubscribeLogs (canlı); test fake enjekte eder
+	StatsInterval time.Duration   // heartbeat/health-report periyodu; 0 → 30s (canlı)
 }
 
 type Worker struct {
@@ -44,6 +50,12 @@ func NewWorker(d WorkerDeps) *Worker {
 	}
 	if d.TokensWindow <= 0 {
 		d.TokensWindow = 200
+	}
+	if d.Subscribe == nil {
+		d.Subscribe = SubscribeLogs
+	}
+	if d.StatsInterval <= 0 {
+		d.StatsInterval = 30 * time.Second
 	}
 	return &Worker{d: d, seen: map[string]struct{}{}}
 }
@@ -106,7 +118,7 @@ func (w *Worker) Run(ctx context.Context) {
 	// (Başarılı decode sessizdir; bu, "bağlı ama veri gelmiyor" durumunu görünür kılar.)
 	// Ops görünürlüğü: başarılı decode sessizdir; heartbeat, Helius'un teslim ettiği
 	// bildirim/işlenen sayısını periyodik loglar ("bağlı ama veri gelmiyor"u görünür kılar).
-	stats := time.NewTicker(30 * time.Second)
+	stats := time.NewTicker(w.d.StatsInterval)
 	defer stats.Stop()
 	var received, processed int64
 
@@ -116,7 +128,7 @@ func (w *Worker) Run(ctx context.Context) {
 		ch := make(chan LogNotification, 256)
 		done := make(chan error, 1)
 		subCtx, cancel := context.WithCancel(ctx)
-		go func() { done <- SubscribeLogs(subCtx, w.d.WSURL, w.d.Registry.ProgramIDs(), ch) }()
+		go func() { done <- w.d.Subscribe(subCtx, w.d.WSURL, w.d.Registry.ProgramIDs(), ch) }()
 
 		connected := true
 		for connected {
@@ -127,6 +139,10 @@ func (w *Worker) Run(ctx context.Context) {
 			case <-stats.C:
 				w.d.Logger.Info("ingest heartbeat", "alınan_30s", received, "işlenen_30s", processed)
 				if w.d.Health != nil {
+					// NOT: ingest-ws için itemsProcessed = decode-EDİLEBİLİR bildirim sayısı
+					// (Process/dedup'tan ÖNCE, decoder'ı olan program). Ticker worker'ların
+					// "başarıyla persist edilen hedef" semantiğinden farklı — event-driven bir
+					// worker'da "teslim alınan iş" doğal ölçü; panel tüketicisi bu farkı bilmeli.
 					w.d.Health.Report(health.WorkerIngestWS, true, nil, int(processed))
 				}
 				received, processed = 0, 0
