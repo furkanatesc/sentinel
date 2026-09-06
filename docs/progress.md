@@ -380,7 +380,9 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   minor'ları). Whole-branch review (opus) **"Ready to merge: Yes"** (0 Critical/Important, 3 Minor — hepsi
   giderildi: ingest-ws `processed` semantiği yorumu [decode-edilebilir bildirim ≠ ticker'ların persist-sayımı],
   manipulation/opportunity ctx-cancel `n==0` assertion, heartbeat testi kümülatif-toplam ==3). **DURUM:
-  master'a merge + push kullanıcı onayı bekliyor.**
+  master'a MERGE + origin/master'a PUSH edildi (2026-09-06, merge commit `e879398`; kullanıcı "merge+push"
+  seçti) → Vercel (Research dahil) + Railway deploy tetiklendi. Deploy-sonrası canlı doğrulama bekliyor:
+  Railway build yeşil mi + `/api/system-health` ingest-ws itemsProcessed gerçek sayı gösteriyor mu.**
 
 ## Açık takip maddeleri
 
