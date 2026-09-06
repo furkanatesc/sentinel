@@ -56,7 +56,7 @@ export default function NotificationSettings({ config }: { config: NotificationC
       </div>
 
       <div className="flex items-center justify-between">
-        <label className="text-xs text-foreground/60">Trade onayını Slack'ten iste</label>
+        <label className="text-xs text-foreground/60">{"Trade onayını Slack'ten iste"}</label>
         <Toggle checked={tradeApproval} onChange={setTradeApproval} label="Trade onayı" />
       </div>
 
