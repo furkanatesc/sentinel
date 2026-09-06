@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ShieldCheck, Wifi, Send } from "lucide-react";
+import { ChevronLeft, ShieldCheck, Wifi, Hash } from "lucide-react";
 import { navItems } from "./nav";
 import { TradingModeBadge } from "./TradingModeBadge";
 import { useUiStore } from "@/lib/store/ui";
@@ -44,7 +44,7 @@ export function Sidebar() {
           <div className="mb-3 space-y-1.5">
             <StatusRow icon={<Wifi size={12} />} label="RPC" value="142 ms" ok />
             <StatusRow icon={<span className="h-2 w-2 rounded-full bg-positive" />} label="Solana" value="Sağlıklı" ok />
-            <StatusRow icon={<Send size={12} />} label="Telegram" value="Bağlı" ok />
+            <StatusRow icon={<Hash size={12} />} label="Slack" value="Bağlı" ok />
           </div>
         )}
         <TradingModeBadge collapsed={collapsed} />
