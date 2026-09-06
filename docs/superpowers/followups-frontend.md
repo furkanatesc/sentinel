@@ -291,6 +291,28 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
   (429) kök nedeni buydu. (4) Nötr skorlar UI'da ekstrem renk gösterebilir (0=düşük/kırmızı, higherIsBetter=false
   için 100=yeşil); `confidence:0` "veri yok" sinyali — A2 gerçek skorları getirene kadar dokümante tasarım kararı.
 
+## Alerts + Slack (Increment 12) — deferred
+
+Increment 12 (`feat/alerts-slack`, 2026-09-06) `/alerts` + `/slack` ekranlarını frontend-mock teslim etti
+(Telegram→Slack pivotu). Aşağıdakiler bilinçle bu artıma dahil edilmedi. Sessiz düşürme yok:
+
+- **Gerçek Slack teslimatı + kural persist → Backend Alt-proje 3.** `getAlertRules`/`getNotificationConfig`
+  `LIVE_ENDPOINTS`'te DEĞİL (httpApi `notReady`) → her modda mock. Backend endpoint gelince: `LIVE_ENDPOINTS`'e
+  ekle + `SentinelApi`'ye mutation seam'i (kural oluştur/güncelle/sil, test bildirimi POST, config kaydet) —
+  şu an tümü simüle (toast/local state), yapısal güvenlik gereği mutation yok.
+- **Diğer ekranların "Telegram alert" butonları Slack'e çevrilmedi (bu artım dışı, işaretli):**
+  `components/creator/CreatorHeader.tsx` + `components/token/TokenActions.tsx` hâlâ "Telegram" etiketi/aksiyonu
+  taşıyor. Ayrı bir dokunuşta Slack'e çevrilecek. Tasarım dokümanı Ekran 10 dışındaki Telegram referansları
+  (vizyon prose, token/creator header) da o zaman güncellenecek.
+- **Kural aç/kapa + form + ayarlar local-only (simüle).** `AlertRulesPanel` toggle override map, `AlertRuleForm`
+  submit, `NotificationSettings` değişiklikleri sayfa yenilenince sıfırlanır (persist yok — Alt-proje 3).
+- **Alarm geçmişi live (`subscribeAlerts`) bağlanmadı.** `AlertHistoryPanel` `useAlerts` snapshot okuyor;
+  `subscribeAlerts` seam'i mevcut ama httpApi tarafı no-op — canlı push backend WS alert-engine'e bağlı.
+- **`AlertRuleForm` a11y:** hata `<span>`'leri `aria-describedby`/`role="alert"` taşımıyor (Inc8/9 order-form
+  ile aynı a11y follow-up sınıfı). Ekran okuyucu bağlamda duyurmaz.
+- **maxRisk seçimi 3 seviye (medium/high/critical):** `riskMeta`'nın good/strong seviyeleri "maks. risk"
+  semantiğine uymadığı için elendi — kasıtlı, backend kural şeması netleşince gözden geçirilebilir.
+
 ## Backtesting (Increment 9)
 - **Event Replay ertelendi (spec-level, sonraki artım):** Ekran 9'un look-ahead-bias'sız timeline playback
   yarısı bilinçle kapsam dışı bırakıldı (playback state'li oynatıcı + look-ahead engelleme ayrı bir etkileşim).
