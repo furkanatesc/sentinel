@@ -4,9 +4,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SlackConnectionCard from "@/components/slack/SlackConnectionCard";
 import NotificationSettings from "@/components/slack/NotificationSettings";
 import AlertTemplateList from "@/components/slack/AlertTemplateList";
+import SlackMessagePreview from "@/components/slack/SlackMessagePreview";
 
-// SlackContent, /slack ekranının istemci kabuğu: bağlantı + ayarlar + şablonlar
-// (sağ sütun mesaj önizlemesi Task 9'da eklenir).
+// SlackContent, /slack ekranının istemci kabuğu: sol sütun bağlantı + ayarlar + şablonlar,
+// sağ sütun canlı Slack mesaj önizlemesi.
 export default function SlackContent() {
   const { data, isLoading, isError } = useNotificationConfig();
 
@@ -25,10 +26,13 @@ export default function SlackContent() {
     <div className="p-6">
       <h1 className="mb-1 text-lg font-semibold text-foreground">Slack</h1>
       <p className="mb-4 text-sm text-foreground/60">Bildirim teslimat kanalı ve şablonları.</p>
-      <div className="max-w-lg space-y-4">
-        <SlackConnectionCard config={data} />
-        <NotificationSettings config={data} />
-        <AlertTemplateList templates={data.templates} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+        <div className="space-y-4">
+          <SlackConnectionCard config={data} />
+          <NotificationSettings config={data} />
+          <AlertTemplateList templates={data.templates} />
+        </div>
+        <SlackMessagePreview config={data} />
       </div>
     </div>
   );

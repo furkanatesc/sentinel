@@ -25,8 +25,9 @@ vi.mock("@/lib/hooks/queries", () => ({
 describe("SlackContent", () => {
   it("bağlantı + channel gösterir", () => {
     render(<SlackContent />);
-    expect(screen.getByText("#alerts")).toBeInTheDocument();
-    expect(screen.getByText(/Sentinel HQ/)).toBeInTheDocument();
+    // #alerts hem bağlantı kartında hem mesaj önizlemesinde görünür.
+    expect(screen.getAllByText("#alerts").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Sentinel HQ/).length).toBeGreaterThan(0);
   });
   it("test bildirimi → simüle toast", () => {
     render(<SlackContent />);
