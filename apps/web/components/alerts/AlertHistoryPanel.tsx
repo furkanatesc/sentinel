@@ -3,14 +3,8 @@ import { useState } from "react";
 import { useAlerts } from "@/lib/hooks/queries";
 import { severityMeta, type AlertSeverity } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ALERT_SEVERITY_LABELS } from "@/lib/alerts/alert-defs";
 import AlertHistoryRow from "./AlertHistoryRow";
-
-const SEVERITY_LABELS: Record<AlertSeverity, string> = {
-  info: "Bilgi",
-  positive: "Olumlu",
-  warning: "Uyarı",
-  critical: "Kritik",
-};
 
 // AlertHistoryPanel, alarm geçmişini (mevcut AlertEvent seam'i) severity filtresiyle listeler.
 export default function AlertHistoryPanel() {
@@ -36,9 +30,9 @@ export default function AlertHistoryPanel() {
         <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
           Tümü
         </FilterChip>
-        {(Object.keys(SEVERITY_LABELS) as AlertSeverity[]).map((s) => (
+        {(Object.keys(ALERT_SEVERITY_LABELS) as AlertSeverity[]).map((s) => (
           <FilterChip key={s} active={filter === s} onClick={() => setFilter(s)} dot={severityMeta[s].dot}>
-            {SEVERITY_LABELS[s]}
+            {ALERT_SEVERITY_LABELS[s]}
           </FilterChip>
         ))}
       </div>

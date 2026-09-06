@@ -1,5 +1,5 @@
 import type { AlertTriggerType, DeliveryChannel } from "@/lib/api/types";
-import type { RiskLevel } from "@/lib/format";
+import type { RiskLevel, AlertSeverity } from "@/lib/format";
 import {
   Sparkles, Droplet, DropletOff, TrendingDown, Fish, Users, Activity, Zap,
   Globe, Hash, Mail, Webhook, type LucideIcon,
@@ -16,6 +16,14 @@ export const ALERT_TRIGGER_DEFS: Record<AlertTriggerType, { label: string; icon:
   holder_growth: { label: "Holder Artışı", icon: Users, description: "Holder sayısı hızlı arttı" },
   score_change: { label: "Skor Değişti", icon: Activity, description: "Güvenlik skoru değişti" },
   strategy_signal: { label: "Strateji Sinyali", icon: Zap, description: "Bir strateji sinyal üretti" },
+};
+
+// Alarm önem seviyesi Türkçe etiketleri (severityMeta'da label yok — filtre/eşik UI'ı için).
+export const ALERT_SEVERITY_LABELS: Record<AlertSeverity, string> = {
+  info: "Bilgi",
+  positive: "Olumlu",
+  warning: "Uyarı",
+  critical: "Kritik",
 };
 
 // OCP: teslimat kanalı registry'si (Web / Slack / Email / Webhook).
