@@ -7,13 +7,13 @@ import { riskMeta } from "@/lib/format";
 import {
   ALERT_TRIGGER_DEFS,
   DELIVERY_CHANNEL_DEFS,
+  MAX_RISK_LEVELS,
   validateAlertRule,
   type AlertRuleDraft,
 } from "@/lib/alerts/alert-defs";
 
 const TRIGGERS = Object.keys(ALERT_TRIGGER_DEFS) as AlertTriggerType[];
 const CHANNELS = Object.keys(DELIVERY_CHANNEL_DEFS) as DeliveryChannel[];
-const MAX_RISKS: RiskLevel[] = ["medium", "high", "critical"];
 
 const EMPTY: AlertRuleDraft = {
   name: "",
@@ -32,19 +32,26 @@ export default function AlertRuleForm({ onDone }: { onDone?: () => void }) {
   const [errors, setErrors] = useState<{ field: string; msg: string }[]>([]);
 
   const errOf = (field: string) => errors.find((e) => e.field === field)?.msg;
-  const set = <K extends keyof AlertRuleDraft>(k: K, v: AlertRuleDraft[K]) =>
+  const clearErr = (field: string) => setErrors((es) => es.filter((e) => e.field !== field));
+  const set = <K extends keyof AlertRuleDraft>(k: K, v: AlertRuleDraft[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
-  const toggleChannel = (c: DeliveryChannel) =>
+    clearErr(k); // düzeltirken hata anında kalksın (bir sonraki submit'i beklemeden)
+  };
+  const toggleChannel = (c: DeliveryChannel) => {
     setDraft((d) => ({
       ...d,
       channels: d.channels.includes(c) ? d.channels.filter((x) => x !== c) : [...d.channels, c],
     }));
+    clearErr("channels");
+  };
 
   const submit = () => {
     const errs = validateAlertRule(draft);
     setErrors(errs);
     if (errs.length > 0) return;
     toast.success("Kural kaydedildi (simüle — kalıcı değil)");
+    setDraft(EMPTY); // başarılı kayıt sonrası taslağı sıfırla (tekrar açılışta eski değer kalmasın)
+    setErrors([]);
     onDone?.();
   };
 
@@ -112,7 +119,7 @@ export default function AlertRuleForm({ onDone }: { onDone?: () => void }) {
           onChange={(e) => set("maxRisk", e.target.value as RiskLevel)}
           className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm"
         >
-          {MAX_RISKS.map((r) => (
+          {MAX_RISK_LEVELS.map((r) => (
             <option key={r} value={r}>
               {riskMeta[r].label}
             </option>

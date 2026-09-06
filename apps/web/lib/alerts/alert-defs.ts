@@ -18,6 +18,10 @@ export const ALERT_TRIGGER_DEFS: Record<AlertTriggerType, { label: string; icon:
   strategy_signal: { label: "Strateji Sinyali", icon: Zap, description: "Bir strateji sinyal üretti" },
 };
 
+// Kural "maks. risk" tavanı için anlamlı seviyeler — good/strong pozitif olduğundan tavan
+// olarak elenir. Tek kaynak (form buradan türetir); RiskLevel'a yeni riskli tier eklenirse burası.
+export const MAX_RISK_LEVELS: RiskLevel[] = ["medium", "high", "critical"];
+
 // Alarm önem seviyesi Türkçe etiketleri (severityMeta'da label yok — filtre/eşik UI'ı için).
 export const ALERT_SEVERITY_LABELS: Record<AlertSeverity, string> = {
   info: "Bilgi",

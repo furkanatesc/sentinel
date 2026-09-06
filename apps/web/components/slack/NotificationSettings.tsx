@@ -9,6 +9,8 @@ const SEVERITIES = Object.keys(ALERT_SEVERITY_LABELS) as AlertSeverity[];
 // NotificationSettings, teslimat eşiği + sessiz saatler + trade onayı. Kontrollü local state;
 // değişiklikler SIMÜLE (persist yok — Backend Alt-proje 3).
 export default function NotificationSettings({ config }: { config: NotificationConfig }) {
+  // TODO(Backend Alt-proje 3): bu local state gerçek teslimatta mutation seam'ine kaldırılacak
+  // (kaydet → NotificationConfig persist). Şu an write-only/simüle — aşağıdaki not bunu belirtir.
   const [minSeverity, setMinSeverity] = useState<AlertSeverity>(config.minSeverity);
   const [quiet, setQuiet] = useState(config.quietHours);
   const [tradeApproval, setTradeApproval] = useState(config.tradeApproval);
