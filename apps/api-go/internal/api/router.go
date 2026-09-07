@@ -26,6 +26,7 @@ type RouterDeps struct {
 	CreatorsLimit         int
 	WalletGraphMinCluster int
 	WalletGraphMaxDegree  int
+	KpiSparkWindow        int // /api/kpis spark penceresi (son N örnek); 0 → handler varsayılanı (24)
 	Health                healthSnapshotter
 	Pinger                store.Pinger
 	Gates                 map[string]bool
@@ -49,7 +50,7 @@ func NewRouter(d RouterDeps) http.Handler {
 	}
 	if d.Tokens != nil {
 		r.Get("/api/tokens", tokensHandler(d.Tokens, d.EventsWindow))
-		r.Get("/api/kpis", kpisHandler(d.Tokens))
+		r.Get("/api/kpis", kpisHandler(d.Tokens, d.KpiSparkWindow))
 		r.Get("/api/radar", radarHandler(d.Tokens, d.EventsWindow))
 		mc, md := d.WalletGraphMinCluster, d.WalletGraphMaxDegree
 		if mc <= 0 {
