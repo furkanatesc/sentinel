@@ -78,6 +78,14 @@ type Config struct {
 	OpportunityIntervalSec int
 	OpportunityLimit       int
 
+	TrendEnabled           bool
+	TrendSampleIntervalSec int
+	TrendSampleKeep        int
+	// TrendSparkWindow, /api/kpis spark'ının kaç örnek gösterdiğidir. Not: pencere SÜRE değil
+	// SAYIdır — 24 örnek × INTERVAL_SEC(300) ≈ 2 saatlik trend; KEEP(288) ise ~24s retention.
+	// change % bu pencereye görelidir (kart etiketindeki "24s" ham sayım, spark ~son 2s trendi).
+	TrendSparkWindow int
+
 	WalletGraphEnabled       bool
 	FunderResolveIntervalSec int
 	FunderResolveLimit       int
@@ -159,6 +167,11 @@ func Load() Config {
 		OpportunityEnabled:     getenvBool("OPPORTUNITY_ENABLED", true),
 		OpportunityIntervalSec: getenvInt("OPPORTUNITY_INTERVAL_SEC", 60),
 		OpportunityLimit:       getenvInt("OPPORTUNITY_LIMIT", 100),
+
+		TrendEnabled:           getenvBool("TREND_ENABLED", true),
+		TrendSampleIntervalSec: getenvInt("TREND_SAMPLE_INTERVAL_SEC", 300),
+		TrendSampleKeep:        getenvInt("TREND_SAMPLE_KEEP", 288),
+		TrendSparkWindow:       getenvInt("TREND_SPARK_WINDOW", 24),
 
 		WalletGraphEnabled:       getenvBool("WALLET_GRAPH_ENABLED", true),
 		FunderResolveIntervalSec: getenvInt("FUNDER_RESOLVE_INTERVAL_SEC", 60),

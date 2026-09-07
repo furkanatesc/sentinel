@@ -401,8 +401,25 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   lint (yeni dosyalar temiz).** Görsel doğrulandı (dev, 2026-09-06): her iki ekran tasarıma uygun render,
   nav "Slack"/Hash + sidebar "Slack: Bağlı", Slack önizlemesi GFROG örnek mesajıyla dolu. Whole-branch review
   (opus) **"Ready to merge: Yes"** (0 Critical/Important, 3 Minor — hepsi giderildi: MAX_RISK_LEVELS sabiti,
-  form hata-temizleme/reset, NotificationSettings Alt-proje 3 TODO). **DURUM: master'a merge + push kullanıcı
-  onayı bekliyor.** Ertelenenler → `docs/superpowers/followups-frontend.md` "Alerts + Slack (Increment 12)".
+  form hata-temizleme/reset, NotificationSettings Alt-proje 3 TODO). **DURUM: master'a MERGE + PUSH edildi
+  (2026-09-07, merge `a3d8906`) → Vercel deploy CANLI DOĞRULANDI (prod `/alerts`+`/slack` render + Slack
+  pivotu).** Ertelenenler → `docs/superpowers/followups-frontend.md` "Alerts + Slack (Increment 12)".
+
+- 2026-09-07 — **Backend KPI Trend (spark+change) kod tamamlandı (branch `feat/backend-kpi-trend`).** Alt-proje 2
+  fast-follow, **entegrasyon-gerektirmez** (kullanıcı kararı 2026-09-07: "Helius gibi entegrasyonları sona
+  bak" → harici/ücretli entegrasyonlar sona ertelendi). "Trend/zaman-serisi" işinin **A dilimi** (B token
+  likidite serisi A bitince, C radar ertelendi). `/api/kpis`'in boş `change`/`spark`'ı artık gerçek: migration
+  `0014_create_kpi_samples` + store seam (`InsertKpiSample` idempotent / `RecentKpiSamples` kronolojik ASC /
+  `PruneKpiSamples` retention) + `internal/trend` örnekleme worker'ı (periyodik `store.Kpis()` snapshot + prune,
+  saf DB RPC YOK, System Health'e `trend` olarak kayıtlı) + saf `kpiTrend` türetme + `kpisHandler(ts,
+  sparkWindow)` 4 gerçek KPI'ya spark/change (4 placeholder dokunulmaz). Config: `TREND_ENABLED`(true)/
+  `_SAMPLE_INTERVAL_SEC`(300)/`_SAMPLE_KEEP`(288)/`_SPARK_WINDOW`(24). Geriye uyumlu (örnek yoksa spark `[]`,
+  change 0). **Tüm testler `go test ./... -race` + `go vet` + build yeşil.** Frontend dokunulmadı (seam
+  `Kpi.change`/`spark` zaten mevcut). Whole-branch review (opus) **"Ready to merge: With fixes"** (0 Critical,
+  1 Important + 4 Minor) → Important #1 (itemsProcessed hatada 1 raporluyordu → persist-sayımı 0/1) +
+  #2 postgres keep/limit<=0 parity guard + #4 gereksiz index kaldır + #5 spark-pencere yorumu giderildi
+  (#3 gate-konvansiyonu atlandı). **DURUM: merge + push kullanıcı onayı bekliyor.** Ertelenenler →
+  `docs/superpowers/followups-frontend.md` "KPI Trend".
 
 ## Açık takip maddeleri
 

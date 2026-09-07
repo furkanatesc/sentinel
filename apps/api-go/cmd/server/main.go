@@ -24,6 +24,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/trend"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/walletgraph"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
 )
@@ -189,6 +190,7 @@ func main() {
 	healthReg.Register(health.WorkerReputation, cfg.ReputationEnabled, time.Duration(cfg.ReputationIntervalSec)*time.Second)
 	healthReg.Register(health.WorkerManipulation, cfg.ManipulationEnabled, time.Duration(cfg.ManipulationIntervalSec)*time.Second)
 	healthReg.Register(health.WorkerOpportunity, cfg.OpportunityEnabled, time.Duration(cfg.OpportunityIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerTrend, cfg.TrendEnabled && bundle.Tokens != nil, time.Duration(cfg.TrendSampleIntervalSec)*time.Second)
 
 	gates := map[string]bool{
 		"MARKET_ENABLED":       cfg.MarketEnabled,
@@ -199,6 +201,7 @@ func main() {
 		"REPUTATION_ENABLED":   cfg.ReputationEnabled,
 		"MANIPULATION_ENABLED": cfg.ManipulationEnabled,
 		"OPPORTUNITY_ENABLED":  cfg.OpportunityEnabled,
+		"TREND_ENABLED":        cfg.TrendEnabled,
 	}
 
 	// Paylaşılan hız sınırlayıcı: creatorfill + funder worker'ları AYNI creatorFillRPC
@@ -274,6 +277,17 @@ func main() {
 		go ow.Run(ctx)
 	}
 
+	// trend örnekleme worker'ı — KPI zaman-serisi snapshot (spark/change); saf DB (RPC YOK)
+	if cfg.TrendEnabled && bundle.Tokens != nil {
+		tw := trend.NewWorker(trend.WorkerDeps{
+			Store:    bundle.Tokens,
+			Interval: time.Duration(cfg.TrendSampleIntervalSec) * time.Second,
+			Keep:     cfg.TrendSampleKeep, Logger: logger,
+			Health: healthReg,
+		})
+		go tw.Run(ctx)
+	}
+
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
 		Handler: api.NewRouter(api.RouterDeps{
@@ -285,6 +299,7 @@ func main() {
 			CreatorsLimit:         cfg.CreatorsListLimit,
 			WalletGraphMinCluster: cfg.WalletGraphMinCluster,
 			WalletGraphMaxDegree:  cfg.WalletGraphMaxDegree,
+			KpiSparkWindow:        cfg.TrendSparkWindow,
 			Health:                healthReg,
 			Pinger:                bundle.Pinger,
 			Gates:                 gates,

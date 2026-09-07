@@ -82,6 +82,8 @@ type fakeTokenStore struct {
 		funder     string
 		resolvedTs int64
 	}
+	// trend: kpi_samples parity (ts → KpiCounts).
+	kpiSamples map[int64]KpiCounts
 }
 
 // Ping, fake store için her zaman sağlıklı (in-memory; dürüst).
@@ -604,6 +606,50 @@ func (f *fakeTokenStore) Kpis(_ context.Context) (KpiCounts, error) {
 		}
 	}
 	return c, nil
+}
+
+// InsertKpiSample, ts anahtarlı in-memory snapshot (aynı ts idempotent). trend parity.
+func (f *fakeTokenStore) InsertKpiSample(_ context.Context, ts int64, c KpiCounts) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.kpiSamples == nil {
+		f.kpiSamples = map[int64]KpiCounts{}
+	}
+	f.kpiSamples[ts] = c
+	return nil
+}
+
+// RecentKpiSamples, kronolojik (ts ASC) son `limit` örneği döndürür.
+func (f *fakeTokenStore) RecentKpiSamples(_ context.Context, limit int) ([]KpiSample, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	all := make([]KpiSample, 0, len(f.kpiSamples))
+	for ts, c := range f.kpiSamples {
+		all = append(all, KpiSample{Ts: ts, KpiCounts: c})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].Ts < all[j].Ts })
+	if limit > 0 && len(all) > limit {
+		all = all[len(all)-limit:] // en yeni `limit` (kuyruk), kronolojik kalır
+	}
+	return all, nil
+}
+
+// PruneKpiSamples, en yeni `keep` örnek dışındakileri siler (retention).
+func (f *fakeTokenStore) PruneKpiSamples(_ context.Context, keep int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if keep <= 0 || len(f.kpiSamples) <= keep {
+		return nil
+	}
+	tss := make([]int64, 0, len(f.kpiSamples))
+	for ts := range f.kpiSamples {
+		tss = append(tss, ts)
+	}
+	sort.Slice(tss, func(i, j int) bool { return tss[i] > tss[j] }) // DESC
+	for _, ts := range tss[keep:] {
+		delete(f.kpiSamples, ts)
+	}
+	return nil
 }
 
 func (f *fakeTokenStore) Radar(ctx context.Context, limit int) ([]RadarPoint, error) {
