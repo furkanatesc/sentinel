@@ -12,6 +12,8 @@ import (
 // DetailStore, getToken için tek token kimlik+havuz kaynağıdır (tüketici arayüzü; store.TokenStore karşılar).
 type DetailStore interface {
 	TokenDetailBase(ctx context.Context, mint string) (store.TokenDetailBase, bool, error)
+	// trend B: token likidite zaman-serisi (kronolojik). Örneksiz mint → boş.
+	LiquiditySeries(ctx context.Context, mint string, limit int) ([]store.SeriesPoint, error)
 }
 
 // HoldersProvider, bir mint'in holder sayısını verir (tüketici arayüzü; ingest.HeliusHolders karşılar).
@@ -20,15 +22,16 @@ type HoldersProvider interface {
 }
 
 type TokenDetailDeps struct {
-	Store        DetailStore
-	Provider     MarketProvider
-	Holders      HoldersProvider
-	CacheTTL     time.Duration // 0 → 20s
-	OHLCVLimit   int           // 0 → 200
-	HoldersCap   int           // 0 → 5000
-	MinuteMaxAge int64         // 0 → 21600 (6h); bundan genç → minute, değilse hour
-	Now          func() int64
-	Logger       *slog.Logger
+	Store          DetailStore
+	Provider       MarketProvider
+	Holders        HoldersProvider
+	CacheTTL       time.Duration // 0 → 20s
+	OHLCVLimit     int           // 0 → 200
+	HoldersCap     int           // 0 → 5000
+	MinuteMaxAge   int64         // 0 → 21600 (6h); bundan genç → minute, değilse hour
+	LiqSeriesLimit int           // trend B: series.liquidity okuma cap'i; 0 → doldurma (geriye uyumlu)
+	Now            func() int64
+	Logger         *slog.Logger
 }
 
 type cacheEntry struct {
@@ -111,6 +114,15 @@ func (s *TokenDetailService) Build(ctx context.Context, mint string) (store.Toke
 		for _, c := range candles {
 			d.Series.Price = append(d.Series.Price, store.SeriesPoint{T: c.Ts, V: c.Close})
 			d.Series.Volume = append(d.Series.Volume, store.SeriesPoint{T: c.Ts, V: c.Volume})
+		}
+	}
+
+	// Likidite serisi (trend B; DB'den, best-effort — örneksiz/eski mint → boş).
+	if s.d.LiqSeriesLimit > 0 {
+		if pts, err := s.d.Store.LiquiditySeries(ctx, mint, s.d.LiqSeriesLimit); err != nil {
+			s.d.Logger.Warn("detail liquidity series", "mint", mint, "err", err)
+		} else if len(pts) > 0 {
+			d.Series.Liquidity = pts
 		}
 	}
 

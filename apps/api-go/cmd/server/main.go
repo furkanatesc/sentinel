@@ -134,6 +134,7 @@ func main() {
 			Store: bundle.Tokens, Provider: gtForDetail, Holders: holders,
 			CacheTTL:   time.Duration(cfg.TokenDetailCacheSec) * time.Second,
 			OHLCVLimit: cfg.OHLCVLimit, HoldersCap: cfg.HoldersCap, Logger: logger,
+			LiqSeriesLimit: cfg.TrendLiqSeriesLimit,
 		})
 	}
 
@@ -202,6 +203,7 @@ func main() {
 		"MANIPULATION_ENABLED": cfg.ManipulationEnabled,
 		"OPPORTUNITY_ENABLED":  cfg.OpportunityEnabled,
 		"TREND_ENABLED":        cfg.TrendEnabled,
+		"TREND_LIQ_ENABLED":    cfg.TrendLiqEnabled,
 	}
 
 	// Paylaşılan hız sınırlayıcı: creatorfill + funder worker'ları AYNI creatorFillRPC
@@ -283,7 +285,10 @@ func main() {
 			Store:    bundle.Tokens,
 			Interval: time.Duration(cfg.TrendSampleIntervalSec) * time.Second,
 			Keep:     cfg.TrendSampleKeep, Logger: logger,
-			Health: healthReg,
+			Health:         healthReg,
+			LiqEnabled:     cfg.TrendLiqEnabled,
+			LiqSampleLimit: cfg.TrendLiqSampleLimit,
+			LiqKeepSeconds: int64(cfg.TrendLiqKeepHours) * 3600,
 		})
 		go tw.Run(ctx)
 	}

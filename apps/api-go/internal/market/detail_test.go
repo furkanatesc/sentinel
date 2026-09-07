@@ -10,11 +10,16 @@ import (
 
 type fakeDetailStore struct {
 	base map[string]store.TokenDetailBase
+	liq  map[string][]store.SeriesPoint // trend B: mint → likidite serisi
 }
 
 func (f *fakeDetailStore) TokenDetailBase(_ context.Context, mint string) (store.TokenDetailBase, bool, error) {
 	b, ok := f.base[mint]
 	return b, ok, nil
+}
+
+func (f *fakeDetailStore) LiquiditySeries(_ context.Context, mint string, _ int) ([]store.SeriesPoint, error) {
+	return f.liq[mint], nil
 }
 
 type fakeHolders struct {
@@ -71,6 +76,37 @@ func TestBuildMapsRealFields(t *testing.T) {
 	}
 	if len(d.Series.Price) != 2 || d.Series.Price[1].V != 5 || len(d.Series.Volume) != 2 {
 		t.Fatalf("series yanlış: %+v", d.Series)
+	}
+}
+
+func TestBuildFillsLiquiditySeries(t *testing.T) {
+	dp := &detailProvider{
+		pools:   []Pool{{PoolAddr: "P1", Mint: "M1"}},
+		candles: []Candle{{Ts: 1, Close: 4, Volume: 100}},
+	}
+	fs := &fakeDetailStore{
+		base: map[string]store.TokenDetailBase{"M1": {Symbol: "ONE", PoolAddr: "P1"}},
+		liq:  map[string][]store.SeriesPoint{"M1": {{T: 100, V: 1000}, {T: 200, V: 1200}}},
+	}
+	// LiqSeriesLimit>0 → series.liquidity dolu
+	svc := NewTokenDetailService(TokenDetailDeps{
+		Store: fs, Provider: dp, Holders: &fakeHolders{}, LiqSeriesLimit: 500, Now: func() int64 { return 300 },
+	})
+	d, ok, err := svc.Build(context.Background(), "M1")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if len(d.Series.Liquidity) != 2 || d.Series.Liquidity[0].T != 100 || d.Series.Liquidity[1].V != 1200 {
+		t.Fatalf("series.liquidity [1000@100,1200@200] beklenir: %+v", d.Series.Liquidity)
+	}
+
+	// LiqSeriesLimit=0 → doldurma yok (geriye uyumlu)
+	svc0 := NewTokenDetailService(TokenDetailDeps{
+		Store: fs, Provider: dp, Holders: &fakeHolders{}, Now: func() int64 { return 300 },
+	})
+	d0, _, _ := svc0.Build(context.Background(), "M1")
+	if len(d0.Series.Liquidity) != 0 {
+		t.Fatalf("LiqSeriesLimit=0 → series.liquidity boş kalmalı: %+v", d0.Series.Liquidity)
 	}
 }
 

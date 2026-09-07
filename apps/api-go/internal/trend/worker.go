@@ -16,15 +16,22 @@ type Sampler interface {
 	Kpis(ctx context.Context) (store.KpiCounts, error)
 	InsertKpiSample(ctx context.Context, ts int64, c store.KpiCounts) error
 	PruneKpiSamples(ctx context.Context, keep int) error
+	// trend B: en yeni N token likiditesi snapshot + yaş-tabanlı prune.
+	InsertLiquiditySamples(ctx context.Context, ts int64, limit int) error
+	PruneLiquiditySamples(ctx context.Context, cutoff int64) error
 }
 
 type WorkerDeps struct {
 	Store    Sampler
 	Interval time.Duration
-	Keep     int          // retention: en yeni `keep` örnek tutulur
+	Keep     int          // retention: en yeni `keep` KPI örneği tutulur
 	Now      func() int64 // enjekte edilebilir saat (test determinizmi)
 	Logger   *slog.Logger
 	Health   health.Reporter // nil-güvenli
+	// trend B: token likidite örnekleme (aynı interval).
+	LiqEnabled     bool
+	LiqSampleLimit int   // en yeni N token
+	LiqKeepSeconds int64 // yaş-tabanlı retention (ts < now-LiqKeepSeconds silinir)
 }
 
 type Worker struct{ d WorkerDeps }
@@ -59,12 +66,32 @@ func (w *Worker) Run(ctx context.Context) {
 // diğer worker'ların "başarıyla persist edilen" konvansiyonuyla tutarlı (System Health).
 func (w *Worker) cycle(ctx context.Context) {
 	n, err := w.sampleOnce(ctx)
+	// Likidite örnekleme KPI'dan bağımsız: KPI örneği yine yazılır; likidite hatası cycle'ı
+	// degraded raporlar (ilk hata korunur).
+	if w.d.LiqEnabled {
+		if lerr := w.liqSampleOnce(ctx); lerr != nil && err == nil {
+			err = lerr
+		}
+	}
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("trend sample", "err", err)
 	}
 	if w.d.Health != nil {
 		w.d.Health.Report(health.WorkerTrend, err == nil, err, n)
 	}
+}
+
+// liqSampleOnce, en yeni N token likiditesini snapshot'lar + yaş-tabanlı prune.
+func (w *Worker) liqSampleOnce(ctx context.Context) error {
+	if err := w.d.Store.InsertLiquiditySamples(ctx, w.d.Now(), w.d.LiqSampleLimit); err != nil {
+		return err
+	}
+	if w.d.LiqKeepSeconds > 0 {
+		if err := w.d.Store.PruneLiquiditySamples(ctx, w.d.Now()-w.d.LiqKeepSeconds); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // sampleOnce, persist edilen örnek sayısını döndürür: Kpis/Insert hatası → (0,err);

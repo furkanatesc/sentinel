@@ -418,8 +418,24 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   `Kpi.change`/`spark` zaten mevcut). Whole-branch review (opus) **"Ready to merge: With fixes"** (0 Critical,
   1 Important + 4 Minor) → Important #1 (itemsProcessed hatada 1 raporluyordu → persist-sayımı 0/1) +
   #2 postgres keep/limit<=0 parity guard + #4 gereksiz index kaldır + #5 spark-pencere yorumu giderildi
-  (#3 gate-konvansiyonu atlandı). **DURUM: merge + push kullanıcı onayı bekliyor.** Ertelenenler →
-  `docs/superpowers/followups-frontend.md` "KPI Trend".
+  (#3 gate-konvansiyonu atlandı). **DURUM: master'a MERGE + PUSH edildi (2026-09-07, merge `68f05ae`) →
+  Railway deploy CANLI DOĞRULANDI: /api/system-health version=68f05ae + `trend` worker ok + /api/kpis 4
+  gerçek KPI spark dolu (~10dk sonra çok-noktalı+change).** Ertelenenler → `followups-frontend.md` "KPI Trend".
+
+- 2026-09-07 — **Backend Token Likidite Serisi kod tamamlandı (branch `feat/backend-liquidity-series`).**
+  Trend/zaman-serisi işinin **B dilimi** (A=KPI trend merged+deployed). Alt-proje 1c'de ertelenen
+  `series.liquidity`'yi gerçeğe döndürür; **entegrasyon-gerektirmez** (likidite zaten DB'de, GeckoTerminal
+  keysiz enricher). Migration `0015_create_token_liq_samples` + store seam (`InsertLiquiditySamples` set-based
+  en-yeni-N-token/liquidity>0/ON CONFLICT / `PruneLiquiditySamples` yaş-tabanlı / `LiquiditySeries` per-mint
+  ts ASC) + mevcut `internal/trend` worker cycle'ına likidite örnekleme+prune (KPI'dan bağımsız, hata izole) +
+  `detail.go` `Series.Liquidity`'yi best-effort doldurur. Config: `TREND_LIQ_ENABLED`(true)/`_SAMPLE_LIMIT`(200)/
+  `_KEEP_HOURS`(48)/`_SERIES_LIMIT`(500). Geriye uyumlu (örneksiz mint / `LiqSeriesLimit=0` → boş seri).
+  **Tüm testler `go test ./... -race` + vet + build yeşil.** Frontend dokunulmadı. Kapsam dışı: holders serisi
+  (Helius'a bağlı, sona), C radar zaman-serisi (ertelendi). Whole-branch review (opus) **"Ready to merge:
+  With fixes"** (1 Critical + 1 Important + 2 Minor → hepsi giderildi: #1 postgres LiquiditySeries en-ESKİ-N
+  bug'ı → en-YENİ-N subquery [fake tail-N ile hizalı, 576>500'de en yeni hareket düşerdi], #2 fake
+  filtre-sonra-limit parity, #3/#4 yorumlar; iki yeni test). **DURUM: merge + push kullanıcı onayı bekliyor.**
+  Ertelenenler → `docs/superpowers/followups-frontend.md` "KPI Trend" (B kapandı).
 
 ## Açık takip maddeleri
 

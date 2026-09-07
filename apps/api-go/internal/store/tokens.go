@@ -226,6 +226,11 @@ type TokenStore interface {
 	InsertKpiSample(ctx context.Context, ts int64, c KpiCounts) error
 	RecentKpiSamples(ctx context.Context, limit int) ([]KpiSample, error)
 	PruneKpiSamples(ctx context.Context, keep int) error
+	// trend B: token likidite zaman-serisi. Insert en yeni `limit` token'ın likiditesini `ts` anında
+	// set-based snapshot'lar (liquidity>0), Prune ts<cutoff siler, Series bir mint'in serisini ts ASC verir.
+	InsertLiquiditySamples(ctx context.Context, ts int64, limit int) error
+	PruneLiquiditySamples(ctx context.Context, cutoff int64) error
+	LiquiditySeries(ctx context.Context, mint string, limit int) ([]SeriesPoint, error)
 	// 2d: radar scatter noktaları (creatorScore/momentum/liquidity) + risk level (scoreToLevel parity).
 	Radar(ctx context.Context, limit int) ([]RadarPoint, error)
 	// 2e-1: funder'ı çözülmemiş creator hedefleri / bulunan funder'ı persist eder.
@@ -601,6 +606,50 @@ func (p *postgresStore) PruneKpiSamples(ctx context.Context, keep int) error {
 		WHERE ts NOT IN (SELECT ts FROM kpi_samples ORDER BY ts DESC LIMIT $1)`
 	_, err := p.db.ExecContext(ctx, q, keep)
 	return err
+}
+
+func (p *postgresStore) InsertLiquiditySamples(ctx context.Context, ts int64, limit int) error {
+	if limit <= 0 {
+		return nil
+	}
+	const q = `INSERT INTO token_liq_samples (mint, ts, liquidity)
+		SELECT mint, $1, liquidity FROM tokens WHERE liquidity > 0
+		ORDER BY first_seen_ts DESC LIMIT $2
+		ON CONFLICT (mint, ts) DO NOTHING`
+	_, err := p.db.ExecContext(ctx, q, ts, limit)
+	return err
+}
+
+func (p *postgresStore) PruneLiquiditySamples(ctx context.Context, cutoff int64) error {
+	const q = `DELETE FROM token_liq_samples WHERE ts < $1`
+	_, err := p.db.ExecContext(ctx, q, cutoff)
+	return err
+}
+
+func (p *postgresStore) LiquiditySeries(ctx context.Context, mint string, limit int) ([]SeriesPoint, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	// En YENİ `limit` örnek, kronolojik (ts ASC) döndürülür: iç sorgu DESC LIMIT ile en yeni pencereyi
+	// alır, dış sorgu ASC'ye çevirir (RecentKpiSamples deseni). Düz "ORDER BY ts ASC LIMIT" en ESKİ N'i
+	// verirdi — örnek sayısı limit'i aşınca (retention 48s > seriesLimit) en yeni hareket düşerdi.
+	const q = `SELECT ts, liquidity FROM (
+		SELECT ts, liquidity FROM token_liq_samples WHERE mint=$1 ORDER BY ts DESC LIMIT $2
+	) sub ORDER BY ts ASC`
+	rows, err := p.db.QueryContext(ctx, q, mint, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]SeriesPoint, 0, limit)
+	for rows.Next() {
+		var s SeriesPoint
+		if err := rows.Scan(&s.T, &s.V); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 func (p *postgresStore) FunderTargets(ctx context.Context, limit int) ([]FunderTarget, error) {

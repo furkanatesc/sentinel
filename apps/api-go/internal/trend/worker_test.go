@@ -9,7 +9,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
 )
 
-type fakeSampler struct{ inserts, prunes int }
+type fakeSampler struct{ inserts, prunes, liqInserts, liqPrunes int }
 
 func (f *fakeSampler) Kpis(context.Context) (store.KpiCounts, error) {
 	return store.KpiCounts{Detected: 7}, nil
@@ -20,6 +20,14 @@ func (f *fakeSampler) InsertKpiSample(context.Context, int64, store.KpiCounts) e
 }
 func (f *fakeSampler) PruneKpiSamples(context.Context, int) error {
 	f.prunes++
+	return nil
+}
+func (f *fakeSampler) InsertLiquiditySamples(context.Context, int64, int) error {
+	f.liqInserts++
+	return nil
+}
+func (f *fakeSampler) PruneLiquiditySamples(context.Context, int64) error {
+	f.liqPrunes++
 	return nil
 }
 
@@ -60,7 +68,9 @@ func (e *errSampler) InsertKpiSample(context.Context, int64, store.KpiCounts) er
 	e.inserts++
 	return nil
 }
-func (e *errSampler) PruneKpiSamples(context.Context, int) error { return nil }
+func (e *errSampler) PruneKpiSamples(context.Context, int) error               { return nil }
+func (e *errSampler) InsertLiquiditySamples(context.Context, int64, int) error { return nil }
+func (e *errSampler) PruneLiquiditySamples(context.Context, int64) error       { return nil }
 
 func TestWorkerFailedCycleReportsZero(t *testing.T) {
 	es := &errSampler{}
@@ -74,5 +84,30 @@ func TestWorkerFailedCycleReportsZero(t *testing.T) {
 	}
 	if rr.calls == 0 || rr.ok || rr.processed != 0 {
 		t.Fatalf("başarısız cycle Report(trend, ok=false, 0) olmalı: %+v", rr)
+	}
+}
+
+func TestWorkerCycleSamplesLiquidity(t *testing.T) {
+	fs := &fakeSampler{}
+	w := NewWorker(WorkerDeps{
+		Store: fs, Interval: time.Hour, Keep: 10,
+		LiqEnabled: true, LiqSampleLimit: 5, LiqKeepSeconds: 100, Now: func() int64 { return 1000 },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	w.Run(ctx)
+	if fs.inserts != 1 || fs.liqInserts != 1 || fs.liqPrunes != 1 {
+		t.Fatalf("KPI + likidite örnek + prune beklenir: %+v", fs)
+	}
+}
+
+func TestWorkerLiqDisabledByDefault(t *testing.T) {
+	fs := &fakeSampler{}
+	w := NewWorker(WorkerDeps{Store: fs, Interval: time.Hour, Keep: 10, Now: func() int64 { return 1 }})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	w.Run(ctx)
+	if fs.liqInserts != 0 || fs.liqPrunes != 0 {
+		t.Fatalf("LiqEnabled=false → likidite örnekleme olmamalı: %+v", fs)
 	}
 }
