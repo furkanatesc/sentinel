@@ -172,3 +172,23 @@ func TestVersionDefaultsToDev(t *testing.T) {
 		t.Fatalf("Version = %q, want dev", got)
 	}
 }
+
+func TestTrendDefaults(t *testing.T) {
+	t.Setenv("TREND_ENABLED", "")
+	t.Setenv("TREND_SAMPLE_INTERVAL_SEC", "")
+	t.Setenv("TREND_SAMPLE_KEEP", "")
+	t.Setenv("TREND_SPARK_WINDOW", "")
+	c := Load()
+	if !c.TrendEnabled {
+		t.Fatal("TrendEnabled default true")
+	}
+	if c.TrendSampleIntervalSec != 300 {
+		t.Fatalf("interval default 300, got %d", c.TrendSampleIntervalSec)
+	}
+	if c.TrendSampleKeep != 288 {
+		t.Fatalf("keep default 288, got %d", c.TrendSampleKeep)
+	}
+	if c.TrendSparkWindow != 24 {
+		t.Fatalf("spark window default 24, got %d", c.TrendSparkWindow)
+	}
+}
