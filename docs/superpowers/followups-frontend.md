@@ -291,6 +291,28 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
   (429) kök nedeni buydu. (4) Nötr skorlar UI'da ekstrem renk gösterebilir (0=düşük/kırmızı, higherIsBetter=false
   için 100=yeşil); `confidence:0` "veri yok" sinyali — A2 gerçek skorları getirene kadar dokümante tasarım kararı.
 
+## KPI Trend (Backend Alt-proje 2 fast-follow) — deferred
+
+KPI trend (`feat/backend-kpi-trend`, 2026-09-07) `/api/kpis` spark/change'ini gerçeğe döndürdü
+(entegrasyon-gerektirmez zaman-serisi). "Trend/zaman-serisi" işinin A dilimi. Aşağıdakiler bilinçle
+ertelendi (sessiz düşürme yok):
+
+- **B) Token likidite serisi (`series.liquidity`) — A bitince değerlendirilecek (kullanıcı 2026-09-07).**
+  Aynı `internal/trend` worker'ına per-token likidite snapshot'ı eklenip `detail.go` `Series.Liquidity`
+  doldurulur. GeckoTerminal (keysiz) verisiyle **entegrasyon-gerektirmez** — sıradaki en mantıklı dilim.
+- **Holders serisi (`series.holders`) — Helius'a bağlı (sona).** Mekanizma B ile piggyback edilebilir ama
+  değerler Helius paid gelene kadar 0/degraded → değer sonra dolar.
+- **C) Radar zaman-serisi — ertelendi.** `/api/radar` tek-snapshot; zaman içindeki hareket için ayrı örnekleme
+  gerekir, şu an somut ihtiyaç yok.
+- **4 placeholder KPI trend'i (Açık Pozisyonlar / K-Z / Sistem Gecikmesi) → Alt-proje 5 (trade/ops).**
+  Değerleri "—" olduğundan spark/change de boş; trade/ops verisi gelince dolar.
+- **change semantiği basit (ilk→son yüzde).** Pencere içi ilk ve son örnek arası; kayan-ortalama/EMA ya da
+  "son tick vs önceki" gibi alternatifler gerekirse ileride. Şu an makul + test edilmiş.
+- **kpi_samples retention env (`TREND_SAMPLE_KEEP`=288) deploy'da kalibre edilebilir** (5dk×288 ≈ 24s; daha
+  uzun geçmiş istenirse artırılır) — diğer slice'ların "kalibrasyon env, placeholder değil" deseni.
+- **postgres store metodları (Insert/Recent/Prune) DB-gated** — yalnız fake'e karşı test; gerçek Postgres
+  round-trip'i CI'da yok (yerel Postgres yok, 1a-2e ile aynı desen, deploy'da doğrulanır).
+
 ## Alerts + Slack (Increment 12) — deferred
 
 Increment 12 (`feat/alerts-slack`, 2026-09-06) `/alerts` + `/slack` ekranlarını frontend-mock teslim etti
