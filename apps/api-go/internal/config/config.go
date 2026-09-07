@@ -89,7 +89,7 @@ type Config struct {
 	// trend B: token likidite serisi (aynı trend worker'ında örneklenir).
 	TrendLiqEnabled     bool
 	TrendLiqSampleLimit int // her cycle en yeni N token örneklenir
-	TrendLiqKeepHours   int // yaş-tabanlı retention (saat)
+	TrendLiqKeepHours   int // yaş-tabanlı retention (saat); 0 = SONSUZA DEK TUT (prune atlanır, sınırsız büyür — "özelliği kapat" DEĞİL)
 	TrendLiqSeriesLimit int // /api/token series.liquidity okuma cap'i
 
 	WalletGraphEnabled       bool

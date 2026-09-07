@@ -59,3 +59,60 @@ func TestFakeLiquiditySamples(t *testing.T) {
 		t.Fatalf("limit<=0 → boş: %+v", s)
 	}
 }
+
+// TestLiquiditySeriesReturnsNewestWindow, örnek sayısı limit'i aşınca EN YENİ `limit` pencerenin
+// (en eski değil) kronolojik döndüğünü kilitler — postgres LiquiditySeries sözleşmesi (#1).
+func TestLiquiditySeriesReturnsNewestWindow(t *testing.T) {
+	f := NewFakeTokenStore().(TokenStore)
+	ctx := context.Background()
+	if _, err := f.UpsertDiscovered(ctx, DiscoveredToken{Mint: "A", Symbol: "A", PoolAddr: "pA", FirstSeenTs: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.UpdateMarket(ctx, MarketUpdate{Mint: "A", Liquidity: 500}); err != nil {
+		t.Fatal(err)
+	}
+	for ts := int64(1); ts <= 5; ts++ { // 5 örnek: ts 1..5
+		if err := f.InsertLiquiditySamples(ctx, ts, 10); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ser, err := f.LiquiditySeries(ctx, "A", 3) // limit 3 < 5 örnek
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ser) != 3 || ser[0].T != 3 || ser[2].T != 5 {
+		t.Fatalf("en yeni 3 (ts 3,4,5) kronolojik beklenir, EN ESKİ değil: %+v", ser)
+	}
+}
+
+// TestInsertLiquidityFiltersBeforeLimit, sıfır-likidite yeni token pencere içinde slot İŞGAL ETMEZ:
+// filtre ÖNCE, sonra en yeni `limit` (postgres WHERE liquidity>0 ... LIMIT parity, #2).
+func TestInsertLiquidityFiltersBeforeLimit(t *testing.T) {
+	f := NewFakeTokenStore().(TokenStore)
+	ctx := context.Background()
+	// ekleme sırası A(eski), B, C(yeni) → newest-first: C, B, A
+	for _, m := range []struct {
+		mint string
+		fs   int64
+	}{{"A", 1}, {"B", 2}, {"C", 3}} {
+		if _, err := f.UpsertDiscovered(ctx, DiscoveredToken{Mint: m.mint, Symbol: m.mint, PoolAddr: "p" + m.mint, FirstSeenTs: m.fs}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = f.UpdateMarket(ctx, MarketUpdate{Mint: "A", Liquidity: 100})
+	_ = f.UpdateMarket(ctx, MarketUpdate{Mint: "B", Liquidity: 200})
+	// C likidite 0 (en yeni ama enrich edilmemiş)
+	if err := f.InsertLiquiditySamples(ctx, 100, 2); err != nil { // limit 2
+		t.Fatal(err)
+	}
+	// filtre-sonra-limit: C atlanır, B ve A örneklenir (2 likit). limit-sonra-filtre olsaydı yalnız B olurdu.
+	if s, _ := f.LiquiditySeries(ctx, "B", 10); len(s) != 1 {
+		t.Fatalf("B örneklenmeli: %+v", s)
+	}
+	if s, _ := f.LiquiditySeries(ctx, "A", 10); len(s) != 1 {
+		t.Fatalf("A örneklenmeli (C sıfır-likidite slot işgal etmemeli): %+v", s)
+	}
+	if s, _ := f.LiquiditySeries(ctx, "C", 10); len(s) != 0 {
+		t.Fatalf("C sıfır-likidite → örneklenmemeli: %+v", s)
+	}
+}

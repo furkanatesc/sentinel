@@ -655,30 +655,32 @@ func (f *fakeTokenStore) PruneKpiSamples(_ context.Context, keep int) error {
 }
 
 // InsertLiquiditySamples, en yeni `limit` token'ın (liquidity>0) likiditesini `ts` anında yazar.
-// postgres INSERT...SELECT...ORDER BY first_seen_ts DESC LIMIT ile parity (RecentTokens aynı sırayı verir).
-func (f *fakeTokenStore) InsertLiquiditySamples(ctx context.Context, ts int64, limit int) error {
+// postgres `WHERE liquidity>0 ORDER BY first_seen_ts DESC LIMIT` ile parity: FİLTRE ÖNCE, sonra en yeni
+// `limit` (newest-first = f.order sonundan). RecentTokens(limit)+filtre yapsaydı sıfır-likidite yeni
+// token'lar slot yer, postgres'ten SAPARDI (yeni token'lar enrich edilene dek liquidity=0).
+func (f *fakeTokenStore) InsertLiquiditySamples(_ context.Context, ts int64, limit int) error {
 	if limit <= 0 {
 		return nil
-	}
-	rows, err := f.RecentTokens(ctx, limit) // first_seen DESC LIMIT — postgres SELECT ile aynı set
-	if err != nil {
-		return err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.liqSamples == nil {
 		f.liqSamples = map[string]map[int64]float64{}
 	}
-	for _, t := range rows {
-		if t.Liquidity <= 0 {
+	taken := 0
+	for i := len(f.order) - 1; i >= 0 && taken < limit; i-- { // newest-first
+		mint := f.order[i]
+		liq := f.byID[mint].row.Liquidity
+		if liq <= 0 { // filtre ÖNCE (postgres WHERE liquidity>0)
 			continue
 		}
-		if f.liqSamples[t.Mint] == nil {
-			f.liqSamples[t.Mint] = map[int64]float64{}
+		if f.liqSamples[mint] == nil {
+			f.liqSamples[mint] = map[int64]float64{}
 		}
-		if _, exists := f.liqSamples[t.Mint][ts]; !exists { // ON CONFLICT DO NOTHING parity
-			f.liqSamples[t.Mint][ts] = t.Liquidity
+		if _, exists := f.liqSamples[mint][ts]; !exists { // ON CONFLICT DO NOTHING parity
+			f.liqSamples[mint][ts] = liq
 		}
+		taken++
 	}
 	return nil
 }

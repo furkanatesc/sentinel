@@ -630,7 +630,12 @@ func (p *postgresStore) LiquiditySeries(ctx context.Context, mint string, limit 
 	if limit <= 0 {
 		return nil, nil
 	}
-	const q = `SELECT ts, liquidity FROM token_liq_samples WHERE mint=$1 ORDER BY ts ASC LIMIT $2`
+	// En YENİ `limit` örnek, kronolojik (ts ASC) döndürülür: iç sorgu DESC LIMIT ile en yeni pencereyi
+	// alır, dış sorgu ASC'ye çevirir (RecentKpiSamples deseni). Düz "ORDER BY ts ASC LIMIT" en ESKİ N'i
+	// verirdi — örnek sayısı limit'i aşınca (retention 48s > seriesLimit) en yeni hareket düşerdi.
+	const q = `SELECT ts, liquidity FROM (
+		SELECT ts, liquidity FROM token_liq_samples WHERE mint=$1 ORDER BY ts DESC LIMIT $2
+	) sub ORDER BY ts ASC`
 	rows, err := p.db.QueryContext(ctx, q, mint, limit)
 	if err != nil {
 		return nil, err
