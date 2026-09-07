@@ -30,6 +30,7 @@ const (
 	WorkerReputation   = "reputation"
 	WorkerManipulation = "manipulation"
 	WorkerOpportunity  = "opportunity"
+	WorkerTrend        = "trend"
 )
 
 // WorkerStatus, tek worker'ın türetilmiş anlık durumudur (JSON: frontend SystemHealth ile birebir).
