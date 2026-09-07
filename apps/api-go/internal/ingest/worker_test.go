@@ -176,11 +176,18 @@ func (f *failingTokenStore) WalletGraphClusters(context.Context, int, int) ([]st
 func (f *failingTokenStore) AuthorityGraphClusters(context.Context, int, int) ([]store.AuthorityRow, error) {
 	return nil, nil
 }
-func (f *failingTokenStore) InsertKpiSample(context.Context, int64, store.KpiCounts) error { return nil }
+func (f *failingTokenStore) InsertKpiSample(context.Context, int64, store.KpiCounts) error {
+	return nil
+}
 func (f *failingTokenStore) RecentKpiSamples(context.Context, int) ([]store.KpiSample, error) {
 	return nil, nil
 }
-func (f *failingTokenStore) PruneKpiSamples(context.Context, int) error { return nil }
+func (f *failingTokenStore) PruneKpiSamples(context.Context, int) error               { return nil }
+func (f *failingTokenStore) InsertLiquiditySamples(context.Context, int64, int) error { return nil }
+func (f *failingTokenStore) PruneLiquiditySamples(context.Context, int64) error       { return nil }
+func (f *failingTokenStore) LiquiditySeries(context.Context, string, int) ([]store.SeriesPoint, error) {
+	return nil, nil
+}
 
 func TestProcessUpsertTokenFailureSkipsTokenBroadcast(t *testing.T) {
 	reg := NewRegistry()
@@ -303,6 +310,13 @@ func (f *snapshotFailingTokenStore) RecentKpiSamples(context.Context, int) ([]st
 	return nil, nil
 }
 func (f *snapshotFailingTokenStore) PruneKpiSamples(context.Context, int) error { return nil }
+func (f *snapshotFailingTokenStore) InsertLiquiditySamples(context.Context, int64, int) error {
+	return nil
+}
+func (f *snapshotFailingTokenStore) PruneLiquiditySamples(context.Context, int64) error { return nil }
+func (f *snapshotFailingTokenStore) LiquiditySeries(context.Context, string, int) ([]store.SeriesPoint, error) {
+	return nil, nil
+}
 
 func TestProcessRecentTokensErrorSkipsTokensBroadcast(t *testing.T) {
 	reg := NewRegistry()

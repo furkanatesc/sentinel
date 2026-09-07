@@ -84,6 +84,8 @@ type fakeTokenStore struct {
 	}
 	// trend: kpi_samples parity (ts → KpiCounts).
 	kpiSamples map[int64]KpiCounts
+	// trend B: token_liq_samples parity (mint → ts → liquidity).
+	liqSamples map[string]map[int64]float64
 }
 
 // Ping, fake store için her zaman sağlıklı (in-memory; dürüst).
@@ -650,6 +652,78 @@ func (f *fakeTokenStore) PruneKpiSamples(_ context.Context, keep int) error {
 		delete(f.kpiSamples, ts)
 	}
 	return nil
+}
+
+// InsertLiquiditySamples, en yeni `limit` token'ın (liquidity>0) likiditesini `ts` anında yazar.
+// postgres INSERT...SELECT...ORDER BY first_seen_ts DESC LIMIT ile parity (RecentTokens aynı sırayı verir).
+func (f *fakeTokenStore) InsertLiquiditySamples(ctx context.Context, ts int64, limit int) error {
+	if limit <= 0 {
+		return nil
+	}
+	rows, err := f.RecentTokens(ctx, limit) // first_seen DESC LIMIT — postgres SELECT ile aynı set
+	if err != nil {
+		return err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.liqSamples == nil {
+		f.liqSamples = map[string]map[int64]float64{}
+	}
+	for _, t := range rows {
+		if t.Liquidity <= 0 {
+			continue
+		}
+		if f.liqSamples[t.Mint] == nil {
+			f.liqSamples[t.Mint] = map[int64]float64{}
+		}
+		if _, exists := f.liqSamples[t.Mint][ts]; !exists { // ON CONFLICT DO NOTHING parity
+			f.liqSamples[t.Mint][ts] = t.Liquidity
+		}
+	}
+	return nil
+}
+
+// PruneLiquiditySamples, ts < cutoff örnekleri siler (yaş-tabanlı).
+func (f *fakeTokenStore) PruneLiquiditySamples(_ context.Context, cutoff int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for mint, byTs := range f.liqSamples {
+		for ts := range byTs {
+			if ts < cutoff {
+				delete(byTs, ts)
+			}
+		}
+		if len(byTs) == 0 {
+			delete(f.liqSamples, mint)
+		}
+	}
+	return nil
+}
+
+// LiquiditySeries, bir mint'in likidite serisini kronolojik (ts ASC) son `limit` nokta döndürür.
+func (f *fakeTokenStore) LiquiditySeries(_ context.Context, mint string, limit int) ([]SeriesPoint, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	byTs := f.liqSamples[mint]
+	if len(byTs) == 0 {
+		return nil, nil
+	}
+	tss := make([]int64, 0, len(byTs))
+	for ts := range byTs {
+		tss = append(tss, ts)
+	}
+	sort.Slice(tss, func(i, j int) bool { return tss[i] < tss[j] })
+	if len(tss) > limit {
+		tss = tss[len(tss)-limit:] // en yeni `limit`, kronolojik kalır
+	}
+	out := make([]SeriesPoint, 0, len(tss))
+	for _, ts := range tss {
+		out = append(out, SeriesPoint{T: ts, V: byTs[ts]})
+	}
+	return out, nil
 }
 
 func (f *fakeTokenStore) Radar(ctx context.Context, limit int) ([]RadarPoint, error) {
