@@ -149,6 +149,12 @@ type AuthorityRow struct {
 // KpiCounts, Overview KPI kartları için türetilebilir sayımlardır (2d).
 type KpiCounts struct{ Detected, HighConf, Critical, Signals int }
 
+// KpiSample, tek bir zaman-noktasındaki KPI agregasıdır (trend/spark için, 2d fast-follow).
+type KpiSample struct {
+	Ts int64
+	KpiCounts
+}
+
 // RadarPoint, Overview radar scatter noktası (frontend RadarPoint ile birebir). level: RiskLevel.
 type RadarPoint struct {
 	X     float64 `json:"x"` // creatorScore
@@ -215,6 +221,11 @@ type TokenStore interface {
 	UpdateOpportunity(ctx context.Context, u OpportunityUpdate) error
 	// 2d: Overview KPI kartları için 4 türetilebilir sayım (tek agrega).
 	Kpis(ctx context.Context) (KpiCounts, error)
+	// trend: KPI zaman-serisi snapshot'ı (spark/change için). Insert idempotent (ts PK),
+	// Recent kronolojik (ts ASC) son `limit`, Prune en yeni `keep` dışını siler.
+	InsertKpiSample(ctx context.Context, ts int64, c KpiCounts) error
+	RecentKpiSamples(ctx context.Context, limit int) ([]KpiSample, error)
+	PruneKpiSamples(ctx context.Context, keep int) error
 	// 2d: radar scatter noktaları (creatorScore/momentum/liquidity) + risk level (scoreToLevel parity).
 	Radar(ctx context.Context, limit int) ([]RadarPoint, error)
 	// 2e-1: funder'ı çözülmemiş creator hedefleri / bulunan funder'ı persist eder.
@@ -542,6 +553,48 @@ func (p *postgresStore) Radar(ctx context.Context, limit int) ([]RadarPoint, err
 		return nil, err
 	}
 	return radarFrom(rows), nil
+}
+
+func (p *postgresStore) InsertKpiSample(ctx context.Context, ts int64, c KpiCounts) error {
+	const q = `INSERT INTO kpi_samples (ts, detected, high_conf, critical, signals)
+		VALUES ($1,$2,$3,$4,$5)
+		ON CONFLICT (ts) DO UPDATE SET detected=EXCLUDED.detected, high_conf=EXCLUDED.high_conf,
+			critical=EXCLUDED.critical, signals=EXCLUDED.signals`
+	_, err := p.db.ExecContext(ctx, q, ts, c.Detected, c.HighConf, c.Critical, c.Signals)
+	return err
+}
+
+func (p *postgresStore) RecentKpiSamples(ctx context.Context, limit int) ([]KpiSample, error) {
+	const q = `SELECT ts, detected, high_conf, critical, signals FROM kpi_samples
+		ORDER BY ts DESC LIMIT $1`
+	rows, err := p.db.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]KpiSample, 0, limit)
+	for rows.Next() {
+		var s KpiSample
+		if err := rows.Scan(&s.Ts, &s.Detected, &s.HighConf, &s.Critical, &s.Signals); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// DESC okundu → kronolojik (ASC) çevir (spark için).
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out, nil
+}
+
+func (p *postgresStore) PruneKpiSamples(ctx context.Context, keep int) error {
+	const q = `DELETE FROM kpi_samples
+		WHERE ts NOT IN (SELECT ts FROM kpi_samples ORDER BY ts DESC LIMIT $1)`
+	_, err := p.db.ExecContext(ctx, q, keep)
+	return err
 }
 
 func (p *postgresStore) FunderTargets(ctx context.Context, limit int) ([]FunderTarget, error) {
