@@ -297,9 +297,10 @@ KPI trend (`feat/backend-kpi-trend`, 2026-09-07) `/api/kpis` spark/change'ini ge
 (entegrasyon-gerektirmez zaman-serisi). "Trend/zaman-serisi" işinin A dilimi. Aşağıdakiler bilinçle
 ertelendi (sessiz düşürme yok):
 
-- **B) Token likidite serisi (`series.liquidity`) — A bitince değerlendirilecek (kullanıcı 2026-09-07).**
-  Aynı `internal/trend` worker'ına per-token likidite snapshot'ı eklenip `detail.go` `Series.Liquidity`
-  doldurulur. GeckoTerminal (keysiz) verisiyle **entegrasyon-gerektirmez** — sıradaki en mantıklı dilim.
+- **B) Token likidite serisi (`series.liquidity`) — ✅ KAPANDI (2026-09-07, branch `feat/backend-liquidity-series`).**
+  `internal/trend` worker'ına en-yeni-N-token likidite snapshot'ı (migration 0015 `token_liq_samples`) +
+  `detail.go` `Series.Liquidity` per-mint okuma eklendi. GeckoTerminal (keysiz) → entegrasyon-gerektirmez.
+  Kalıntı: en-yeni-N (200) dışındaki eski token'lar örneklenmez → serisi boş (best-effort, kabul).
 - **Holders serisi (`series.holders`) — Helius'a bağlı (sona).** Mekanizma B ile piggyback edilebilir ama
   değerler Helius paid gelene kadar 0/degraded → değer sonra dolar.
 - **C) Radar zaman-serisi — ertelendi.** `/api/radar` tek-snapshot; zaman içindeki hareket için ayrı örnekleme
