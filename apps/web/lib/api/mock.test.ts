@@ -7,6 +7,21 @@ test("mockApi returns seed collections", async () => {
   expect((await mockApi.getRadar()).length).toBe((await mockApi.getTokens()).length);
 });
 
+test("getAlertRules kurallar döndürür", async () => {
+  const rules = await mockApi.getAlertRules();
+  expect(Array.isArray(rules)).toBe(true);
+  expect(rules.length).toBeGreaterThan(0);
+  expect(rules[0]).toHaveProperty("trigger");
+  expect(Array.isArray(rules[0].channels)).toBe(true);
+});
+
+test("getNotificationConfig Slack config döndürür", async () => {
+  const c = await mockApi.getNotificationConfig();
+  expect(c.channel).toMatch(/^#/);
+  expect(["connected", "disconnected", "error"]).toContain(c.slackState);
+  expect(c).toHaveProperty("quietHours");
+});
+
 test("subscribeTokens emits and returns an unsubscribe fn", async () => {
   await new Promise<void>((resolve, reject) => {
     const stop = mockApi.subscribeTokens((tokens) => {

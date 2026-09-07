@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Radio, Compass, Coins, UserSearch, Share2, Sparkles,
-  Layers, Briefcase, Terminal, PieChart, History, Bell, Send, Bot,
+  Layers, Briefcase, Terminal, PieChart, History, Bell, Hash, Bot,
   Activity, Settings, type LucideIcon,
 } from "lucide-react";
 
@@ -20,7 +20,7 @@ export const navItems: NavItem[] = [
   { label: "Portföy", path: "/portfolio", icon: PieChart },
   { label: "Geriye Test", path: "/backtesting", icon: History },
   { label: "Uyarılar", path: "/alerts", icon: Bell },
-  { label: "Telegram", path: "/telegram", icon: Send },
+  { label: "Slack", path: "/slack", icon: Hash },
   { label: "Araştırma", path: "/research", icon: Bot },
   { label: "Sistem Sağlığı", path: "/system-health", icon: Activity },
   { label: "Ayarlar", path: "/settings", icon: Settings },

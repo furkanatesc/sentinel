@@ -66,9 +66,9 @@ Layout:
 
 ## Sidebar navigasyonu
 
-Bölümler: Overview, Live Feed, Discover, Tokens, Creators, Wallet Graph, Smart Wallets, Strategies, Positions, Orders, Portfolio, Backtesting, Alerts, Telegram, Research, System Health, Settings.
+Bölümler: Overview, Live Feed, Discover, Tokens, Creators, Wallet Graph, Smart Wallets, Strategies, Positions, Orders, Portfolio, Backtesting, Alerts, Slack, Research, System Health, Settings. (Not: "Slack" bölümü önceden "Telegram" idi — 2026-08-28 yön değişikliği.)
 
-Sidebar altı: RPC status, Solana network durumu, Telegram bağlantı durumu, aktif trading mode, kullanıcı profili.
+Sidebar altı: RPC status, Solana network durumu, Slack bağlantı durumu, aktif trading mode, kullanıcı profili.
 
 Trading mode görünür: **Paper / Shadow / Live**. Live mode kırmızı veya amber güvenlik etiketiyle belirtilmeli.
 
@@ -157,11 +157,16 @@ Sonuç metrikleri: net PnL, win rate, profit factor, Sharpe, Sortino, max drawdo
 
 Event Replay: token oluşturulmasından işlem kapanışına tüm olaylar timeline üzerinden oynatılabilir (look-ahead bias engellenir).
 
-## Ekran 10: Alerts ve Telegram
+## Ekran 10: Alerts ve Slack
 
-Alert formu: name, token/creator scope, event trigger, min liquidity, min creator score, max risk, holder growth, creator sale, liquidity removal, whale activity, strategy signal, delivery channel. Kanallar: Web, Telegram, Email, Webhook.
+> **Yön değişikliği (2026-08-28, kullanıcı kararı):** Bildirim kanalı olarak **Telegram YERİNE Slack**
+> kullanılacak. Bot + chat ID modeli yerine **Slack webhook/app + channel** modeli. Aşağıdaki tasarım
+> Slack'e göre revize edildi; Telegram-özel alanlar Slack karşılıklarıyla değiştirildi. Gerçek Slack
+> teslimatı **Backend Alt-proje 3**'te gelir; bu ekran frontend-mock (seam + simüle).
 
-Telegram ekranı: bot connection status, chat ID, test notification, notification severity, quiet hours, alert templates, trade approval settings. Telegram notification preview bileşeni.
+Alert formu: name, token/creator scope, event trigger, min liquidity, min creator score, max risk, holder growth, creator sale, liquidity removal, whale activity, strategy signal, delivery channel. Kanallar: **Web, Slack, Email, Webhook**.
+
+Slack ekranı: **workspace/webhook bağlantı durumu, channel (ör. `#alerts`)**, test notification, notification severity, quiet hours, alert templates, trade approval settings. **Slack mesaj önizleme** bileşeni (Slack block/attachment stili).
 
 ## Ekran 11: Research Assistant
 

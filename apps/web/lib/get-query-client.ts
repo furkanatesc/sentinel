@@ -10,6 +10,8 @@ export const qk = {
   kpis: ["kpis"] as const,
   tokens: ["tokens"] as const,
   alerts: ["alerts"] as const,
+  alertRules: ["alert-rules"] as const,
+  notificationConfig: ["notification-config"] as const,
   radar: ["radar"] as const,
   token: (mint: string) => ["token", mint] as const,
   events: ["events"] as const,

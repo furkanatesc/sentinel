@@ -381,8 +381,28 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   giderildi: ingest-ws `processed` semantiği yorumu [decode-edilebilir bildirim ≠ ticker'ların persist-sayımı],
   manipulation/opportunity ctx-cancel `n==0` assertion, heartbeat testi kümülatif-toplam ==3). **DURUM:
   master'a MERGE + origin/master'a PUSH edildi (2026-09-06, merge commit `e879398`; kullanıcı "merge+push"
-  seçti) → Vercel (Research dahil) + Railway deploy tetiklendi. Deploy-sonrası canlı doğrulama bekliyor:
-  Railway build yeşil mi + `/api/system-health` ingest-ws itemsProcessed gerçek sayı gösteriyor mu.**
+  seçti) → Vercel (Research dahil) + Railway deploy tetiklendi. Deploy CANLI DOĞRULANDI (2026-09-06):
+  Research `/research` canlı (görsel teyit) + `/api/system-health` version=`a3559d1`, 9 ticker worker
+  itemsProcessed gerçek sayı (önceden 0), ingest-ws hâlâ degraded/0 (Helius 429 = A maddesi, beklenen).**
+
+- 2026-09-06 — **Frontend Alerts + Slack (Ekran 10) kod tamamlandı (branch `feat/alerts-slack`).** SDD ile 9
+  kod task'ı (spec `2026-09-06-sentinel-alerts-slack-design.md` + plan `2026-09-06-sentinel-alerts-slack.md`).
+  İki ekran, frontend-mock (gerçek Slack teslimatı Backend Alt-proje 3): **`/alerts`** — "Kurallar"|"Geçmiş"
+  sekmeleri; alarm kuralları (mock read + AlertRuleCard + SIMÜLE toggle) + "Yeni Kural" formu (kontrollü +
+  saf `validateAlertRule` + SIMÜLE toast, mutation yok) + alarm geçmişi (mevcut `AlertEvent` seam + severity
+  filtre). **`/slack`** (rename `/telegram`) — bağlantı kartı (test bildirimi simüle) + bildirim ayarları
+  (eşik/sessiz saatler/trade onayı, kontrollü local, "simüle" notu) + mesaj şablonları + **Slack-block mesaj
+  önizlemesi**. **Telegram→Slack pivotu** (2026-08-28 kullanıcı kararı): `nav.ts`+`Sidebar` "Slack" (Send→Hash),
+  route `git mv telegram→slack`, teslimat kanalları Web/Slack/Email/Webhook. Seam (READ-ONLY, mock; httpApi
+  `notReady`, LIVE_ENDPOINTS'te DEĞİL → Alt-proje 3'e kadar mock): `AlertRule`/`NotificationConfig` +
+  `getAlertRules`/`getNotificationConfig` + hook'lar. OCP: `lib/alerts/alert-defs.ts` (trigger/kanal/severity
+  registry'leri + `validateAlertRule`). Yapısal güvenlik: `SentinelApi`'de mutation yok → tüm yazma işlemleri
+  simüle. **253/253 test yeşil, `npm run build` başarılı (`/alerts`+`/slack` prerender, `/telegram` yok),
+  lint (yeni dosyalar temiz).** Görsel doğrulandı (dev, 2026-09-06): her iki ekran tasarıma uygun render,
+  nav "Slack"/Hash + sidebar "Slack: Bağlı", Slack önizlemesi GFROG örnek mesajıyla dolu. Whole-branch review
+  (opus) **"Ready to merge: Yes"** (0 Critical/Important, 3 Minor — hepsi giderildi: MAX_RISK_LEVELS sabiti,
+  form hata-temizleme/reset, NotificationSettings Alt-proje 3 TODO). **DURUM: master'a merge + push kullanıcı
+  onayı bekliyor.** Ertelenenler → `docs/superpowers/followups-frontend.md` "Alerts + Slack (Increment 12)".
 
 ## Açık takip maddeleri
 

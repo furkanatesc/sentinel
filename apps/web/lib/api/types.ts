@@ -39,6 +39,37 @@ export interface AlertEvent {
   time: string;
 }
 
+// Alarm kuralı tetikleyici türü (OCP: ALERT_TRIGGER_DEFS ile etiketlenir).
+export type AlertTriggerType =
+  | "new_mint" | "liquidity_added" | "liquidity_removed" | "creator_sale"
+  | "whale_activity" | "holder_growth" | "score_change" | "strategy_signal";
+
+export type DeliveryChannel = "web" | "slack" | "email" | "webhook";
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  trigger: AlertTriggerType;
+  scope: string; // "Tüm tokenlar" ya da belirli token/creator (mock serbest metin)
+  minLiquidity: number; // USD; 0 = eşik yok
+  minCreatorScore: number; // 0-100; 0 = eşik yok
+  maxRisk: RiskLevel;
+  channels: DeliveryChannel[];
+  enabled: boolean;
+}
+
+export type SlackConnectionState = "connected" | "disconnected" | "error";
+
+export interface NotificationConfig {
+  slackState: SlackConnectionState;
+  channel: string; // "#alerts"
+  workspace: string; // görünen ad (mock)
+  minSeverity: AlertSeverity; // teslimat eşiği
+  quietHours: { start: string; end: string; enabled: boolean }; // "23:00"/"07:00"
+  templates: { trigger: AlertTriggerType; template: string }[];
+  tradeApproval: boolean; // trade onayı Slack'ten istensin mi
+}
+
 export interface RadarPoint {
   x: number;
   y: number;
