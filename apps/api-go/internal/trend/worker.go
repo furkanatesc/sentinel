@@ -54,29 +54,33 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 }
 
-// cycle, tek snapshot: Kpis oku → InsertKpiSample(now) → prune → health Report (1 örnek/cycle).
+// cycle, tek snapshot: Kpis oku → InsertKpiSample(now) → prune → health Report.
+// itemsProcessed = o cycle'da persist edilen örnek sayısı (0 erken-hata, 1 insert başarılı) —
+// diğer worker'ların "başarıyla persist edilen" konvansiyonuyla tutarlı (System Health).
 func (w *Worker) cycle(ctx context.Context) {
-	err := w.sampleOnce(ctx)
+	n, err := w.sampleOnce(ctx)
 	if err != nil && ctx.Err() == nil {
 		w.d.Logger.Warn("trend sample", "err", err)
 	}
 	if w.d.Health != nil {
-		w.d.Health.Report(health.WorkerTrend, err == nil, err, 1)
+		w.d.Health.Report(health.WorkerTrend, err == nil, err, n)
 	}
 }
 
-func (w *Worker) sampleOnce(ctx context.Context) error {
+// sampleOnce, persist edilen örnek sayısını döndürür: Kpis/Insert hatası → (0,err);
+// insert başarılı → 1 (prune hatası bunu değiştirmez — örnek zaten yazıldı).
+func (w *Worker) sampleOnce(ctx context.Context) (int, error) {
 	c, err := w.d.Store.Kpis(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if err := w.d.Store.InsertKpiSample(ctx, w.d.Now(), c); err != nil {
-		return err
+		return 0, err
 	}
 	if w.d.Keep > 0 {
 		if err := w.d.Store.PruneKpiSamples(ctx, w.d.Keep); err != nil {
-			return err
+			return 1, err
 		}
 	}
-	return nil
+	return 1, nil
 }

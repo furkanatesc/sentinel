@@ -565,6 +565,9 @@ func (p *postgresStore) InsertKpiSample(ctx context.Context, ts int64, c KpiCoun
 }
 
 func (p *postgresStore) RecentKpiSamples(ctx context.Context, limit int) ([]KpiSample, error) {
+	if limit <= 0 {
+		return nil, nil // sözleşme: fake ile parity (limit yoksa boş; LIMIT 0 / negatif panik önlenir)
+	}
 	const q = `SELECT ts, detected, high_conf, critical, signals FROM kpi_samples
 		ORDER BY ts DESC LIMIT $1`
 	rows, err := p.db.QueryContext(ctx, q, limit)
@@ -591,6 +594,9 @@ func (p *postgresStore) RecentKpiSamples(ctx context.Context, limit int) ([]KpiS
 }
 
 func (p *postgresStore) PruneKpiSamples(ctx context.Context, keep int) error {
+	if keep <= 0 {
+		return nil // sözleşme: fake ile parity; keep=0'da LIMIT 0 alt-sorgusu TÜM tabloyu silerdi — önle
+	}
 	const q = `DELETE FROM kpi_samples
 		WHERE ts NOT IN (SELECT ts FROM kpi_samples ORDER BY ts DESC LIMIT $1)`
 	_, err := p.db.ExecContext(ctx, q, keep)

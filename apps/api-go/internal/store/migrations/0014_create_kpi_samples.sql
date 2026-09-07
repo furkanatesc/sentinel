@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS kpi_samples (
     critical  INTEGER NOT NULL,
     signals   INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_kpi_samples_ts ON kpi_samples (ts DESC);
+-- ts PRIMARY KEY btree'si ORDER BY ts DESC LIMIT için geriye taranabilir → ayrı index gereksiz.
 
 -- +goose Down
 DROP TABLE IF EXISTS kpi_samples;

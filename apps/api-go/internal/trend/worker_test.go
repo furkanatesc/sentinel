@@ -2,6 +2,7 @@ package trend
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -46,5 +47,32 @@ func TestWorkerCycleSamplesAndReports(t *testing.T) {
 	}
 	if rr.calls == 0 || rr.name != "trend" || !rr.ok || rr.processed != 1 {
 		t.Fatalf("Report(trend, ok, 1) beklenir: %+v", rr)
+	}
+}
+
+// errSampler, Kpis'te hata döner (insert'e ulaşılmaz → 0 örnek persist).
+type errSampler struct{ inserts int }
+
+func (e *errSampler) Kpis(context.Context) (store.KpiCounts, error) {
+	return store.KpiCounts{}, errors.New("db down")
+}
+func (e *errSampler) InsertKpiSample(context.Context, int64, store.KpiCounts) error {
+	e.inserts++
+	return nil
+}
+func (e *errSampler) PruneKpiSamples(context.Context, int) error { return nil }
+
+func TestWorkerFailedCycleReportsZero(t *testing.T) {
+	es := &errSampler{}
+	rr := &recReporter{}
+	w := NewWorker(WorkerDeps{Store: es, Interval: time.Hour, Keep: 10, Health: rr, Now: func() int64 { return 1 }})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	w.Run(ctx)
+	if es.inserts != 0 {
+		t.Fatalf("Kpis hatasında insert olmamalı: %d", es.inserts)
+	}
+	if rr.calls == 0 || rr.ok || rr.processed != 0 {
+		t.Fatalf("başarısız cycle Report(trend, ok=false, 0) olmalı: %+v", rr)
 	}
 }

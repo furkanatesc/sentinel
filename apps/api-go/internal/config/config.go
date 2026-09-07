@@ -81,7 +81,10 @@ type Config struct {
 	TrendEnabled           bool
 	TrendSampleIntervalSec int
 	TrendSampleKeep        int
-	TrendSparkWindow       int
+	// TrendSparkWindow, /api/kpis spark'ının kaç örnek gösterdiğidir. Not: pencere SÜRE değil
+	// SAYIdır — 24 örnek × INTERVAL_SEC(300) ≈ 2 saatlik trend; KEEP(288) ise ~24s retention.
+	// change % bu pencereye görelidir (kart etiketindeki "24s" ham sayım, spark ~son 2s trendi).
+	TrendSparkWindow int
 
 	WalletGraphEnabled       bool
 	FunderResolveIntervalSec int
