@@ -86,6 +86,12 @@ type Config struct {
 	// change % bu pencereye görelidir (kart etiketindeki "24s" ham sayım, spark ~son 2s trendi).
 	TrendSparkWindow int
 
+	// trend B: token likidite serisi (aynı trend worker'ında örneklenir).
+	TrendLiqEnabled     bool
+	TrendLiqSampleLimit int // her cycle en yeni N token örneklenir
+	TrendLiqKeepHours   int // yaş-tabanlı retention (saat)
+	TrendLiqSeriesLimit int // /api/token series.liquidity okuma cap'i
+
 	WalletGraphEnabled       bool
 	FunderResolveIntervalSec int
 	FunderResolveLimit       int
@@ -172,6 +178,11 @@ func Load() Config {
 		TrendSampleIntervalSec: getenvInt("TREND_SAMPLE_INTERVAL_SEC", 300),
 		TrendSampleKeep:        getenvInt("TREND_SAMPLE_KEEP", 288),
 		TrendSparkWindow:       getenvInt("TREND_SPARK_WINDOW", 24),
+
+		TrendLiqEnabled:     getenvBool("TREND_LIQ_ENABLED", true),
+		TrendLiqSampleLimit: getenvInt("TREND_LIQ_SAMPLE_LIMIT", 200),
+		TrendLiqKeepHours:   getenvInt("TREND_LIQ_KEEP_HOURS", 48),
+		TrendLiqSeriesLimit: getenvInt("TREND_LIQ_SERIES_LIMIT", 500),
 
 		WalletGraphEnabled:       getenvBool("WALLET_GRAPH_ENABLED", true),
 		FunderResolveIntervalSec: getenvInt("FUNDER_RESOLVE_INTERVAL_SEC", 60),

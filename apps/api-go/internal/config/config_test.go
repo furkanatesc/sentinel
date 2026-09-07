@@ -192,3 +192,14 @@ func TestTrendDefaults(t *testing.T) {
 		t.Fatalf("spark window default 24, got %d", c.TrendSparkWindow)
 	}
 }
+
+func TestTrendLiqDefaults(t *testing.T) {
+	t.Setenv("TREND_LIQ_ENABLED", "")
+	t.Setenv("TREND_LIQ_SAMPLE_LIMIT", "")
+	t.Setenv("TREND_LIQ_KEEP_HOURS", "")
+	t.Setenv("TREND_LIQ_SERIES_LIMIT", "")
+	c := Load()
+	if !c.TrendLiqEnabled || c.TrendLiqSampleLimit != 200 || c.TrendLiqKeepHours != 48 || c.TrendLiqSeriesLimit != 500 {
+		t.Fatalf("liq defaults: %+v", c)
+	}
+}
