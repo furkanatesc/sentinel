@@ -291,6 +291,26 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
   (429) kök nedeni buydu. (4) Nötr skorlar UI'da ekstrem renk gösterebilir (0=düşük/kırmızı, higherIsBetter=false
   için 100=yeşil); `confidence:0` "veri yok" sinyali — A2 gerçek skorları getirene kadar dokümante tasarım kararı.
 
+## Backtest Motoru (Backend Alt-proje 4) — deferred
+
+Backtest motoru (`feat/backend-backtest-engine`, 2026-09-08, repo'nun ilk Python servisi) `/api/backtest`'i
+gerçeğe döndürdü (outcome-tabanlı). Aşağıdakiler bilinçle ertelendi (sessiz düşürme yok):
+
+- **Railway 2. servis kurulumu (kullanıcı admin adımı):** `services/backtest` için Python servisi (root=services/
+  backtest, DATABASE_URL paylaşımlı) + Go'ya `BACKTEST_SERVICE_URL`. Kurulana dek Go `/api/backtest` graceful 503;
+  frontend `notReady`/error dalı ele alır. Kod hazır, deploy kullanıcıya bağlı.
+- **PnL model sabitleri kalibrasyon-env değil (kod-sabiti):** `simulate.py` GRAD_RET/RUG_LOSS/DEAD_LOSS/slippage
+  oranları + `_HOLDING_HOURS` — deploy'da gerçek dağılımla kalibre edilip env'e taşınabilir (diğer slice'ların
+  "kalibrasyon env, placeholder değil" deseni). Rug'da likidite-kurtarma payı da eklenebilir.
+- **`priceSeries` temsili boş `[]`:** outcome-tabanlıda global fiyat yolu yok → EntryExitChart sınırlı veri gösterir.
+  Gerçek fiyat yolu için per-token OHLCV history saklama gerekir (tick-replay ile aynı ön-koşul).
+- **Tick-replay backtest ertelendi:** per-token tarihsel metrik/fiyat zaman-serisi toplama (büyük ayrı dilim) →
+  gerçek entry/exit zamanlaması. Şu an outcome-tabanlı (etiket + peak/drawdown'dan modelleme).
+- **Tam strateji entry/exit koşulları kullanılmıyor:** entry = `minCreatorScore`/`minTokenSafety` eşikleri
+  (BacktestParams'ta var); strateji koşulları frontend mock'ta, backend'e taşınırsa (yeni şema+seam) daha zengin.
+- **`maxPositions` = pozisyon-büyüklüğü bölücü** (eşzamanlı-pozisyon vekili), işlem SAYISI cap'i değil — tarihsel
+  taramada tüm nitelikli token işlem olur (dokümante model kararı).
+
 ## KPI Trend (Backend Alt-proje 2 fast-follow) — deferred
 
 KPI trend (`feat/backend-kpi-trend`, 2026-09-07) `/api/kpis` spark/change'ini gerçeğe döndürdü

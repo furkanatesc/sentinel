@@ -434,8 +434,26 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   (Helius'a bağlı, sona), C radar zaman-serisi (ertelendi). Whole-branch review (opus) **"Ready to merge:
   With fixes"** (1 Critical + 1 Important + 2 Minor → hepsi giderildi: #1 postgres LiquiditySeries en-ESKİ-N
   bug'ı → en-YENİ-N subquery [fake tail-N ile hizalı, 576>500'de en yeni hareket düşerdi], #2 fake
-  filtre-sonra-limit parity, #3/#4 yorumlar; iki yeni test). **DURUM: merge + push kullanıcı onayı bekliyor.**
-  Ertelenenler → `docs/superpowers/followups-frontend.md` "KPI Trend" (B kapandı).
+  filtre-sonra-limit parity, #3/#4 yorumlar; iki yeni test). **DURUM: master'a MERGE + PUSH edildi (2026-09-07,
+  merge `5b47d1f`) → Railway deploy tetiklendi.** Ertelenenler → `followups-frontend.md` "KPI Trend" (B kapandı).
+
+- 2026-09-08 — **Backend Backtest Motoru kod tamamlandı (branch `feat/backend-backtest-engine`) — repo'nun İLK
+  PYTHON SERVİSİ.** Backend Alt-proje 4; Backtesting ekranını gerçeğe döndürür. **Outcome-tabanlı** (kullanıcı
+  kararı): tarihsel token'ları `BacktestParams` eşikleriyle (minCreatorScore/minTokenSafety) filtreler, PnL'i
+  saklı outcome+peak/drawdown'dan modeller. **Entegrasyon-gerektirmez** (yalnız mevcut Postgres). **Topoloji:**
+  ayrı `services/backtest` (Python/FastAPI, aynı Postgres'i okur) + Go `/api/backtest` proxy (`BACKTEST_SERVICE_URL`
+  boş → graceful 503) + frontend `runBacktest` LIVE_ENDPOINTS → **frontend kontratı değişmez**. Python: saf
+  `simulate`(entry+outcome→PnL) + saf `aggregate`(metrikler+eğriler) + `repo`(DB I/O izole, psycopg lazy) +
+  FastAPI `main` (`/backtest`+`/healthz`); 13 pytest yeşil (DB'siz). Go: proxy handler + config + router + test.
+  Frontend: postJson + runBacktest POST; UI dokunulmadı. **pytest 13 + `go test ./... -race` + vet + build +
+  frontend tsc/vitest(63)/build — hepsi yeşil.** Kapsam dışı: tick-replay (per-token tarihsel seri yok), tam
+  strateji koşulları (eşik-filtresi), `priceSeries` (temsili boş), gerçek deploy (Railway 2. servis = kullanıcı
+  admin adımı — kurulana dek graceful 503). Whole-branch review (Python+Go+frontend, opus) **"Ready to merge:
+  With fixes"** (1 Critical + 2 Minor → giderildi: #1 outcome `"rugged"`→`"rug"` [Go classifier.go/DB/frontend
+  kontratı — yoksa tüm rug token sessizce düşer + rugExposurePct hep 0; testler "rugged" hardcode ettiği için
+  maskeliyordu] + gerçek-sözcük-dağarı drift-guard testi, #2 dev-deps ayrımı, #3 kullanılmayan-param yorumu).
+  **DURUM: master'a merge + push edilecek (Go proxy env'siz graceful 503 → güvenli); Railway 2. servis kurulumu
+  KULLANICI ADMIN ADIMI (kurulana dek /api/backtest 503).** Ertelenenler → `followups-frontend.md` "Backtest Motoru".
 
 ## Açık takip maddeleri
 
