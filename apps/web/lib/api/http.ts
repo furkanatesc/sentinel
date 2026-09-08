@@ -1,5 +1,5 @@
 import type { SentinelApi } from "./contract";
-import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph, SystemHealth } from "./types";
+import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph, SystemHealth, BacktestParams, BacktestResult } from "./types";
 import { wsSubscribe } from "./ws";
 
 // TODO(backend): AWS REST + WebSocket implementasyonu. Endpoint aileleri
@@ -14,6 +14,16 @@ function apiBase(): string {
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+  return (await res.json()) as T;
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${apiBase()}${path}`, {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
   return (await res.json()) as T;
 }
@@ -42,7 +52,7 @@ export const httpApi: SentinelApi = {
   getOrders: notReady,
   getTransactions: notReady,
   getTradeLogs: notReady,
-  runBacktest: notReady,
+  runBacktest: (params: BacktestParams) => postJson<BacktestResult>("/api/backtest", params),
   getSystemHealth: () => getJson<SystemHealth>("/api/system-health"),
   getResearchSuggestions: notReady,
   streamResearchAnswer: () => { throw new Error("httpApi not implemented — backend not connected yet"); },

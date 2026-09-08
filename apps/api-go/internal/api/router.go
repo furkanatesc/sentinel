@@ -26,7 +26,8 @@ type RouterDeps struct {
 	CreatorsLimit         int
 	WalletGraphMinCluster int
 	WalletGraphMaxDegree  int
-	KpiSparkWindow        int // /api/kpis spark penceresi (son N örnek); 0 → handler varsayılanı (24)
+	KpiSparkWindow        int    // /api/kpis spark penceresi (son N örnek); 0 → handler varsayılanı (24)
+	BacktestServiceURL    string // Python backtest servisi; boş → /api/backtest graceful 503
 	Health                healthSnapshotter
 	Pinger                store.Pinger
 	Gates                 map[string]bool
@@ -65,6 +66,8 @@ func NewRouter(d RouterDeps) http.Handler {
 	if d.TokenDetail != nil {
 		r.Get("/api/token/{mint}", tokenHandler(d.TokenDetail, d.TokenDetailTimeout))
 	}
+	// /api/backtest her zaman kayıtlı; BacktestServiceURL boşsa handler graceful 503 döner.
+	r.Post("/api/backtest", backtestHandler(d.BacktestServiceURL, 30*time.Second))
 	if d.Creators != nil {
 		limit := d.CreatorsLimit
 		if limit <= 0 {

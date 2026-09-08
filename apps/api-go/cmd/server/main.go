@@ -305,6 +305,7 @@ func main() {
 			WalletGraphMinCluster: cfg.WalletGraphMinCluster,
 			WalletGraphMaxDegree:  cfg.WalletGraphMaxDegree,
 			KpiSparkWindow:        cfg.TrendSparkWindow,
+			BacktestServiceURL:    cfg.BacktestServiceURL,
 			Health:                healthReg,
 			Pinger:                bundle.Pinger,
 			Gates:                 gates,
