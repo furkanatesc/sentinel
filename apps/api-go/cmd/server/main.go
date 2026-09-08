@@ -66,6 +66,7 @@ func main() {
 			Events:     store.NewFakeEventStore(),
 			Tokens:     fakeTokens,
 			Creators:   fakeTokens.(store.CreatorStore),
+			AlertRules: store.NewFakeAlertRuleStore(),
 			Pinger:     fakeTokens.(store.Pinger),
 		}
 	}
