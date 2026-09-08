@@ -16,4 +16,7 @@ export const LIVE_ENDPOINTS = new Set<keyof SentinelApi>([
   "getAuthorityGraph",
   "getSystemHealth",
   "runBacktest",
+  "getAlertRules",
+  "createAlertRule",
+  "setAlertRuleEnabled",
 ]);

@@ -567,6 +567,17 @@ export const mockApi: SentinelApi = {
   getAlerts: () => delay(alerts),
   getAlertRules: () => delay(alertRules),
   getNotificationConfig: () => delay(notificationConfig),
+  // Mutation'lar mock modda in-memory diziyi günceller (görsel tutarlılık; http modda gerçek DB).
+  createAlertRule: (draft) => {
+    const rule: AlertRule = { id: `r${Date.now()}`, enabled: true, ...draft };
+    alertRules.push(rule);
+    return delay(rule);
+  },
+  setAlertRuleEnabled: (id, enabled) => {
+    const r = alertRules.find((x) => x.id === id);
+    if (r) r.enabled = enabled;
+    return delay(undefined as void);
+  },
   getRadar: () => delay(radarFrom(tokens)),
   getEvents: () => delay(feedEvents),
   getWalletGraph: () => delay(walletGraph),

@@ -1,5 +1,6 @@
 import type { SentinelApi } from "./contract";
-import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph, SystemHealth, BacktestParams, BacktestResult } from "./types";
+import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph, SystemHealth, BacktestParams, BacktestResult, AlertRule } from "./types";
+import type { AlertRuleDraft } from "@/lib/alerts/alert-defs";
 import { wsSubscribe } from "./ws";
 
 // TODO(backend): AWS REST + WebSocket implementasyonu. Endpoint aileleri
@@ -28,14 +29,26 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+// sendJson, gövde-cevabı beklemeyen mutation'lar için (PATCH/PUT, 204). void döner.
+async function sendJson(method: string, path: string, body: unknown): Promise<void> {
+  const res = await fetch(`${apiBase()}${path}`, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+}
+
 export const httpApi: SentinelApi = {
   getKpis: () => getJson<Kpi[]>("/api/kpis"),
   getTokens: () => getJson<TokenRow[]>("/api/tokens"),
   getAlerts: notReady,
-  // Alert kuralları + bildirim config'i backend Alt-proje 3'e bağlı; LIVE_ENDPOINTS'te
-  // olmadıkları için hibrit adapter mock'a route eder — httpApi tarafı notReady kalır.
-  getAlertRules: notReady,
+  // Alarm kuralları backend'de kalıcı (Alt-proje 3 kısmi); NotificationConfig hâlâ mock (LIVE_ENDPOINTS'te
+  // değil → hibrit adapter mock'a route eder).
+  getAlertRules: () => getJson<AlertRule[]>("/api/alert-rules"),
   getNotificationConfig: notReady,
+  createAlertRule: (draft: AlertRuleDraft) => postJson<AlertRule>("/api/alert-rules", { ...draft, enabled: true }),
+  setAlertRuleEnabled: (id: string, enabled: boolean) => sendJson("PATCH", `/api/alert-rules/${encodeURIComponent(id)}`, { enabled }),
   getRadar: () => getJson<RadarPoint[]>("/api/radar"),
   getToken: (mint: string) => getJson<TokenDetail>(`/api/token/${encodeURIComponent(mint)}`),
   getEvents: () => getJson<FeedEvent[]>("/api/events"),
