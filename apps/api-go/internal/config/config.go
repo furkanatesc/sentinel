@@ -12,7 +12,9 @@ type Config struct {
 	CORSOrigin   string
 	HeliusAPIKey string
 	SolanaRPCURL string // creatorfill resolver için alternatif genel RPC (Helius free-tier getSignaturesForAddress'i bloke ederse); boşsa Helius'a düşer
-	EventsWindow int
+
+	BacktestServiceURL string // Python backtest servisi (Alt-proje 4); boş → /api/backtest graceful 503
+	EventsWindow       int
 
 	GeckoBaseURL     string
 	MarketEnabled    bool
@@ -108,7 +110,9 @@ func Load() Config {
 		CORSOrigin:   os.Getenv("CORS_ORIGIN"),
 		HeliusAPIKey: os.Getenv("HELIUS_API_KEY"),
 		SolanaRPCURL: os.Getenv("SOLANA_RPC_URL"),
-		EventsWindow: getenvInt("EVENTS_WINDOW", 200),
+
+		BacktestServiceURL: os.Getenv("BACKTEST_SERVICE_URL"),
+		EventsWindow:       getenvInt("EVENTS_WINDOW", 200),
 
 		GeckoBaseURL:     getenv("GECKOTERMINAL_BASE_URL", "https://api.geckoterminal.com/api/v2"),
 		MarketEnabled:    getenvBool("MARKET_ENABLED", true),
