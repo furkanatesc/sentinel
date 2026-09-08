@@ -123,7 +123,7 @@ def aggregate(trades: list[SimTrade], params: BacktestParams) -> BacktestResult:
         sortino=round(mean_ret / down_std, 6) if down_std > 0 else 0.0,
         maxDrawdownPct=round(max_dd_pct, 6),
         avgTradeSol=round(net / n, 6),
-        rugExposurePct=round(sum(1 for t in trades if t.outcome == "rugged") / n * 100.0, 6),
+        rugExposurePct=round(sum(1 for t in trades if t.outcome == "rug") / n * 100.0, 6),
         trades=n,
         avgHoldingHours=round(sum(t.holdingHours for t in trades) / n, 6),
     )

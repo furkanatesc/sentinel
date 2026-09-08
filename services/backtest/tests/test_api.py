@@ -27,7 +27,7 @@ def test_healthz():
 
 def test_backtest_shape(monkeypatch):
     monkeypatch.setattr(main, "fetch_tokens", lambda _start: [
-        _tok("A", "graduated"), _tok("B", "rugged"), _tok("C", "active", creator=10),
+        _tok("A", "graduated"), _tok("B", "rug"), _tok("C", "active", creator=10),
     ])
     r = client.post("/backtest", json=_PARAMS)
     assert r.status_code == 200

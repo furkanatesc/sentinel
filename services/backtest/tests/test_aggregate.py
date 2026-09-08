@@ -23,7 +23,7 @@ def _fixture():
     return [
         SimTrade(time=_ts(2026, 1, 15), price=1.0, pnlSol=10.0, size=25.0, outcome="graduated", safetyScore=80.0, holdingHours=48.0),
         SimTrade(time=_ts(2026, 1, 20), price=1.0, pnlSol=-5.0, size=25.0, outcome="dumped", safetyScore=60.0, holdingHours=6.0),
-        SimTrade(time=_ts(2026, 2, 5), price=1.0, pnlSol=-20.0, size=25.0, outcome="rugged", safetyScore=55.0, holdingHours=1.0),
+        SimTrade(time=_ts(2026, 2, 5), price=1.0, pnlSol=-20.0, size=25.0, outcome="rug", safetyScore=55.0, holdingHours=1.0),
         SimTrade(time=_ts(2026, 2, 10), price=1.0, pnlSol=15.0, size=25.0, outcome="active", safetyScore=90.0, holdingHours=24.0),
     ]
 

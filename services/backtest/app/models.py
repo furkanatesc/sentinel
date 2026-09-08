@@ -15,6 +15,8 @@ class BacktestParams(BaseModel):
     maxPositions: int
     slippageModel: str
     priorityFee: float
+    # latencyModel / liquidityModel: sözleşme için kabul edilir ama outcome-tabanlı modelde
+    # HENÜZ KULLANILMIYOR (rezerve; tick-replay/kalibrasyon gelince modellenecek — followup).
     latencyModel: str
     liquidityModel: str
     minCreatorScore: float

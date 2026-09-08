@@ -14,7 +14,7 @@ Aynı Postgres'i (Go servisiyle) `DATABASE_URL` üzerinden okur.
 ```bash
 cd services/backtest
 python -m venv .venv && . .venv/Scripts/activate   # Windows; POSIX: . .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt                 # runtime + test (pytest/httpx); prod yalnız requirements.txt
 pytest                                              # saf birim testleri (DB gerekmez)
 DATABASE_URL=postgres://... uvicorn app.main:app --reload
 ```

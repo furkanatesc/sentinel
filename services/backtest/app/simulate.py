@@ -22,7 +22,7 @@ _SLIPPAGE = {"optimistic": 0.005, "realistic": 0.02, "pessimistic": 0.05}
 _SLIPPAGE_DEFAULT = 0.02
 
 # outcome → nominal tutma süresi (saat) — outcome-tabanlıda gerçek süre yok, model.
-_HOLDING_HOURS = {"graduated": 48.0, "active": 24.0, "dumped": 6.0, "rugged": 1.0, "dead": 72.0}
+_HOLDING_HOURS = {"graduated": 48.0, "active": 24.0, "dumped": 6.0, "rug": 1.0, "dead": 72.0}
 
 
 @dataclass
@@ -38,7 +38,12 @@ class SimTrade:
 
 
 def _return_multiplier(t: TokenRow) -> float | None:
-    """outcome → getiri çarpanı. Bilinmeyen/skorsuz → None (işlem yok)."""
+    """outcome → getiri çarpanı. Bilinmeyen/skorsuz → None (işlem yok).
+
+    outcome string'leri Go classifier'ının TEK GERÇEK KAYNAĞIYLA birebir olmalı:
+    apps/api-go/internal/outcome/classifier.go → active/graduated/dumped/rug/dead.
+    (Bu seam yalnız deploy'da gerçek DB'ye karşı doğrulanır — string drift'i test_real_outcome_vocabulary korur.)
+    """
     o = t.outcome
     if o == "graduated":
         if t.marketCap > 0 and t.peakMarketCap > t.marketCap:
@@ -48,7 +53,7 @@ def _return_multiplier(t: TokenRow) -> float | None:
         return ACTIVE_RET
     if o == "dumped":
         return -(t.maxDrawdownPct / 100.0)
-    if o == "rugged":
+    if o == "rug":
         return -RUG_LOSS
     if o == "dead":
         return -DEAD_LOSS

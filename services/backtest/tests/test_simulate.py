@@ -37,7 +37,7 @@ def test_graduated_is_profitable():
 
 
 def test_rugged_is_large_loss():
-    t = simulate_trade(_tok(outcome="rugged"), _params(slippageModel="optimistic", priorityFee=0.0))
+    t = simulate_trade(_tok(outcome="rug"), _params(slippageModel="optimistic", priorityFee=0.0))
     assert t is not None
     # ~ -0.95 * size (küçük slippage düşülür), belirgin negatif
     assert -10.0 < t.pnlSol < -8.0
@@ -59,11 +59,25 @@ def test_costs_reduce_pnl():
     assert lo.pnlSol < hi.pnlSol  # daha çok slippage + priorityFee → daha az pnl
 
 
+# Go classifier'ının (apps/api-go/internal/outcome/classifier.go) gerçek sözcük dağarı — tek kaynak.
+# Bu liste Python↔Go string kontratının sessizce sapmasını engeller (yerel Postgres yok).
+REAL_OUTCOMES = ["active", "graduated", "dumped", "rug", "dead"]
+
+
+def test_real_outcome_vocabulary_handled():
+    p = _params(minCreatorScore=0.0, minTokenSafety=0.0)
+    for o in REAL_OUTCOMES:
+        t = simulate_trade(_tok(outcome=o, maxDrawdownPct=30.0), p)
+        assert t is not None, f"gerçek outcome '{o}' işlem üretmeli (drift → sessiz düşer)"
+    rug = simulate_trade(_tok(outcome="rug"), p)
+    assert rug.pnlSol < 0 and rug.outcome == "rug"  # rug kayıp + rugExposure'da sayılır
+
+
 def test_run_filters_and_sizes():
     p = _params(maxPositions=4, initialCapitalSol=100.0)
     toks = [
         _tok(mint="A", outcome="graduated"),
-        _tok(mint="B", outcome="rugged"),
+        _tok(mint="B", outcome="rug"),
         _tok(mint="C", creator=10),  # elenir
         _tok(mint="D", outcome=""),  # skorsuz → işlem yok
     ]
