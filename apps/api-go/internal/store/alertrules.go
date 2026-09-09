@@ -99,6 +99,15 @@ func (p *postgresStore) SetAlertRuleEnabled(ctx context.Context, id string, enab
 var ErrNotFound = fmt.Errorf("alert rule not found")
 
 func seedAlertRules(ctx context.Context, db *sql.DB) error {
+	// Yalnız tablo boşsa seed'le (spec: "seed boşsa"). Aksi halde her açılışta ON CONFLICT
+	// varsayılanları geri diriltir — ileride silme eklenirse silinen seed satırı geri gelir.
+	var n int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM alert_rules`).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
 	const q = `INSERT INTO alert_rules
 		(id, name, trigger, scope, min_liquidity, min_creator_score, max_risk, channels, enabled, created_ts)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING`

@@ -291,6 +291,23 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
   (429) kök nedeni buydu. (4) Nötr skorlar UI'da ekstrem renk gösterebilir (0=düşük/kırmızı, higherIsBetter=false
   için 100=yeşil); `confidence:0` "veri yok" sinyali — A2 gerçek skorları getirene kadar dokümante tasarım kararı.
 
+## Alarm Kuralları Persist (Backend Alt-proje 3 kısmi) — deferred
+
+Alarm kuralları persist (`feat/backend-alert-rules-persist`, 2026-09-08, uygulamanın ilk mutation seam'i)
+`/alerts` kurallarını DB'ye bağladı (list gerçek + create/toggle persist). Aşağıdakiler bilinçle ertelendi:
+
+- **NotificationConfig persist + save mutation:** `/slack` ayarları hâlâ mock/local (getNotificationConfig
+  LIVE_ENDPOINTS'te değil). Aynı desenle (tablo/tek-satır + save mutation) eklenebilir — sıradaki mantıklı adım.
+- **Kural silme + düzenleme:** yalnız create + toggle var; DELETE/PUT (edit) eklenmedi (create+toggle çekirdek).
+- **Gerçek Slack teslimatı:** Alt-proje 3'ün kalanı — kural tetiklenince Slack'e mesaj (webhook/app). Harici
+  entegrasyon → sona ertelendi (kullanıcı "Helius gibi entegrasyonlar sona").
+- **Optimistic update yerine invalidate-refetch:** toggle'da anlık geri-bildirim için local override + persist +
+  invalidate; tam optimistic (rollback'li) değil. Basit + doğru; istenirse optimistic'e yükseltilebilir.
+- **Server-side kural validasyonu asgari:** yalnız `name` zorunlu; trigger/maxRisk/channels değerleri doğrulanmıyor
+  (frontend `validateAlertRule` + registry enum'ları kısıtlıyor). Gerekirse handler'a enum validasyonu eklenebilir.
+- **create id `time.Now().UnixNano()`:** hızlı ardışık çağrıda teorik çakışma (pratikte ns çözünürlük yeterli);
+  gerekirse UUID.
+
 ## Backtest Motoru (Backend Alt-proje 4) — deferred
 
 Backtest motoru (`feat/backend-backtest-engine`, 2026-09-08, repo'nun ilk Python servisi) `/api/backtest`'i

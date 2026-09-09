@@ -24,11 +24,20 @@ export default function AlertRulesPanel({ onNew }: { onNew?: () => void }) {
   }
   if (isError || !data) return <p className="text-sm text-critical">Alarm kuralları alınamadı.</p>;
 
+  const clearOverride = (id: string) =>
+    setOverrides((o) => {
+      const next = { ...o };
+      delete next[id];
+      return next;
+    });
+
   const toggle = (id: string) => {
     const current = overrides[id] ?? data.find((r) => r.id === id)!.enabled;
     const next = !current;
     setOverrides((o) => ({ ...o, [id]: next })); // anlık geri-bildirim
-    setEnabled.mutate({ id, enabled: next }); // DB persist + invalidate
+    // Settle olunca override'ı bırak: başarıda invalidate-refetch server gerçeğini getirir,
+    // hatada eski server değerine döner (rollback). Kalıcı override server'ı gölgelemesin.
+    setEnabled.mutate({ id, enabled: next }, { onSettled: () => clearOverride(id) });
   };
 
   return (

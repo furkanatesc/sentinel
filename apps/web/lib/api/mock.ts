@@ -575,7 +575,9 @@ export const mockApi: SentinelApi = {
   },
   setAlertRuleEnabled: (id, enabled) => {
     const r = alertRules.find((x) => x.id === id);
-    if (r) r.enabled = enabled;
+    // Backend bulunamayan id'de 404 döner; mock da parity için reddetsin (sessiz başarı yok).
+    if (!r) return Promise.reject(new Error(`alert rule ${id} not found`));
+    r.enabled = enabled;
     return delay(undefined as void);
   },
   getRadar: () => delay(radarFrom(tokens)),
