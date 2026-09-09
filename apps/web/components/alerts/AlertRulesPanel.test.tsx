@@ -11,6 +11,9 @@ vi.mock("@/lib/hooks/queries", () => ({
     isError: false,
   }),
 }));
+vi.mock("@/lib/hooks/mutations", () => ({
+  useSetAlertRuleEnabled: () => ({ mutate: vi.fn() }),
+}));
 
 describe("AlertRulesPanel", () => {
   it("kuralları + trigger etiketini gösterir", () => {

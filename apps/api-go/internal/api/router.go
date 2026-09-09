@@ -28,6 +28,7 @@ type RouterDeps struct {
 	WalletGraphMaxDegree  int
 	KpiSparkWindow        int    // /api/kpis spark penceresi (son N örnek); 0 → handler varsayılanı (24)
 	BacktestServiceURL    string // Python backtest servisi; boş → /api/backtest graceful 503
+	AlertRules            store.AlertRuleStore
 	Health                healthSnapshotter
 	Pinger                store.Pinger
 	Gates                 map[string]bool
@@ -68,6 +69,11 @@ func NewRouter(d RouterDeps) http.Handler {
 	}
 	// /api/backtest her zaman kayıtlı; BacktestServiceURL boşsa handler graceful 503 döner.
 	r.Post("/api/backtest", backtestHandler(d.BacktestServiceURL, 30*time.Second))
+	if d.AlertRules != nil {
+		r.Get("/api/alert-rules", alertRulesListHandler(d.AlertRules))
+		r.Post("/api/alert-rules", createAlertRuleHandler(d.AlertRules))
+		r.Patch("/api/alert-rules/{id}", setAlertRuleEnabledHandler(d.AlertRules))
+	}
 	if d.Creators != nil {
 		limit := d.CreatorsLimit
 		if limit <= 0 {

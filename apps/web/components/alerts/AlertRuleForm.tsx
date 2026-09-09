@@ -11,6 +11,7 @@ import {
   validateAlertRule,
   type AlertRuleDraft,
 } from "@/lib/alerts/alert-defs";
+import { useCreateAlertRule } from "@/lib/hooks/mutations";
 
 const TRIGGERS = Object.keys(ALERT_TRIGGER_DEFS) as AlertTriggerType[];
 const CHANNELS = Object.keys(DELIVERY_CHANNEL_DEFS) as DeliveryChannel[];
@@ -25,11 +26,11 @@ const EMPTY: AlertRuleDraft = {
   channels: ["slack"],
 };
 
-// AlertRuleForm, kontrollü kural oluşturma formu. Submit SIMÜLE (toast) — SentinelApi'de
-// mutation yok; gerçek persist Backend Alt-proje 3.
+// AlertRuleForm, kontrollü kural oluşturma formu. Submit GERÇEK (createAlertRule mutation → DB persist).
 export default function AlertRuleForm({ onDone }: { onDone?: () => void }) {
   const [draft, setDraft] = useState<AlertRuleDraft>(EMPTY);
   const [errors, setErrors] = useState<{ field: string; msg: string }[]>([]);
+  const createRule = useCreateAlertRule();
 
   const errOf = (field: string) => errors.find((e) => e.field === field)?.msg;
   const clearErr = (field: string) => setErrors((es) => es.filter((e) => e.field !== field));
@@ -49,10 +50,15 @@ export default function AlertRuleForm({ onDone }: { onDone?: () => void }) {
     const errs = validateAlertRule(draft);
     setErrors(errs);
     if (errs.length > 0) return;
-    toast.success("Kural kaydedildi (simüle — kalıcı değil)");
-    setDraft(EMPTY); // başarılı kayıt sonrası taslağı sıfırla (tekrar açılışta eski değer kalmasın)
-    setErrors([]);
-    onDone?.();
+    createRule.mutate(draft, {
+      onSuccess: () => {
+        toast.success("Kural kaydedildi");
+        setDraft(EMPTY); // başarılı kayıt sonrası taslağı sıfırla
+        setErrors([]);
+        onDone?.();
+      },
+      onError: () => toast.error("Kural kaydedilemedi"),
+    });
   };
 
   return (

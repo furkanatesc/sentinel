@@ -1,4 +1,5 @@
 import type { Kpi, TokenRow, AlertEvent, AlertRule, NotificationConfig, RadarPoint, TokenDetail, FeedEvent, WalletGraph, CreatorRow, CreatorProfile, StrategyRow, StrategyDetail, PortfolioOverview, Position, Candle, MarketData, Order, Txn, TradeLog, BacktestParams, BacktestResult, SystemHealth, ResearchSuggestion, ResearchAnswer, ResearchSource } from "./types";
+import type { AlertRuleDraft } from "@/lib/alerts/alert-defs";
 
 export interface SentinelApi {
   getKpis(): Promise<Kpi[]>;
@@ -6,6 +7,9 @@ export interface SentinelApi {
   getAlerts(): Promise<AlertEvent[]>;
   getAlertRules(): Promise<AlertRule[]>;
   getNotificationConfig(): Promise<NotificationConfig>;
+  // İlk mutation seam'i (kural CRUD — trade değil). Backend Alt-proje 3 persist.
+  createAlertRule(draft: AlertRuleDraft): Promise<AlertRule>;
+  setAlertRuleEnabled(id: string, enabled: boolean): Promise<void>;
   getRadar(): Promise<RadarPoint[]>;
   getToken(idOrMint: string): Promise<TokenDetail>;
   getEvents(): Promise<FeedEvent[]>;

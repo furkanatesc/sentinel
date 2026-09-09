@@ -66,6 +66,7 @@ func main() {
 			Events:     store.NewFakeEventStore(),
 			Tokens:     fakeTokens,
 			Creators:   fakeTokens.(store.CreatorStore),
+			AlertRules: store.NewFakeAlertRuleStore(),
 			Pinger:     fakeTokens.(store.Pinger),
 		}
 	}
@@ -306,6 +307,7 @@ func main() {
 			WalletGraphMaxDegree:  cfg.WalletGraphMaxDegree,
 			KpiSparkWindow:        cfg.TrendSparkWindow,
 			BacktestServiceURL:    cfg.BacktestServiceURL,
+			AlertRules:            bundle.AlertRules,
 			Health:                healthReg,
 			Pinger:                bundle.Pinger,
 			Gates:                 gates,

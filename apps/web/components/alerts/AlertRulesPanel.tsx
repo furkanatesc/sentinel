@@ -2,13 +2,15 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useAlertRules } from "@/lib/hooks/queries";
+import { useSetAlertRuleEnabled } from "@/lib/hooks/mutations";
 import { Skeleton } from "@/components/ui/skeleton";
 import AlertRuleCard from "./AlertRuleCard";
 
-// AlertRulesPanel, alarm kurallarını (mock read) listeler. Aç/kapa SIMÜLE: local override —
-// SentinelApi'de mutation yok, gerçek persist Backend Alt-proje 3.
+// AlertRulesPanel, alarm kurallarını listeler. Aç/kapa GERÇEK (setAlertRuleEnabled mutation → DB persist,
+// Backend Alt-proje 3); local override yalnız anlık geri-bildirim (invalidate-refetch gerçeği getirir).
 export default function AlertRulesPanel({ onNew }: { onNew?: () => void }) {
   const { data, isLoading, isError } = useAlertRules();
+  const setEnabled = useSetAlertRuleEnabled();
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
   if (isLoading) {
@@ -22,8 +24,21 @@ export default function AlertRulesPanel({ onNew }: { onNew?: () => void }) {
   }
   if (isError || !data) return <p className="text-sm text-critical">Alarm kuralları alınamadı.</p>;
 
-  const toggle = (id: string) =>
-    setOverrides((o) => ({ ...o, [id]: !(o[id] ?? data.find((r) => r.id === id)!.enabled) }));
+  const clearOverride = (id: string) =>
+    setOverrides((o) => {
+      const next = { ...o };
+      delete next[id];
+      return next;
+    });
+
+  const toggle = (id: string) => {
+    const current = overrides[id] ?? data.find((r) => r.id === id)!.enabled;
+    const next = !current;
+    setOverrides((o) => ({ ...o, [id]: next })); // anlık geri-bildirim
+    // Settle olunca override'ı bırak: başarıda invalidate-refetch server gerçeğini getirir,
+    // hatada eski server değerine döner (rollback). Kalıcı override server'ı gölgelemesin.
+    setEnabled.mutate({ id, enabled: next }, { onSettled: () => clearOverride(id) });
+  };
 
   return (
     <div className="space-y-3">

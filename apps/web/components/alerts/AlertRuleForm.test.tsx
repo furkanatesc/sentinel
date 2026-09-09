@@ -6,6 +6,13 @@ const toastSuccess = vi.fn();
 vi.mock("sonner", () => ({
   toast: Object.assign((...a: unknown[]) => toastSuccess(...a), {
     success: (...a: unknown[]) => toastSuccess(...a),
+    error: (...a: unknown[]) => toastSuccess(...a),
+  }),
+}));
+// createAlertRule mutation: geçerli submit'te onSuccess'i tetikle (toast + onDone yolu).
+vi.mock("@/lib/hooks/mutations", () => ({
+  useCreateAlertRule: () => ({
+    mutate: (_draft: unknown, opts: { onSuccess?: () => void }) => opts?.onSuccess?.(),
   }),
 }));
 

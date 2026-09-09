@@ -452,8 +452,28 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   With fixes"** (1 Critical + 2 Minor → giderildi: #1 outcome `"rugged"`→`"rug"` [Go classifier.go/DB/frontend
   kontratı — yoksa tüm rug token sessizce düşer + rugExposurePct hep 0; testler "rugged" hardcode ettiği için
   maskeliyordu] + gerçek-sözcük-dağarı drift-guard testi, #2 dev-deps ayrımı, #3 kullanılmayan-param yorumu).
-  **DURUM: master'a merge + push edilecek (Go proxy env'siz graceful 503 → güvenli); Railway 2. servis kurulumu
-  KULLANICI ADMIN ADIMI (kurulana dek /api/backtest 503).** Ertelenenler → `followups-frontend.md` "Backtest Motoru".
+  **DURUM: master'a MERGE + PUSH edildi (2026-09-08, merge `1bd40c4`); Go proxy env'siz graceful 503. ⚠️ Railway
+  2. servis kurulumu KULLANICI ADMIN ADIMI (services/backtest root + DATABASE_URL + Go'ya BACKTEST_SERVICE_URL —
+  kurulana dek /api/backtest 503).** Ertelenenler → `followups-frontend.md` "Backtest Motoru".
+
+- 2026-09-08 — **Alarm Kuralları Persist kod tamamlandı (branch `feat/backend-alert-rules-persist`) — uygulamanın
+  İLK MUTATION seam'i.** Backend Alt-proje 3 kısmi (Alerts backend — Slack teslimatı hariç). `/alerts` kuralları
+  artık backend'de kalıcı: migration `0016_create_alert_rules` + `AlertRuleStore` (List/Create/SetEnabled, channels
+  JSON, seed 4 default, fake parity) + Go handlers (GET list / POST create 201 / PATCH toggle 204, 400/404) +
+  frontend contract mutation'ları (`createAlertRule`/`setAlertRuleEnabled`) + mock (in-memory update) + httpApi
+  (getAlertRules gerçek + POST/PATCH via sendJson) + LIVE_ENDPOINTS + `useCreateAlertRule`/`useSetAlertRuleEnabled`
+  (invalidate) + `/alerts` rewire (toggle→persist [override anlık geri-bildirim], form→gerçek create). **Kural CRUD
+  = trade-mutasyonu DEĞİL → yapısal-güvenlik ilkesi korunur.** Entegrasyon-gerektirmez. Geriye uyumlu (mock modda
+  mutation'lar in-memory diziyi günceller). **go test ./... -race + vet + build + frontend tsc/vitest(254)/build —
+  hepsi yeşil.** Kapsam dışı: NotificationConfig persist (mock kalır), kural silme/düzenleme, gerçek Slack teslimatı,
+  optimistic update (invalidate-refetch seçildi). **Whole-branch review (Opus, 2026-09-09) → 3 bulgu giderildi:**
+  (1) [Critical] AlertRulesPanel local override hiç temizlenmiyordu → başarılı refetch sonrası server gerçeğini
+  kalıcı gölgeliyor + hatada rollback yok; `mutate(..., { onSettled: clearOverride })` ile düzeltildi (başarıda
+  refetch gerçeği görünür, hatada eski değere döner). (2) [Minor] mock `setAlertRuleEnabled` bulunamayan id'de
+  sessiz başarı dönüyordu (backend 404) → parity için `Promise.reject`. (3) [Minor] `seedAlertRules` her açılışta
+  çalışıyordu (ON CONFLICT) → spec "seed boşsa" gereği `COUNT(*)>0` guard'ı (silinen seed'in geri dirilmesini önler).
+  go -race + vet + build + frontend vitest(254)/build tekrar yeşil. **DURUM: master'a MERGE + PUSH edilecek.**
+  Ertelenenler → `docs/superpowers/followups-frontend.md` "Alarm Kuralları Persist".
 
 ## Açık takip maddeleri
 

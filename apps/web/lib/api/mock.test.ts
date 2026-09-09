@@ -22,6 +22,21 @@ test("getNotificationConfig Slack config döndürür", async () => {
   expect(c).toHaveProperty("quietHours");
 });
 
+test("createAlertRule + setAlertRuleEnabled diziyi günceller", async () => {
+  const before = (await mockApi.getAlertRules()).length;
+  const created = await mockApi.createAlertRule({
+    name: "Test kuralı", trigger: "new_mint", scope: "Tüm", minLiquidity: 0, minCreatorScore: 0, maxRisk: "medium", channels: ["slack"],
+  });
+  expect(created.id).toBeTruthy();
+  expect(created.enabled).toBe(true);
+  const after = await mockApi.getAlertRules();
+  expect(after.length).toBe(before + 1);
+  // toggle
+  await mockApi.setAlertRuleEnabled(created.id, false);
+  const toggled = (await mockApi.getAlertRules()).find((r) => r.id === created.id);
+  expect(toggled?.enabled).toBe(false);
+});
+
 test("subscribeTokens emits and returns an unsubscribe fn", async () => {
   await new Promise<void>((resolve, reject) => {
     const stop = mockApi.subscribeTokens((tokens) => {
