@@ -67,6 +67,7 @@ func main() {
 			Tokens:     fakeTokens,
 			Creators:   fakeTokens.(store.CreatorStore),
 			AlertRules: store.NewFakeAlertRuleStore(),
+			NotifyCfg:  store.NewFakeNotificationConfigStore(),
 			Pinger:     fakeTokens.(store.Pinger),
 		}
 	}
@@ -308,6 +309,7 @@ func main() {
 			KpiSparkWindow:        cfg.TrendSparkWindow,
 			BacktestServiceURL:    cfg.BacktestServiceURL,
 			AlertRules:            bundle.AlertRules,
+			NotifyCfg:             bundle.NotifyCfg,
 			Health:                healthReg,
 			Pinger:                bundle.Pinger,
 			Gates:                 gates,
