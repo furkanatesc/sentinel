@@ -83,6 +83,8 @@ type Config struct {
 	TrendEnabled           bool
 	TrendSampleIntervalSec int
 	TrendSampleKeep        int
+	AlertEvalEnabled       bool
+	AlertEvalIntervalSec   int
 	// TrendSparkWindow, /api/kpis spark'ının kaç örnek gösterdiğidir. Not: pencere SÜRE değil
 	// SAYIdır — 24 örnek × INTERVAL_SEC(300) ≈ 2 saatlik trend; KEEP(288) ise ~24s retention.
 	// change % bu pencereye görelidir (kart etiketindeki "24s" ham sayım, spark ~son 2s trendi).
@@ -180,6 +182,8 @@ func Load() Config {
 
 		TrendEnabled:           getenvBool("TREND_ENABLED", true),
 		TrendSampleIntervalSec: getenvInt("TREND_SAMPLE_INTERVAL_SEC", 300),
+		AlertEvalEnabled:       getenvBool("ALERTEVAL_ENABLED", true),
+		AlertEvalIntervalSec:   getenvInt("ALERTEVAL_INTERVAL_SEC", 30),
 		TrendSampleKeep:        getenvInt("TREND_SAMPLE_KEEP", 288),
 		TrendSparkWindow:       getenvInt("TREND_SPARK_WINDOW", 24),
 

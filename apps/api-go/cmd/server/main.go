@@ -24,6 +24,7 @@ import (
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/reputation"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/safety"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/store"
+	"github.com/furkanatesc/sentinel/apps/api-go/internal/alerteval"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/trend"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/walletgraph"
 	"github.com/furkanatesc/sentinel/apps/api-go/internal/ws"
@@ -66,9 +67,10 @@ func main() {
 			Events:     store.NewFakeEventStore(),
 			Tokens:     fakeTokens,
 			Creators:   fakeTokens.(store.CreatorStore),
-			AlertRules: store.NewFakeAlertRuleStore(),
-			NotifyCfg:  store.NewFakeNotificationConfigStore(),
-			Pinger:     fakeTokens.(store.Pinger),
+			AlertRules:  store.NewFakeAlertRuleStore(),
+			NotifyCfg:   store.NewFakeNotificationConfigStore(),
+			AlertEvents: store.NewFakeAlertEventStore(),
+			Pinger:      fakeTokens.(store.Pinger),
 		}
 	}
 	defer cleanup()
@@ -194,6 +196,7 @@ func main() {
 	healthReg.Register(health.WorkerManipulation, cfg.ManipulationEnabled, time.Duration(cfg.ManipulationIntervalSec)*time.Second)
 	healthReg.Register(health.WorkerOpportunity, cfg.OpportunityEnabled, time.Duration(cfg.OpportunityIntervalSec)*time.Second)
 	healthReg.Register(health.WorkerTrend, cfg.TrendEnabled && bundle.Tokens != nil, time.Duration(cfg.TrendSampleIntervalSec)*time.Second)
+	healthReg.Register(health.WorkerAlertEval, cfg.AlertEvalEnabled && bundle.AlertEvents != nil && bundle.Events != nil && bundle.AlertRules != nil, time.Duration(cfg.AlertEvalIntervalSec)*time.Second)
 
 	gates := map[string]bool{
 		"MARKET_ENABLED":       cfg.MarketEnabled,
@@ -206,6 +209,7 @@ func main() {
 		"OPPORTUNITY_ENABLED":  cfg.OpportunityEnabled,
 		"TREND_ENABLED":        cfg.TrendEnabled,
 		"TREND_LIQ_ENABLED":    cfg.TrendLiqEnabled,
+		"ALERTEVAL_ENABLED":    cfg.AlertEvalEnabled,
 	}
 
 	// Paylaşılan hız sınırlayıcı: creatorfill + funder worker'ları AYNI creatorFillRPC
@@ -295,6 +299,19 @@ func main() {
 		go tw.Run(ctx)
 	}
 
+	// alarm değerlendirme worker'ı — aktif kuralları event akışıyla eşleştirir, alarm-geçmişi yazar
+	// (watermark dedup); saf DB (RPC YOK). Slack teslimatı hariç (sona).
+	if cfg.AlertEvalEnabled && bundle.AlertEvents != nil && bundle.Events != nil && bundle.AlertRules != nil {
+		aw := alerteval.NewWorker(alerteval.WorkerDeps{
+			Source:   alertEvalSource{events: bundle.Events, rules: bundle.AlertRules},
+			Sink:     bundle.AlertEvents,
+			Interval: time.Duration(cfg.AlertEvalIntervalSec) * time.Second,
+			Logger:   logger,
+			Health:   healthReg,
+		})
+		go aw.Run(ctx)
+	}
+
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
 		Handler: api.NewRouter(api.RouterDeps{
@@ -310,6 +327,7 @@ func main() {
 			BacktestServiceURL:    cfg.BacktestServiceURL,
 			AlertRules:            bundle.AlertRules,
 			NotifyCfg:             bundle.NotifyCfg,
+			AlertEvents:           bundle.AlertEvents,
 			Health:                healthReg,
 			Pinger:                bundle.Pinger,
 			Gates:                 gates,
@@ -349,4 +367,17 @@ type noopHolders struct{}
 
 func (noopHolders) HoldersCount(context.Context, string, int) (int, bool, error) {
 	return 0, false, nil
+}
+
+// alertEvalSource, alarm-değerlendirme worker'ının Source'unu iki ayrı store'dan (event + kural) birleştirir.
+type alertEvalSource struct {
+	events store.EventStore
+	rules  store.AlertRuleStore
+}
+
+func (s alertEvalSource) RecentEvents(ctx context.Context, limit int) ([]store.EventRow, error) {
+	return s.events.RecentEvents(ctx, limit)
+}
+func (s alertEvalSource) ListAlertRules(ctx context.Context) ([]store.AlertRule, error) {
+	return s.rules.ListAlertRules(ctx)
 }
