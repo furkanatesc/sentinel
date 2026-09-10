@@ -1,5 +1,5 @@
 import type { SentinelApi } from "./contract";
-import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph, SystemHealth, BacktestParams, BacktestResult, AlertRule, NotificationConfig, NotificationSettingsDraft } from "./types";
+import type { StrategyRow, FeedEvent, TokenRow, TokenDetail, CreatorRow, CreatorProfile, Kpi, RadarPoint, WalletGraph, SystemHealth, BacktestParams, BacktestResult, AlertRule, AlertEvent, NotificationConfig, NotificationSettingsDraft } from "./types";
 import type { AlertRuleDraft } from "@/lib/alerts/alert-defs";
 import { wsSubscribe } from "./ws";
 
@@ -46,7 +46,7 @@ async function sendJson(method: string, path: string, body: unknown): Promise<vo
 export const httpApi: SentinelApi = {
   getKpis: () => getJson<Kpi[]>("/api/kpis"),
   getTokens: () => getJson<TokenRow[]>("/api/tokens"),
-  getAlerts: notReady,
+  getAlerts: () => getJson<AlertEvent[]>("/api/alerts"),
   // Alarm kuralları + bildirim ayarları backend'de kalıcı (Alt-proje 3 kısmi).
   getAlertRules: () => getJson<AlertRule[]>("/api/alert-rules"),
   getNotificationConfig: () => getJson<NotificationConfig>("/api/notification-config"),
