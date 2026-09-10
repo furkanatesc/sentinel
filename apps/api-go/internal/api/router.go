@@ -29,6 +29,7 @@ type RouterDeps struct {
 	KpiSparkWindow        int    // /api/kpis spark penceresi (son N örnek); 0 → handler varsayılanı (24)
 	BacktestServiceURL    string // Python backtest servisi; boş → /api/backtest graceful 503
 	AlertRules            store.AlertRuleStore
+	NotifyCfg             store.NotificationConfigStore
 	Health                healthSnapshotter
 	Pinger                store.Pinger
 	Gates                 map[string]bool
@@ -73,6 +74,10 @@ func NewRouter(d RouterDeps) http.Handler {
 		r.Get("/api/alert-rules", alertRulesListHandler(d.AlertRules))
 		r.Post("/api/alert-rules", createAlertRuleHandler(d.AlertRules))
 		r.Patch("/api/alert-rules/{id}", setAlertRuleEnabledHandler(d.AlertRules))
+	}
+	if d.NotifyCfg != nil {
+		r.Get("/api/notification-config", notificationConfigHandler(d.NotifyCfg))
+		r.Put("/api/notification-config", saveNotificationConfigHandler(d.NotifyCfg))
 	}
 	if d.Creators != nil {
 		limit := d.CreatorsLimit

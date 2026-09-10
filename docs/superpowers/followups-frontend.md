@@ -296,8 +296,8 @@ maddeler bilinçle bu dilime dahil edilmedi. Sessiz düşürme yok — Alt-proje
 Alarm kuralları persist (`feat/backend-alert-rules-persist`, 2026-09-08, uygulamanın ilk mutation seam'i)
 `/alerts` kurallarını DB'ye bağladı (list gerçek + create/toggle persist). Aşağıdakiler bilinçle ertelendi:
 
-- **NotificationConfig persist + save mutation:** `/slack` ayarları hâlâ mock/local (getNotificationConfig
-  LIVE_ENDPOINTS'te değil). Aynı desenle (tablo/tek-satır + save mutation) eklenebilir — sıradaki mantıklı adım.
+- **NotificationConfig persist + save mutation:** ✅ TAMAM (`feat/backend-notification-config-persist`, 2026-09-10)
+  — aşağıdaki "NotificationConfig Persist" bölümüne bak.
 - **Kural silme + düzenleme:** yalnız create + toggle var; DELETE/PUT (edit) eklenmedi (create+toggle çekirdek).
 - **Gerçek Slack teslimatı:** Alt-proje 3'ün kalanı — kural tetiklenince Slack'e mesaj (webhook/app). Harici
   entegrasyon → sona ertelendi (kullanıcı "Helius gibi entegrasyonlar sona").
@@ -307,6 +307,23 @@ Alarm kuralları persist (`feat/backend-alert-rules-persist`, 2026-09-08, uygula
   (frontend `validateAlertRule` + registry enum'ları kısıtlıyor). Gerekirse handler'a enum validasyonu eklenebilir.
 - **create id `time.Now().UnixNano()`:** hızlı ardışık çağrıda teorik çakışma (pratikte ns çözünürlük yeterli);
   gerekirse UUID.
+
+## NotificationConfig Persist (Backend Alt-proje 3 kısmi) — deferred
+
+NotificationConfig persist (`feat/backend-notification-config-persist`, 2026-09-10) `/slack` bildirim ayarlarını
+DB'ye bağladı (GET gerçek + PUT save; migration 0017 tek-satır tablo, alert-rules deseni). Karar: ayarlar-kalıcı +
+açık Kaydet butonu. Aşağıdakiler bilinçle ertelendi:
+
+- **Bağlantı-durumu persist (slackState/workspace/channel bağlama):** GET canlı modda `slackState:"disconnected"`
+  / `workspace:""` döner — gerçek Slack OAuth = sona (kullanıcı "Helius gibi entegrasyonlar sona"). Bağlantı
+  kurulunca bu alanlar gerçek workspace/state ile dolacak; DTO'da `toNotificationConfigDTO` bu iki alanı override eder.
+- **Şablon (templates) düzenleme UI:** `AlertTemplateList` şablonları yalnız GÖSTERİR; düzenleme/ekleme formu yok.
+  Persist alt-kümesinde templates var (save payload'ında korunuyor) ama UI'dan değiştirilemiyor. Editör eklenebilir.
+- **channel düzenleme UI:** channel persist ediliyor ama `/slack`'te düzenleme alanı yok (SlackConnectionCard'da
+  gösteriliyor). Kaydet mevcut config.channel'ı korur. Gerçek Slack bağlanınca channel seçimi oradan gelecek.
+- **Per-alan otomatik kaydet yerine açık Kaydet:** değişiklikler local state'te birikir, Kaydet tek PUT gönderir.
+  Basit + net (çok alanlı form). İstenirse debounce'lu otomatik kaydete geçilebilir.
+- **Save sonrası optimistic yok:** invalidate-refetch (alert-rules ile aynı yaklaşım). Basit + doğru.
 
 ## Backtest Motoru (Backend Alt-proje 4) — deferred
 

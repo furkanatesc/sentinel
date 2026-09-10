@@ -22,6 +22,7 @@ type Bundle struct {
 	Tokens     TokenStore
 	Creators   CreatorStore
 	AlertRules AlertRuleStore
+	NotifyCfg  NotificationConfigStore
 	Pinger     Pinger
 }
 
@@ -58,9 +59,13 @@ func OpenPostgres(ctx context.Context, dsn string, opts ...CreatorStoreOption) (
 		db.Close()
 		return Bundle{}, nil, fmt.Errorf("seed alert rules: %w", err)
 	}
+	if err := seedNotificationConfig(ctx, db); err != nil {
+		db.Close()
+		return Bundle{}, nil, fmt.Errorf("seed notification config: %w", err)
+	}
 	cfg := applyCreatorStoreOptions(opts)
 	ps := &postgresStore{db: db, highDrawdownThreshold: cfg.highDrawdownThreshold}
-	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps, AlertRules: ps, Pinger: ps}, db.Close, nil
+	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps, AlertRules: ps, NotifyCfg: ps, Pinger: ps}, db.Close, nil
 }
 
 func seedStrategies(ctx context.Context, db *sql.DB) error {

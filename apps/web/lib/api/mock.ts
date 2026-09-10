@@ -58,7 +58,7 @@ const alertRules: AlertRule[] = [
   { id: "r4", name: "Üretici satışı uyarısı", trigger: "creator_sale", scope: "Tüm tokenlar", minLiquidity: 0, minCreatorScore: 0, maxRisk: "high", channels: ["web"], enabled: true },
 ];
 
-const notificationConfig: NotificationConfig = {
+let notificationConfig: NotificationConfig = {
   slackState: "connected", channel: "#alerts", workspace: "Sentinel HQ",
   minSeverity: "warning",
   quietHours: { start: "23:00", end: "07:00", enabled: false },
@@ -567,6 +567,11 @@ export const mockApi: SentinelApi = {
   getAlerts: () => delay(alerts),
   getAlertRules: () => delay(alertRules),
   getNotificationConfig: () => delay(notificationConfig),
+  saveNotificationConfig: (settings) => {
+    // Kalıcı ayarları güncelle; bağlantı-durumu (slackState/workspace) korunur (backend parity).
+    notificationConfig = { ...notificationConfig, ...settings };
+    return delay(notificationConfig);
+  },
   // Mutation'lar mock modda in-memory diziyi günceller (görsel tutarlılık; http modda gerçek DB).
   createAlertRule: (draft) => {
     const rule: AlertRule = { id: `r${Date.now()}`, enabled: true, ...draft };

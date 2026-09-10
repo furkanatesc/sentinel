@@ -21,6 +21,10 @@ vi.mock("@/lib/hooks/queries", () => ({
     isError: false,
   }),
 }));
+const saveMutate = vi.fn();
+vi.mock("@/lib/hooks/mutations", () => ({
+  useSaveNotificationConfig: () => ({ mutate: saveMutate, isPending: false }),
+}));
 
 describe("SlackContent", () => {
   it("bağlantı + channel gösterir", () => {
@@ -33,5 +37,13 @@ describe("SlackContent", () => {
     render(<SlackContent />);
     fireEvent.click(screen.getByRole("button", { name: /test bildirimi/i }));
     expect(toast).toHaveBeenCalled();
+  });
+  it("Kaydet → saveNotificationConfig mutation (kalıcı ayarlar, bağlantı-durumu hariç)", () => {
+    render(<SlackContent />);
+    fireEvent.click(screen.getByRole("button", { name: /^kaydet$/i }));
+    expect(saveMutate).toHaveBeenCalled();
+    const payload = saveMutate.mock.calls[0][0];
+    expect(payload).toMatchObject({ channel: "#alerts", minSeverity: "warning", tradeApproval: true });
+    expect(payload).not.toHaveProperty("slackState");
   });
 });
