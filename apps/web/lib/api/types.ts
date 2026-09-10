@@ -70,6 +70,13 @@ export interface NotificationConfig {
   tradeApproval: boolean; // trade onayı Slack'ten istensin mi
 }
 
+// NotificationSettingsDraft, NotificationConfig'in KALICI (kaydedilebilir) alt-kümesidir;
+// bağlantı-durumu (slackState/workspace) gerçek Slack'ten gelir, save payload'ında yer almaz.
+export type NotificationSettingsDraft = Pick<
+  NotificationConfig,
+  "channel" | "minSeverity" | "quietHours" | "templates" | "tradeApproval"
+>;
+
 export interface RadarPoint {
   x: number;
   y: number;

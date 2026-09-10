@@ -37,6 +37,24 @@ test("createAlertRule + setAlertRuleEnabled diziyi günceller", async () => {
   expect(toggled?.enabled).toBe(false);
 });
 
+test("saveNotificationConfig ayarları günceller (bağlantı-durumu korunur)", async () => {
+  const before = await mockApi.getNotificationConfig();
+  const saved = await mockApi.saveNotificationConfig({
+    channel: "#trades",
+    minSeverity: "critical",
+    quietHours: { start: "22:00", end: "06:00", enabled: true },
+    templates: before.templates,
+    tradeApproval: !before.tradeApproval,
+  });
+  expect(saved.channel).toBe("#trades");
+  expect(saved.minSeverity).toBe("critical");
+  expect(saved.tradeApproval).toBe(!before.tradeApproval);
+  expect(saved.slackState).toBe(before.slackState); // bağlantı-durumu değişmez
+  const after = await mockApi.getNotificationConfig();
+  expect(after.minSeverity).toBe("critical");
+  expect(after.quietHours.enabled).toBe(true);
+});
+
 test("subscribeTokens emits and returns an unsubscribe fn", async () => {
   await new Promise<void>((resolve, reject) => {
     const stop = mockApi.subscribeTokens((tokens) => {
