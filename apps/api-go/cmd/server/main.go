@@ -375,8 +375,8 @@ type alertEvalSource struct {
 	rules  store.AlertRuleStore
 }
 
-func (s alertEvalSource) RecentEvents(ctx context.Context, limit int) ([]store.EventRow, error) {
-	return s.events.RecentEvents(ctx, limit)
+func (s alertEvalSource) EventsSince(ctx context.Context, afterTs int64, limit int) ([]store.EventRow, error) {
+	return s.events.EventsSince(ctx, afterTs, limit)
 }
 func (s alertEvalSource) ListAlertRules(ctx context.Context) ([]store.AlertRule, error) {
 	return s.rules.ListAlertRules(ctx)

@@ -56,7 +56,7 @@
 
 **Interfaces:**
 - Produces:
-  - `type AlertEventRow struct { ID, RuleID, Type, Token, Detail, Severity, Time string; Ts int64 }` (JSON: id/type/token/detail/severity/time; ruleId ve ts JSON'da `-` DEĞİL → ts JSON'da kalır, ruleId `json:"-"`)
+  - `type AlertEventRow struct { ID, RuleID, Type, Token, Detail, Severity, Time string; Ts int64 }` (JSON: id/type/token/detail/severity/time — frontend AlertEvent birebir; **RuleID ve Ts `json:"-"`** çünkü frontend AlertEvent kontratında yoklar. [Düzeltildi 2026-09-10 review: önceki not "ts JSON'da kalır" yanlıştı.])
   - `type AlertEventStore interface { InsertAlertEvent(ctx, AlertEventRow) error; RecentAlertEvents(ctx, limit int) ([]AlertEventRow, error); GetAlertWatermark(ctx) (int64, error); SetAlertWatermark(ctx, ts int64) error }`
   - `func NewFakeAlertEventStore() AlertEventStore`
   - `Bundle.AlertEvents AlertEventStore`

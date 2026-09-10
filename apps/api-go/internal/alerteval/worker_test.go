@@ -12,8 +12,14 @@ type stubSource struct {
 	rules  []store.AlertRule
 }
 
-func (s *stubSource) RecentEvents(_ context.Context, _ int) ([]store.EventRow, error) {
-	return append([]store.EventRow(nil), s.events...), nil
+func (s *stubSource) EventsSince(_ context.Context, afterTs int64, _ int) ([]store.EventRow, error) {
+	out := []store.EventRow{}
+	for _, e := range s.events {
+		if e.Ts >= afterTs {
+			out = append(out, e)
+		}
+	}
+	return out, nil // testte zaten ts ASC sıralı
 }
 func (s *stubSource) ListAlertRules(_ context.Context) ([]store.AlertRule, error) {
 	return append([]store.AlertRule(nil), s.rules...), nil

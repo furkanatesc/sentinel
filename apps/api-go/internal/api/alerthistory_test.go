@@ -12,7 +12,7 @@ import (
 
 func TestAlertsHistoryEndpoint(t *testing.T) {
 	s := store.NewFakeAlertEventStore()
-	_ = s.InsertAlertEvent(context.Background(), store.AlertEventRow{ID: "a1", Type: "new_mint", Token: "AAA", Severity: "info", Time: "1m", Ts: 100})
+	_, _ = s.InsertAlertEvent(context.Background(), store.AlertEventRow{ID: "a1", Type: "new_mint", Token: "AAA", Severity: "info", Time: "1m", Ts: 100})
 	r := NewRouter(RouterDeps{AlertEvents: s})
 
 	w := httptest.NewRecorder()

@@ -12,8 +12,14 @@ func TestFakeAlertEventStore(t *testing.T) {
 	if wm, err := s.GetAlertWatermark(ctx); err != nil || wm != 0 {
 		t.Fatalf("başlangıç watermark 0 beklenir: %d %v", wm, err)
 	}
-	_ = s.InsertAlertEvent(ctx, AlertEventRow{ID: "a1", RuleID: "r1", Type: "new_mint", Token: "AAA", Severity: "info", Ts: 100})
-	_ = s.InsertAlertEvent(ctx, AlertEventRow{ID: "a2", RuleID: "r2", Type: "liquidity_removed", Token: "BBB", Severity: "critical", Ts: 200})
+	if ins, _ := s.InsertAlertEvent(ctx, AlertEventRow{ID: "a1", RuleID: "r1", Type: "new_mint", Token: "AAA", Severity: "info", Ts: 100}); !ins {
+		t.Fatal("ilk insert inserted=true beklenir")
+	}
+	_, _ = s.InsertAlertEvent(ctx, AlertEventRow{ID: "a2", RuleID: "r2", Type: "liquidity_removed", Token: "BBB", Severity: "critical", Ts: 200})
+	// aynı ID → idempotent atlama (inserted=false)
+	if ins, _ := s.InsertAlertEvent(ctx, AlertEventRow{ID: "a1", RuleID: "r1", Ts: 100}); ins {
+		t.Fatal("tekrar insert inserted=false beklenir (dedup)")
+	}
 	got, err := s.RecentAlertEvents(ctx, 10)
 	if err != nil {
 		t.Fatal(err)

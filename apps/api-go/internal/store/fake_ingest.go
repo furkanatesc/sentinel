@@ -32,6 +32,28 @@ func (f *fakeEventStore) RecentEvents(_ context.Context, limit int) ([]EventRow,
 	return out, nil
 }
 
+// EventsSince, ts >= afterTs olanları EN ESKİDEN yeniye (ts ASC, tiebreak id ASC) döner (postgres parity).
+func (f *fakeEventStore) EventsSince(_ context.Context, afterTs int64, limit int) ([]EventRow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	matched := make([]EventRow, 0, len(f.rows))
+	for _, e := range f.rows {
+		if e.Ts >= afterTs {
+			matched = append(matched, e)
+		}
+	}
+	sort.Slice(matched, func(i, j int) bool {
+		if matched[i].Ts != matched[j].Ts {
+			return matched[i].Ts < matched[j].Ts
+		}
+		return matched[i].ID < matched[j].ID
+	})
+	if limit >= 0 && len(matched) > limit {
+		matched = matched[:limit]
+	}
+	return matched, nil
+}
+
 type fakeTok struct {
 	row       TokenRow
 	poolAddr  string

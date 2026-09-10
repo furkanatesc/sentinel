@@ -24,7 +24,9 @@ type AlertEventRow struct {
 
 // AlertEventStore, üretilmiş alarmların append-only kaydı + değerlendirme watermark'ıdır (DIP).
 type AlertEventStore interface {
-	InsertAlertEvent(ctx context.Context, e AlertEventRow) error
+	// InsertAlertEvent, alarmı yazar. ID (event+kural kompoziti) zaten varsa idempotent atlar ve
+	// inserted=false döner — worker'ın watermark sınırında tekrar-değerlendirdiği alarmları çift saymaması için.
+	InsertAlertEvent(ctx context.Context, e AlertEventRow) (inserted bool, err error)
 	RecentAlertEvents(ctx context.Context, limit int) ([]AlertEventRow, error)
 	GetAlertWatermark(ctx context.Context) (int64, error)
 	SetAlertWatermark(ctx context.Context, ts int64) error
@@ -32,11 +34,15 @@ type AlertEventStore interface {
 
 // --- postgres ---
 
-func (p *postgresStore) InsertAlertEvent(ctx context.Context, e AlertEventRow) error {
+func (p *postgresStore) InsertAlertEvent(ctx context.Context, e AlertEventRow) (bool, error) {
 	const q = `INSERT INTO alert_events (id, rule_id, type, token, detail, severity, time, ts)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING`
-	_, err := p.db.ExecContext(ctx, q, e.ID, e.RuleID, e.Type, e.Token, e.Detail, e.Severity, e.Time, e.Ts)
-	return err
+	res, err := p.db.ExecContext(ctx, q, e.ID, e.RuleID, e.Type, e.Token, e.Detail, e.Severity, e.Time, e.Ts)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
 }
 
 func (p *postgresStore) RecentAlertEvents(ctx context.Context, limit int) ([]AlertEventRow, error) {
@@ -79,17 +85,24 @@ func (p *postgresStore) SetAlertWatermark(ctx context.Context, ts int64) error {
 type fakeAlertEventStore struct {
 	mu     sync.Mutex
 	events []AlertEventRow
+	ids    map[string]bool
 	wm     int64
 }
 
 // NewFakeAlertEventStore, DB'siz mod/testler için in-memory store.
-func NewFakeAlertEventStore() AlertEventStore { return &fakeAlertEventStore{events: []AlertEventRow{}} }
+func NewFakeAlertEventStore() AlertEventStore {
+	return &fakeAlertEventStore{events: []AlertEventRow{}, ids: map[string]bool{}}
+}
 
-func (f *fakeAlertEventStore) InsertAlertEvent(_ context.Context, e AlertEventRow) error {
+func (f *fakeAlertEventStore) InsertAlertEvent(_ context.Context, e AlertEventRow) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.ids[e.ID] { // ON CONFLICT (id) DO NOTHING parity
+		return false, nil
+	}
+	f.ids[e.ID] = true
 	f.events = append(f.events, e)
-	return nil
+	return true, nil
 }
 
 func (f *fakeAlertEventStore) RecentAlertEvents(_ context.Context, limit int) ([]AlertEventRow, error) {
