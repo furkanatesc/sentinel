@@ -1,19 +1,28 @@
 "use client";
 import { useState } from "react";
+import { toast } from "sonner";
 import type { NotificationConfig } from "@/lib/api/types";
 import { type AlertSeverity } from "@/lib/format";
 import { ALERT_SEVERITY_LABELS } from "@/lib/alerts/alert-defs";
+import { useSaveNotificationConfig } from "@/lib/hooks/mutations";
 
 const SEVERITIES = Object.keys(ALERT_SEVERITY_LABELS) as AlertSeverity[];
 
 // NotificationSettings, teslimat eşiği + sessiz saatler + trade onayı. Kontrollü local state;
-// değişiklikler SIMÜLE (persist yok — Backend Alt-proje 3).
+// Kaydet GERÇEK (saveNotificationConfig mutation → DB persist, Backend Alt-proje 3).
 export default function NotificationSettings({ config }: { config: NotificationConfig }) {
-  // TODO(Backend Alt-proje 3): bu local state gerçek teslimatta mutation seam'ine kaldırılacak
-  // (kaydet → NotificationConfig persist). Şu an write-only/simüle — aşağıdaki not bunu belirtir.
   const [minSeverity, setMinSeverity] = useState<AlertSeverity>(config.minSeverity);
   const [quiet, setQuiet] = useState(config.quietHours);
   const [tradeApproval, setTradeApproval] = useState(config.tradeApproval);
+  const save = useSaveNotificationConfig();
+
+  const onSave = () => {
+    // channel + templates bu ekranda düzenlenmez → mevcut config'ten korunur (persist alt-kümesi).
+    save.mutate(
+      { channel: config.channel, minSeverity, quietHours: quiet, templates: config.templates, tradeApproval },
+      { onSuccess: () => toast.success("Ayarlar kaydedildi"), onError: () => toast.error("Ayarlar kaydedilemedi") },
+    );
+  };
 
   return (
     <div className="rounded-lg border border-border/60 bg-card p-4 space-y-4">
@@ -62,7 +71,16 @@ export default function NotificationSettings({ config }: { config: NotificationC
         <Toggle checked={tradeApproval} onChange={setTradeApproval} label="Trade onayı" />
       </div>
 
-      <p className="text-[11px] text-foreground/40">Değişiklikler simüle — kalıcı kayıt Backend Alt-proje 3.</p>
+      <div className="flex justify-end pt-1">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={save.isPending}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+        </button>
+      </div>
     </div>
   );
 }
