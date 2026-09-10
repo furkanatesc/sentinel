@@ -30,6 +30,9 @@ type EventRow struct {
 type EventStore interface {
 	InsertEvent(ctx context.Context, e EventRow) error
 	RecentEvents(ctx context.Context, limit int) ([]EventRow, error)
+	// EventsSince, ts >= afterTs olan event'leri EN ESKİDEN yeniye (ts ASC) döner. Alarm değerlendirme
+	// worker'ı için ileri-cursor: watermark'tan başlayarak burst'te bile atlamadan drain eder.
+	EventsSince(ctx context.Context, afterTs int64, limit int) ([]EventRow, error)
 }
 
 func (p *postgresStore) InsertEvent(ctx context.Context, e EventRow) error {
@@ -48,12 +51,23 @@ func (p *postgresStore) RecentEvents(ctx context.Context, limit int) ([]EventRow
 	const q = `SELECT id, signature, slot, type, mint, symbol, launchpad, dex, liquidity, creator_score,
 		risk_level, token_age_seconds, volume5m, holder_growth_pct, severity, detail, ts
 		FROM events ORDER BY ts DESC LIMIT $1`
-	rows, err := p.db.QueryContext(ctx, q, limit)
+	return p.scanEvents(ctx, q, limit)
+}
+
+func (p *postgresStore) EventsSince(ctx context.Context, afterTs int64, limit int) ([]EventRow, error) {
+	const q = `SELECT id, signature, slot, type, mint, symbol, launchpad, dex, liquidity, creator_score,
+		risk_level, token_age_seconds, volume5m, holder_growth_pct, severity, detail, ts
+		FROM events WHERE ts >= $1 ORDER BY ts ASC, id ASC LIMIT $2`
+	return p.scanEvents(ctx, q, afterTs, limit)
+}
+
+func (p *postgresStore) scanEvents(ctx context.Context, q string, args ...any) ([]EventRow, error) {
+	rows, err := p.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := make([]EventRow, 0, limit)
+	out := []EventRow{}
 	for rows.Next() {
 		var e EventRow
 		var slot int64

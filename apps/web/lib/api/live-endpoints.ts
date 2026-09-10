@@ -21,4 +21,5 @@ export const LIVE_ENDPOINTS = new Set<keyof SentinelApi>([
   "setAlertRuleEnabled",
   "getNotificationConfig",
   "saveNotificationConfig",
+  "getAlerts",
 ]);

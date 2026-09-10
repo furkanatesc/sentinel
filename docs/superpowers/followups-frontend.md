@@ -308,6 +308,26 @@ Alarm kuralları persist (`feat/backend-alert-rules-persist`, 2026-09-08, uygula
 - **create id `time.Now().UnixNano()`:** hızlı ardışık çağrıda teorik çakışma (pratikte ns çözünürlük yeterli);
   gerekirse UUID.
 
+## Alarm Değerlendirme Motoru (Backend Alt-proje 3 kısmi) — deferred
+
+Alarm değerlendirme motoru (`feat/backend-alert-eval-engine`, 2026-09-10) `/alerts` geçmişini gerçek yaptı
+(periyodik worker + watermark dedup + `MatchRule`; getAlerts canlı). Aşağıdakiler bilinçle ertelendi:
+
+- **Gerçek Slack/email teslimatı:** Alt-proje 3'ün kalanı — eşleşen kural tetiklenince Slack/e-posta'ya mesaj
+  (webhook/app). Harici entegrasyon → sona (kullanıcı "Helius gibi entegrasyonlar sona"). Şu an yalnız "web"
+  kanalı = /alerts geçmişinde görünme. `channels` alanı persist'te var ama teslimat yok.
+- **minSeverity delivery gating:** NotificationConfig.minSeverity teslimat eşiği — şu an tüm eşleşmeler geçmişe
+  yazılır (kayıt ≠ teslimat). Slack teslimatı gelince minSeverity + quietHours gating orada uygulanır.
+- **Kapsam-dışı 5 trigger:** holder_growth/whale_activity/score_change/creator_sale/strategy_signal
+  `EvaluableTriggers`'da değil (asla eşleşmez). EventRow verisi (holder/whale WS-dormant) güvenilir dolunca
+  registry'ye tek satır eklenerek açılır.
+- **Alarm-geçmişi retention/prune:** `alert_events` append-only, prune YOK (events tablosuyla aynı; sınırsız
+  büyür). `RecentAlertEvents(limit)` okuma-tarafını sınırlar. Yaş/sayı-tabanlı prune eklenebilir (trend liq deseni).
+- **Alarm→WS canlı push:** `subscribeAlerts` hâlâ mock (no-op http). Worker alarm üretince WS Hub'a broadcast
+  edilip /alerts anlık güncellenebilir. Şu an poll/refetch ile gelir.
+- **Kural-bazlı dedup penceresi:** dedup event-bazlı (her event bir kez). Aynı token için tekrarlayan kurallar
+  ayrı event'lerde ayrı alarm üretir (doğru). "Bir kural aynı token için N dakikada bir kez" gibi throttle istenirse eklenebilir.
+
 ## NotificationConfig Persist (Backend Alt-proje 3 kısmi) — deferred
 
 NotificationConfig persist (`feat/backend-notification-config-persist`, 2026-09-10) `/slack` bildirim ayarlarını

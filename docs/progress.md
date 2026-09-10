@@ -495,6 +495,29 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   `GetNotificationSettings` `Templates` slice'ını paylaşıyordu → defensive copy (`append` ile) eklendi (alias önlenir).
   go -race + vet + build + frontend vitest(256)/build tekrar yeşil. **DURUM: master'a MERGE + PUSH edilecek.**
 
+- 2026-09-10 — **Alarm Değerlendirme Motoru tamamlandı (branch `feat/backend-alert-eval-engine`).** Backend
+  Alt-proje 3'ün üçüncü dilimi (entegrasyon-gerektirmez). `/alerts` geçmişi artık GERÇEK: yeni `internal/alerteval`
+  worker (trend deseni: immediate cycle + ticker, config-gated `ALERTEVAL_ENABLED` varsayılan true /
+  `ALERTEVAL_INTERVAL_SEC` 30) her cycle'da watermark'tan yeni event'leri `RecentEvents` ile çeker → saf `MatchRule`
+  ile aktif kurallarla eşleştirir → `alert_events`'e yazar → watermark'ı ilerletir (**watermark = event-bazlı dedup**,
+  restart-dayanıklı). migration `0018` (alert_events + alert_eval_meta) + `AlertEventStore`
+  (Insert/Recent/GetWatermark/SetWatermark, fake parity) + saf `MatchRule`+`riskRank`+`EvaluableTriggers` (v1 kapsam:
+  `new_mint`/`liquidity_added`/`liquidity_removed`; kapsam-dışı 5 trigger asla eşleşmez — sessiz düşürme yok) +
+  `GET /api/alerts` handler + health `WorkerAlertEval` register/gate + main worker wiring (`alertEvalSource` adaptör:
+  event+kural store'larını Source'ta birleştirir) + frontend `getAlerts` notReady→canlı + LIVE_ENDPOINTS.
+  **Gerçek Slack teslimatı HARİÇ** (sona); "web" kanalı = /alerts geçmişinde görünme. Frontend `AlertHistoryPanel`
+  değişmez (yalnız mock→canlı veri). **go test ./... -race + vet + build + frontend vitest(256)/build — hepsi yeşil.**
+  Kapsam dışı → followups: gerçek Slack/email teslimatı, minSeverity delivery gating, kapsam-dışı 5 trigger (veri
+  gelince), alarm-geçmişi retention/prune, alarm→WS canlı push. Spec+plan: `docs/superpowers/{specs,plans}/2026-09-10-*`.
+  **Whole-branch review (Opus, 2026-09-10) → 3 gerçek bulgu giderildi (ts-tabanlı watermark kırılganlığı):**
+  (1) alarm ID `a{ts}-{ruleID}` → aynı-saniye iki event aynı kurala eşleşince çakışıp ikincisi düşüyordu →
+  ID artık `a{eventID}-{ruleID}` (kompozit). (2) tie-boundary drop (`ts<=wm`) + (3) burst'te (>Limit) pencere-altı
+  atlama → ikisi birden: `EventsSince(afterTs, limit)` **oldest-first ileri-cursor** (ts ASC, inclusive alt-sınır) +
+  `InsertAlertEvent`→`(inserted bool, err)` **idempotent** (ON CONFLICT/fake-dedup, çift-üretim yok, doğru sayım).
+  Ayrıca canlı `e.Time` boştu → worker `relativeTime(now-ts)` ile türetiyor. (4. bulgu: `ts json:"-"` — kod doğruydu,
+  plan notu yanlıştı, düzeltildi.) go -race + vet + build + frontend vitest(256)/build tekrar yeşil.
+  **DURUM: master'a MERGE + PUSH edilecek.**
+
 ## Açık takip maddeleri
 
 Bloke etmeyen maddeler `docs/superpowers/followups-frontend.md`'de. Öne çıkanlar:

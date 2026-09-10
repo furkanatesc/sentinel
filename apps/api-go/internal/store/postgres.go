@@ -21,9 +21,10 @@ type Bundle struct {
 	Events     EventStore
 	Tokens     TokenStore
 	Creators   CreatorStore
-	AlertRules AlertRuleStore
-	NotifyCfg  NotificationConfigStore
-	Pinger     Pinger
+	AlertRules  AlertRuleStore
+	NotifyCfg   NotificationConfigStore
+	AlertEvents AlertEventStore
+	Pinger      Pinger
 }
 
 // Pinger, DB erişilebilirlik probu (health endpoint için). DIP: postgres + fake karşılar.
@@ -65,7 +66,7 @@ func OpenPostgres(ctx context.Context, dsn string, opts ...CreatorStoreOption) (
 	}
 	cfg := applyCreatorStoreOptions(opts)
 	ps := &postgresStore{db: db, highDrawdownThreshold: cfg.highDrawdownThreshold}
-	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps, AlertRules: ps, NotifyCfg: ps, Pinger: ps}, db.Close, nil
+	return Bundle{Strategies: ps, Events: ps, Tokens: ps, Creators: ps, AlertRules: ps, NotifyCfg: ps, AlertEvents: ps, Pinger: ps}, db.Close, nil
 }
 
 func seedStrategies(ctx context.Context, db *sql.DB) error {
