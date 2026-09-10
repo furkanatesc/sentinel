@@ -30,6 +30,7 @@ type RouterDeps struct {
 	BacktestServiceURL    string // Python backtest servisi; boş → /api/backtest graceful 503
 	AlertRules            store.AlertRuleStore
 	NotifyCfg             store.NotificationConfigStore
+	AlertEvents           store.AlertEventStore
 	Health                healthSnapshotter
 	Pinger                store.Pinger
 	Gates                 map[string]bool
@@ -78,6 +79,13 @@ func NewRouter(d RouterDeps) http.Handler {
 	if d.NotifyCfg != nil {
 		r.Get("/api/notification-config", notificationConfigHandler(d.NotifyCfg))
 		r.Put("/api/notification-config", saveNotificationConfigHandler(d.NotifyCfg))
+	}
+	if d.AlertEvents != nil {
+		limit := d.EventsWindow
+		if limit <= 0 {
+			limit = 100
+		}
+		r.Get("/api/alerts", alertsHistoryHandler(d.AlertEvents, limit))
 	}
 	if d.Creators != nil {
 		limit := d.CreatorsLimit
