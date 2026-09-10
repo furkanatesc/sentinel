@@ -141,7 +141,10 @@ func NewFakeNotificationConfigStore() NotificationConfigStore {
 func (f *fakeNotificationConfigStore) GetNotificationSettings(_ context.Context) (NotificationSettings, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.settings, nil
+	s := f.settings
+	// Templates slice'ını kopyala: çağıran yerinde değiştirse bile store bozulmasın (alias önlenir).
+	s.Templates = append([]NotificationTemplate(nil), f.settings.Templates...)
+	return s, nil
 }
 
 func (f *fakeNotificationConfigStore) SaveNotificationSettings(_ context.Context, s NotificationSettings) (NotificationSettings, error) {

@@ -472,8 +472,28 @@ deferred". **DURUM: whole-branch review + merge + deploy kullanıcı onayı bekl
   refetch gerçeği görünür, hatada eski değere döner). (2) [Minor] mock `setAlertRuleEnabled` bulunamayan id'de
   sessiz başarı dönüyordu (backend 404) → parity için `Promise.reject`. (3) [Minor] `seedAlertRules` her açılışta
   çalışıyordu (ON CONFLICT) → spec "seed boşsa" gereği `COUNT(*)>0` guard'ı (silinen seed'in geri dirilmesini önler).
-  go -race + vet + build + frontend vitest(254)/build tekrar yeşil. **DURUM: master'a MERGE + PUSH edilecek.**
+  go -race + vet + build + frontend vitest(254)/build tekrar yeşil. **DURUM: master'a MERGE + PUSH edildi
+  (2026-09-09, merge `8404da4`); Railway deploy read-path doğrulandı (version=`8404da4`, /api/alert-rules 200 +
+  4 seed). Write-path birim-testli; canlı write round-trip doğrulanmadı (prod-mutasyon bloklandı).**
   Ertelenenler → `docs/superpowers/followups-frontend.md` "Alarm Kuralları Persist".
+
+- 2026-09-10 — **NotificationConfig Persist tamamlandı (branch `feat/backend-notification-config-persist`).**
+  Backend Alt-proje 3'ün ikinci mutation dilimi (alert-rules deseninin birebir kopyası). `/slack` bildirim
+  ayarları artık backend'de kalıcı: migration `0017_create_notification_config` (tek-satır tablo `id='default'`)
+  + `NotificationConfigStore` (Get/Save, `NotificationSettings` kalıcı alt-küme = channel/minSeverity/quietHours/
+  templates/tradeApproval; bağlantı-durumu HARİÇ; postgres upsert + boşsa seed + `sql.ErrNoRows` güvenli varsayılan;
+  fake parity) + Go handlers (`GET /api/notification-config` [ayarlar + bağlantı-durumu merge: slackState
+  `"disconnected"`/workspace `""` — gerçek Slack yok] / `PUT` [save, minSeverity zorunlu 400, 200 güncel config]) +
+  frontend `saveNotificationConfig(settings)` contract + `NotificationSettingsDraft` (Pick) + mock (in-memory update,
+  bağlantı-durumu korur) + httpApi (getNotificationConfig gerçek + PUT via `bodyJson` [post/put paylaşır]) +
+  LIVE_ENDPOINTS + `useSaveNotificationConfig` (invalidate) + `/slack` rewire (NotificationSettings **Kaydet** butonu
+  → gerçek save; channel+templates ekranda düzenlenmez, config'ten korunur; "simüle" notu kaldırıldı). **Karar:
+  ayarlar-kalıcı + açık Kaydet butonu (kullanıcı onayı 2026-09-10).** Entegrasyon-gerektirmez. Geriye uyumlu.
+  **go test ./... -race + vet + build + frontend vitest(256)/build — hepsi yeşil.** Kapsam dışı → followups:
+  bağlantı-durumu persist (gerçek Slack OAuth = sona), şablon (templates) düzenleme UI, per-alan otomatik kaydet.
+  **Whole-branch review (Opus, 2026-09-10) → gerçek runtime bug YOK; 1 latent gözlem giderildi:** fake
+  `GetNotificationSettings` `Templates` slice'ını paylaşıyordu → defensive copy (`append` ile) eklendi (alias önlenir).
+  go -race + vet + build + frontend vitest(256)/build tekrar yeşil. **DURUM: master'a MERGE + PUSH edilecek.**
 
 ## Açık takip maddeleri
 
